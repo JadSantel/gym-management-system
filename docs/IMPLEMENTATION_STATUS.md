@@ -1,8 +1,8 @@
 # Gym CRM - Implementation Status
 
 **Reviewed:** 2026-10-24 (Asia/Manila) | **Scope:** S-01 only | **Data:** synthetic only
-**Execution:** PAUSED after verified S-01f for the user's GitHub checkpoint. Do not start S-01g until the user resumes.
-**Current outcome:** S-01f exposes tenant-scoped member payment history and retrievable linked receipts with financial and period details; synthetic browser checks pass.
+**Execution:** PAUSED after verified S-01g for the user's GitHub checkpoint. S-01 is complete; do not start S-02 without the user's instruction.
+**Current outcome:** Member detail calculates normal access from tenant-scoped confirmed paid intervals at one server timestamp and shows the reason and exact PHT interval; S-01 join → cash → receipt → eligibility flow verified with synthetic data.
 
 | Task | State | Evidence / next action |
 |---|---|---|
@@ -12,7 +12,7 @@
 | S-01d - Approved plan and exact charge | VERIFIED | Approved catalogue, owner pricing, exact centavo previews and immutable snapshots pass PostgreSQL and prior browser checks. |
 | S-01e - Atomic full-cash confirmation | VERIFIED | PostgreSQL rollback/concurrency/immutability checks pass; browser short/full cash, lost-response retry after reload, receipt linkage, mobile and axe checks pass. |
 | S-01f - Receipt and history | VERIFIED | Member history shows collector, amount, method, collection/entry/verification timestamps and paid interval; linked receipt page retrieves immutable receipt/payment details. Actual browser flow and axe checks pass. |
-| S-01g - Eligibility and demonstration | TODO | Requires S-01f and full S-01 acceptance suite. |
+| S-01g - Eligibility and demonstration | VERIFIED | `assessEligibility` covers inclusive starts, exclusive ends, adjacent periods, scheduled-only, expired and no-period cases; browser flow checks no access before payment and eligibility after receipt/payment. |
 
 ## Documentation layout
 
@@ -38,10 +38,13 @@
 - `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd test` PASS (30/30), `npm.cmd run build`, `npm.cmd run test:browser`, and `git diff --check` PASS. Restricted PostgreSQL runtime confirms another gym cannot read the receipt. Browser test used synthetic PostgreSQL and the built local app; member history and receipt retrieval passed, as did axe WCAG A/AA checks with zero violations/incomplete checks. The existing CLI/Chrome needed sandbox permission to launch.
 - No schema or dependency change. No new financial mutation; S-01e confirmation remains the source of immutable receipt and history records.
 
-## Next action and manual checkpoint
+## S-01g evidence and checkpoint
 
-Review the S-01f diff and take the user's GitHub checkpoint. Resume S-01g only on the user's instruction. Browser paths are configured locally; start the synthetic database/app and use `npm.cmd run test:browser` to repeat the checks. Task-owned Chrome sessions and the test app server were closed after verification. No commit or push was made.
+- Member detail reads current entitlement projections inside the authenticated gym transaction. It evaluates `[start,end)` against one server timestamp, then displays Eligible / Not eligible yet / Not eligible, the rationale, exact PHT start/end and checked time. An unconfirmed charge preview creates no entitlement and cannot grant access.
+- `npm.cmd test` PASS, **31/31**, against the restricted PostgreSQL runtime; added S-01g cases cover exact start, one millisecond before end, exact end, adjacent terms at their shared boundary, future-only and no-period states. Existing tests cover cash confirmation, immutable period/receipt, lost-response idempotency, RLS and access controls.
+- `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd run build`, and `git diff --check` PASS. No schema or dependency changes.
+- `npm.cmd run test:browser` completed its synthetic owner/staff, no-payment denial, full-cash, receipt/history, current-eligibility and accessibility assertions, then exited 1 because the final browser CLI `close` command failed in `finally` (`Browser step 'close' failed`). Treat cleanup command as failed; the app and DB checks above passed. Server was stopped after the run.
 
-Synthetic manual flow: sign in as owner or member-authorized staff; open a member with a confirmed cash payment; verify history shows collector, amount, cash method, collection and entry times, verifier/time, payment reference and paid period; follow the receipt link and verify its receipt reference and matching payment/period details. A guessed receipt ID from another gym must return not found. Eligibility remains pending S-01g.
+Manual synthetic check: sign in as owner or member-authorized staff. Open a new member and confirm **Not eligible** with no verified period. Prepare a charge and confirm status remains denied. Complete exact full-cash confirmation, open the linked receipt, then return to the member: expect **Eligible** with the paid interval's PHT start inclusive and end exclusive. The unit check verifies eligibility immediately before end and denial at end unless an adjacent verified term begins there.
 
-**Limits:** Synthetic data only. No live users, actual cash, production migration, Brevo, deployment, domain, S-02 or real-member data. RPO/RTO and live readiness remain unproven.
+No commit or push was made. S-01 is complete and paused for the user's GitHub checkpoint; do not begin S-02 until the user resumes. Synthetic data only; no live users, actual cash, production migration, Brevo, deployment, domain or real-member data. RPO/RTO and live readiness remain unproven.

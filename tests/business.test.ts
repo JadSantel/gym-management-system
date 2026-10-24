@@ -15,6 +15,7 @@ import { GET as chargeGet, POST as chargePost } from "../src/app/api/charges/rou
 import { POST as paymentPost } from "../src/app/api/payments/route";
 import { proposedPeriod } from "../src/lib/charges";
 import { parsePesos, formatPhp } from "../src/lib/money";
+import { assessEligibility } from "../src/lib/eligibility";
 
 assertSynthetic();
 const admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL, options: "-c timezone=UTC" }) });
@@ -49,6 +50,21 @@ test("S-01d parses exact integer centavos and proposes fixed plan-duration PHT i
     assert.equal(period.intendedEnd.getTime() - period.intendedStart.getTime(), days * 86400_000);
   }
   assert.throws(() => proposedPeriod(new Date(), 31));
+});
+
+test("S-01g eligibility uses verified half-open paid intervals", () => {
+  const start = new Date("2028-02-28T16:00:00.000Z");
+  const boundary = new Date("2028-03-29T16:00:00.000Z");
+  const end = new Date("2028-04-28T16:00:00.000Z");
+  const first = { startsAt: start, endsAt: boundary };
+  const second = { startsAt: boundary, endsAt: end };
+  assert.equal(assessEligibility([first], start).status, "ELIGIBLE");
+  assert.equal(assessEligibility([first], new Date(boundary.getTime() - 1)).status, "ELIGIBLE");
+  assert.deepEqual(assessEligibility([first, second], boundary), { status: "ELIGIBLE", interval: second, reason: "A verified paid period is in effect." });
+  assert.equal(assessEligibility([first], boundary).status, "EXPIRED");
+  assert.equal(assessEligibility([second], new Date(boundary.getTime() - 1)).status, "SCHEDULED");
+  assert.equal(assessEligibility([], boundary).status, "NOT_ELIGIBLE");
+  assert.equal(assessEligibility([first], end).status, "EXPIRED");
 });
 
 test("S-01 business acceptance using restricted PostgreSQL runtime and actual route handlers", async t => {

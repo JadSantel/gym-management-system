@@ -122,7 +122,7 @@ try {
   clickButton("Create member"); checkText("A member with this name exists.");
   browser("check", "input[name=confirmDuplicate]"); clickButton("Create member"); checkText("Member created.");
   audit("Member directory");
-  browser("find", "role", "link", "click", "--name", "Browser Synthetic Member", "--exact"); checkText("Eligibility depends on verified paid periods");
+  browser("find", "role", "link", "click", "--name", "Browser Synthetic Member", "--exact"); checkText("Not eligible"); checkText("No verified paid period is recorded.");
   clickButton("Prepare charge preview"); checkText("Saved charge preview");
   const firstPreviewUrl = evalBrowser("window.location.href");
   const firstPreviewId = new URL(firstPreviewUrl).searchParams.get("charge")!;
@@ -134,7 +134,7 @@ try {
   browser("open", firstPreviewUrl); checkText("The catalogue price has changed."); checkText("₱800.00");
   assert.deepEqual(await admin.charge.findUniqueOrThrow({ where: { id: firstPreviewId } }), original);
   clickButton("Prepare charge preview"); browser("wait", "--fn", `new URL(location.href).searchParams.get('charge') !== '${firstPreviewId}'`);
-  checkText("Saved charge preview"); checkText("₱900.25"); checkText("Eligibility depends on verified paid periods");
+  checkText("Saved charge preview"); checkText("₱900.25"); checkText("No verified paid period is recorded.");
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
   fill("#cash-received", "900"); clickButton("Confirm full cash"); checkText("No payment was recorded.");
   const latestPreviewId = new URL(evalBrowser("window.location.href")).searchParams.get("charge")!;
@@ -167,7 +167,7 @@ try {
   assert.equal(browserPayment.amountCentavos, 90_025); assert.ok(browserPayment.period); assert.ok(browserPayment.receipt);
   assert.equal(await admin.membershipPeriod.count({ where: { memberId: browserMember.id } }), 1);
   audit("Confirmed cash result");
-  browser("open", `${origin}/members/${browserMember.id}`); checkText("Payment history"); checkText("Collected by"); checkText("Entry recorded"); checkText("Verified by"); checkText("Paid period");
+  browser("open", `${origin}/members/${browserMember.id}`); checkText("Eligible"); checkText("Current paid period"); checkText("Payment history"); checkText("Collected by"); checkText("Entry recorded"); checkText("Verified by"); checkText("Paid period");
   const receiptPath = evalBrowser("Array.from(document.querySelectorAll('a')).find(a => a.getAttribute('href')?.startsWith('/receipts/'))?.getAttribute('href')");
   assert.equal(receiptPath, `/receipts/${browserPayment.receipt!.id}`);
   browser("open", `${origin}${receiptPath}`); checkText("Cash payment receipt"); checkText(browserPayment.receipt!.reference); checkText(browserPayment.reference); checkText("Browser Owner"); checkText("₱900.25"); checkText("Paid period");
@@ -177,7 +177,7 @@ try {
   assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
   evalBrowser("document.getElementById('receipt-title').scrollIntoView({block:'start'}); true");
   browser("screenshot", resolve(".local/cash-confirmed-mobile.png")); browser("set", "viewport", "1280", "900");
-  console.log("S-01d–f browser: owner pricing/reauth, staff denial, durable previews, stale price protection, short cash denial, full cash, lost-response retry after reload, attributable member history, and retrievable linked receipt passed.");
+  console.log("S-01d–g browser: owner pricing/reauth, staff denial, durable previews, stale price protection, short cash denial, full cash, lost-response retry after reload, current eligibility, attributable member history, and retrievable linked receipt passed.");
   browser("open", origin); checkText("Welcome, Browser Owner");
   clickButton("Send reset link"); checkText("Link captured for the recipient.");
   const resetUrl = await capturedUrl(staff.id);
