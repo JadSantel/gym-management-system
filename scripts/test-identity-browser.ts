@@ -79,6 +79,15 @@ try {
   browser("open", `${origin}/login`);
   fill("#identifier", email); fill("#password", "incorrect password"); clickButton("Sign in"); checkText("Unable to sign in.");
   fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  browser("find", "role", "link", "click", "--name", "Plans and pricing", "--exact"); checkText("Set up the approved catalogue");
+  clickButton("Apply approved catalogue"); checkText("Verify your password again before this action.");
+  fill("#pricing-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  clickButton("Apply approved catalogue"); checkText("Current catalogue");
+  const monthly = await admin.plan.findFirstOrThrow({ where: { gymId, durationDays: 30 } });
+  fill(`#price-${monthly.id}`, "800.001");
+  assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').checkValidity()`), false);
+  fill(`#price-${monthly.id}`, "800.00"); audit("Plan pricing");
+  browser("open", origin); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   fill("#staff-name", "Browser Staff"); fill("#staff-username", username); fill("#staff-email", staffEmail);
   clickButton("Send invitation"); checkText("Link captured for the recipient."); checkText("Pending setup");
@@ -100,6 +109,7 @@ try {
     assert.equal(evalBrowser(`fetch('/api/identity/${action}', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({operatorId:'${staff.id}'})}).then(r=>r.status)`), 403);
   }
   assert.equal(evalBrowser(`fetch('/api/identity/capabilities', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({operatorId:'${staff.id}',canManageMembers:true,canCollectCash:true})}).then(r=>r.status)`), 403);
+  assert.equal(evalBrowser("fetch('/api/plans',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'initialize'})}).then(r=>r.status)"), 403);
   clickButton("Sign out"); checkText("You are signed out.");
   fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
@@ -113,6 +123,23 @@ try {
   browser("check", "input[name=confirmDuplicate]"); clickButton("Create member"); checkText("Member created.");
   audit("Member directory");
   browser("find", "role", "link", "click", "--name", "Browser Synthetic Member", "--exact"); checkText("No confirmed membership");
+  clickButton("Prepare charge preview"); checkText("Saved preview · Payment not recorded");
+  const firstPreviewUrl = evalBrowser("window.location.href");
+  const firstPreviewId = new URL(firstPreviewUrl).searchParams.get("charge")!;
+  const original = await admin.charge.findUniqueOrThrow({ where: { id: firstPreviewId } });
+  assert.equal(original.priceCentavos, 80_000);
+  browser("reload"); checkText("Saved preview · Payment not recorded"); checkText("₱800.00");
+  browser("open", `${origin}/plans`); fill("#pricing-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  fill(`#price-${monthly.id}`, "900.25"); clickButton("Save Monthly price"); checkText("Catalogue saved.");
+  browser("open", firstPreviewUrl); checkText("The catalogue price has changed."); checkText("₱800.00");
+  assert.deepEqual(await admin.charge.findUniqueOrThrow({ where: { id: firstPreviewId } }), original);
+  clickButton("Prepare charge preview"); browser("wait", "--fn", `new URL(location.href).searchParams.get('charge') !== '${firstPreviewId}'`);
+  checkText("Saved preview · Payment not recorded"); checkText("₱900.25"); checkText("No confirmed membership");
+  audit("Charge review");
+  browser("set", "viewport", "375", "812");
+  assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  browser("screenshot", resolve(".local/charge-review-mobile.png")); browser("set", "viewport", "1280", "900");
+  console.log("S-01d browser: owner pricing/reauth, invalid precision, staff denial, durable preview, historical price preservation, and current exact charge passed.");
   browser("open", origin); checkText("Welcome, Browser Owner");
   clickButton("Send reset link"); checkText("Link captured for the recipient.");
   const resetUrl = await capturedUrl(staff.id);

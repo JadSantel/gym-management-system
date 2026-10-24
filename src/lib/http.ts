@@ -20,6 +20,9 @@ export function uuid(value: string) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)) throw new IdentityError(400, "Invalid record reference.");
   return value;
 }
+export function onlyFields(body: Record<string, unknown>, allowed: string[]) {
+  if (Object.keys(body).some(key => !allowed.includes(key))) throw new IdentityError(400, "Unsupported request fields. Prices and terms are controlled by the gym owner.");
+}
 export async function readBody(request: Request) {
   if (!request.headers.get("content-type")?.startsWith("application/json")) throw new IdentityError(415, "JSON is required.");
   const reader = request.body?.getReader();

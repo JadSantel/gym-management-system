@@ -20,7 +20,7 @@ export async function getActor(headers: Headers) {
   return { operator, sessionId: session.session.id };
 }
 
-async function ownerInTransaction(tx: Prisma.TransactionClient, actor: Awaited<ReturnType<typeof getActor>>, fresh = true) {
+export async function ownerInTransaction(tx: Prisma.TransactionClient, actor: Awaited<ReturnType<typeof getActor>>, fresh = true) {
   await setGymContext(tx, actor.operator.gymId);
   // Serialize identity administration per gym and recheck authorization inside the write transaction.
   await tx.$queryRaw`SELECT id FROM gyms WHERE id = ${actor.operator.gymId}::uuid FOR UPDATE`;

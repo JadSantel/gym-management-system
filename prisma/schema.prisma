@@ -103,6 +103,8 @@ model Gym {
   invitations Invitation[]
   auditEvents IdentityAudit[]
   members Member[]
+  plans Plan[]
+  charges Charge[]
   @@map("gyms")
 }
 
@@ -121,6 +123,8 @@ model Operator {
   invitations Invitation[]
   @@unique([id, gymId])
   createdMembers Member[]
+  createdPlans Plan[]
+  preparedCharges Charge[]
   @@index([gymId])
   @@map("gym_operators")
 }
@@ -162,7 +166,47 @@ model Member {
   createdBy String @map("created_by") @db.Uuid
   gym       Gym @relation(fields: [gymId], references: [id])
   creator   Operator @relation(fields: [createdBy, gymId], references: [id, gymId])
+  charges   Charge[]
   @@unique([id, gymId])
   @@index([gymId, nameKey])
   @@map("members")
+}
+
+model Plan {
+  id            String @id @default(uuid()) @db.Uuid
+  gymId         String @map("gym_id") @db.Uuid
+  name          String
+  durationDays  Int @map("duration_days")
+  priceCentavos Int @map("price_centavos")
+  version       Int @default(1)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String @map("created_by") @db.Uuid
+  gym           Gym @relation(fields: [gymId], references: [id])
+  creator       Operator @relation(fields: [createdBy, gymId], references: [id, gymId])
+  charges       Charge[]
+  @@unique([id, gymId], map: "plans_id_gym_key")
+  @@unique([gymId, durationDays], map: "plans_gym_duration_key")
+  @@map("plans")
+}
+
+model Charge {
+  id            String @id @default(uuid()) @db.Uuid
+  gymId         String @map("gym_id") @db.Uuid
+  memberId      String @map("member_id") @db.Uuid
+  planId        String @map("plan_id") @db.Uuid
+  planName      String @map("plan_name")
+  durationDays  Int @map("duration_days")
+  priceCentavos Int @map("price_centavos")
+  planVersion   Int @map("plan_version")
+  preparedBy    String @map("prepared_by") @db.Uuid
+  preparedAt    DateTime @default(now()) @map("prepared_at") @db.Timestamptz(3)
+  intendedStart DateTime @map("intended_start") @db.Timestamptz(3)
+  intendedEnd   DateTime @map("intended_end") @db.Timestamptz(3)
+  gym           Gym @relation(fields: [gymId], references: [id])
+  member        Member @relation(fields: [memberId, gymId], references: [id, gymId])
+  plan          Plan @relation(fields: [planId, gymId], references: [id, gymId])
+  preparer      Operator @relation(fields: [preparedBy, gymId], references: [id, gymId])
+  @@unique([id, gymId], map: "charges_id_gym_key")
+  @@index([gymId, memberId], map: "charges_gym_member_idx")
+  @@map("charge_snapshots")
 }
