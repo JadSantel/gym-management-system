@@ -401,8 +401,8 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const policies = await db.$queryRaw<{ relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('payments','membership_periods','effective_entitlement_intervals','idempotency_operations','payment_receipts') AND relnamespace='public'::regnamespace`;
     assert.equal(policies.length, 5); for (const policy of policies) assert.deepEqual(policy, { relrowsecurity: true, relforcerowsecurity: true });
   });
-  // Isolate added scenarios from R-03's existing shared preview throttle.
-  await admin.rateLimit.deleteMany({ where: { key: "identity:charge-preview" } });
+  // Isolate added scenarios from earlier actor-scoped preview attempts.
+  await admin.rateLimit.deleteMany({ where: { key: { startsWith: "identity:charge-preview:" } } });
   await t.test("R-02 late renewal and midnight rollover require a fresh review before charging", async t => {
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
     const cash = (plan.priceCentavos / 100).toFixed(2);

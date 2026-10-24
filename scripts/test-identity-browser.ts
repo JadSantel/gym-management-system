@@ -317,8 +317,8 @@ try {
   assert.equal(await admin.payment.count({ where: { memberId: staleMember.id } }), 2);
   console.log("R-02 browser: displayed early-renewal dates match stored terms; queued preview denied; competing confirmation requires new review before another payment.");
   // Real permission loss after commit must retain recovery until authority returns.
-  // Isolate this fixture from the known shared reauthentication bucket (R-03).
-  await admin.rateLimit.deleteMany({ where: { key: "identity:reauthenticate" } });
+  // Independent scenario; earlier owner reauth attempts must not consume its allowance.
+  await admin.rateLimit.deleteMany({ where: { key: { startsWith: "identity:reauthenticate:" } } });
   browser("open", `${origin}/members`);
   const staffRecoveryMember = evalBrowser("fetch('/api/members',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fullName:'Staff Recovery Synthetic Member'})}).then(r=>r.json())");
   assert.ok(staffRecoveryMember.id);

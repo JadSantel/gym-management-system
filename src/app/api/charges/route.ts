@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   return apiResponse(request, async () => {
-    await rateLimit("charge-preview");
+    await rateLimit(request.headers, "charge-preview");
     const body = await readBody(request);
     onlyFields(body, ["memberId", "planId"]);
     return prepareCharge(request.headers, uuid(field(body, "memberId", 36)), uuid(field(body, "planId", 36)));

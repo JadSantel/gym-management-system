@@ -2,15 +2,30 @@ import { randomUUID } from "node:crypto";
 import { APIError } from "better-auth/api";
 import { auth } from "./auth";
 import { db } from "./db";
-import { IdentityError } from "./identity";
+import { getActor, IdentityError } from "./identity";
+import { assertSynthetic } from "./email";
 
-export async function rateLimit(action: string, max = 30) {
+export async function rateLimit(headers: Headers, action: string, max = 30, publicAction = false) {
+  let subject = "anonymous";
+  let denial: IdentityError | undefined;
+  if (!publicAction) {
+    try {
+      const actor = await getActor(headers);
+      subject = `actor:${actor.operator.id}`;
+    } catch (error) {
+      if (!(error instanceof IdentityError) || (error.status !== 401 && error.status !== 403)) throw error;
+      denial = error;
+    }
+  }
+  // No request header is a trusted client IP in the current local-only contract.
+  // Anonymous callers share a bounded bucket, separate from every verified actor.
   const now = BigInt(Date.now());
   const rows = await db.$queryRaw<{ count: number }[]>`
-    INSERT INTO auth_rate_limits (id, key, count, "lastRequest") VALUES (${randomUUID()}, ${`identity:${action}`}, 1, ${now})
-    ON CONFLICT (key) DO UPDATE SET count = CASE WHEN auth_rate_limits."lastRequest" <= ${now - 60_000n} THEN 1 ELSE auth_rate_limits.count + 1 END,
+    INSERT INTO auth_rate_limits (id, key, count, "lastRequest") VALUES (${randomUUID()}, ${`identity:${action}:${subject}`}, 1, ${now})
+    ON CONFLICT (key) DO UPDATE SET count = CASE WHEN auth_rate_limits."lastRequest" <= ${now - 60_000n} THEN 1 ELSE LEAST(auth_rate_limits.count, ${max}) + 1 END,
     "lastRequest" = CASE WHEN auth_rate_limits."lastRequest" <= ${now - 60_000n} THEN ${now} ELSE auth_rate_limits."lastRequest" END RETURNING count`;
   if (rows[0].count > max) throw new IdentityError(429, "Too many requests. Wait one minute and try again.");
+  if (denial) throw denial;
 }
 export function field(body: Record<string, unknown>, key: string, max = 254) {
   if (typeof body[key] !== "string" || body[key].length < 1 || body[key].length > max) throw new IdentityError(400, "Check the required fields and try again.");
@@ -45,6 +60,8 @@ export async function apiResponse(request: Request, work: () => Promise<unknown>
   let renewal: Headers | undefined;
   let output: Response;
   try {
+    // No deployed ingress/proxy contract has been verified. Keep non-local APIs closed.
+    try { assertSynthetic(); } catch { throw new IdentityError(503, "Deployment proxy trust has not been verified."); }
     if (request.method !== "GET" && request.headers.get("origin") !== process.env.BETTER_AUTH_URL) throw new IdentityError(403, "Request origin is not allowed.");
     if (request.headers.has("cookie")) renewal = (await auth.api.getSession({ headers: request.headers, returnHeaders: true, query: { disableCookieCache: true } })).headers;
     output = Response.json(await work() ?? { status: "ok" });

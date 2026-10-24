@@ -15,7 +15,7 @@ async function handle(request: Request, context: Context) {
         select: { id: true, role: true, state: true, canManageMembers: true, canCollectCash: true, user: { select: { name: true, email: true, username: true, emailVerified: true } } } }));
     }
     if (!postActions.has(action)) throw new IdentityError(404, "Not available.");
-    await rateLimit(action, action === "reauthenticate" ? 5 : 30);
+    await rateLimit(request.headers, action, action === "reauthenticate" ? 5 : 30, action === "setup" || action === "reset-owner");
     const body = await readBody(request);
     switch (action) {
       case "setup": return completeSetup(field(body, "token", 64), field(body, "password", 128));

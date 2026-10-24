@@ -6,7 +6,7 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   return apiResponse(request, async () => {
-    await rateLimit("member-create");
+    await rateLimit(request.headers, "member-create");
     return createMember(request.headers, await readBody(request));
   });
 }
