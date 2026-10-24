@@ -259,6 +259,63 @@ try {
   evalBrowser("document.getElementById('receipt-title').scrollIntoView({block:'start'}); true");
   browser("screenshot", resolve(".local/cash-confirmed-mobile.png")); browser("set", "viewport", "1280", "900");
   console.log("R-01 browser: committed lost response, replacement submit guard, later 409, reload, member/preview navigation, catalogue change, and original-key replay passed with exactly one payment/period.");
+  // Review a real early renewal, then verify the displayed dates against PostgreSQL.
+  browser("open", `${origin}/members/${browserMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  const renewalId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
+  const renewal = await admin.charge.findUniqueOrThrow({ where: { id: renewalId } });
+  assert.equal(renewal.intendedStart.toISOString(), browserPayment.period!.endsAt.toISOString());
+  const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  function assertReviewedDates(charge: { intendedStart: Date; intendedEnd: Date }) {
+    for (const [label, date] of [["Proposed start (inclusive)", charge.intendedStart], ["Proposed end (exclusive)", charge.intendedEnd]] as const) {
+      const shown = evalBrowser(`Array.from(document.querySelectorAll('dt')).find(node => node.textContent === '${label}').nextElementSibling.textContent`);
+      assert.equal(shown, `${pht.format(date)} PHT`);
+    }
+  }
+  assertReviewedDates(renewal);
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  audit("Early renewal review"); clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
+  const renewed = await admin.payment.findUniqueOrThrow({ where: { chargeId: renewalId }, include: { period: true } });
+  assert.equal(renewed.period!.startsAt.toISOString(), renewal.intendedStart.toISOString());
+  assert.equal(renewed.period!.endsAt.toISOString(), renewal.intendedEnd.toISOString());
+  const previewsBeforeQueued = await admin.charge.count({ where: { memberId: browserMember.id } });
+  clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+  assert.equal(await admin.charge.count({ where: { memberId: browserMember.id } }), previewsBeforeQueued);
+  assert.equal(await admin.payment.count({ where: { memberId: browserMember.id } }), 2);
+  audit("Queued renewal preview denied");
+
+  // Another operator confirms a distinct collection after this browser's review.
+  const staleMember = evalBrowser("fetch('/api/members',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fullName:'Stale Review Synthetic Member'})}).then(r=>r.json())");
+  assert.ok(staleMember.id);
+  browser("open", `${origin}/members/${staleMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  const staleId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
+  const competing = evalBrowser(`(async () => {
+    const preview = await fetch('/api/charges', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:'${staleMember.id}',planId:'${monthly.id}'})});
+    if (!preview.ok) throw new Error('Competing preview failed');
+    const charge = await preview.json();
+    const result = await fetch('/api/payments', {method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({chargeId:charge.id,cashReceived:'1000.25'})});
+    if (!result.ok) throw new Error('Competing confirmation failed');
+    return result.json();
+  })()`);
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  clickButton("Confirm full cash"); checkText("Membership dates changed. Prepare and review a new charge before collecting cash.");
+  assert.equal(evalBrowser("document.activeElement?.id"), "cash-error");
+  assert.equal(evalBrowser("Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Confirm full cash')"), false);
+  assert.equal(evalBrowser("Object.keys(sessionStorage).some(key => key.startsWith('cash-recovery:'))"), false);
+  assert.equal(await admin.payment.count({ where: { memberId: staleMember.id } }), 1);
+  audit("Stale dates require renewed review");
+  clickButton("Prepare charge preview"); browser("wait", "--fn", `new URL(location.href).searchParams.get('charge') !== '${staleId}'`);
+  checkText("Saved charge preview");
+  const refreshedId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
+  const refreshed = await admin.charge.findUniqueOrThrow({ where: { id: refreshedId } });
+  assert.equal(refreshed.intendedStart.toISOString(), competing.period.endsAt);
+  assertReviewedDates(refreshed);
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
+  const refreshedPayment = await admin.payment.findUniqueOrThrow({ where: { chargeId: refreshedId }, include: { period: true } });
+  assert.equal(refreshedPayment.period!.startsAt.toISOString(), refreshed.intendedStart.toISOString());
+  assert.equal(refreshedPayment.period!.endsAt.toISOString(), refreshed.intendedEnd.toISOString());
+  assert.equal(await admin.payment.count({ where: { memberId: staleMember.id } }), 2);
+  console.log("R-02 browser: displayed early-renewal dates match stored terms; queued preview denied; competing confirmation requires new review before another payment.");
   // Real permission loss after commit must retain recovery until authority returns.
   // Isolate this fixture from the known shared reauthentication bucket (R-03).
   await admin.rateLimit.deleteMany({ where: { key: "identity:reauthenticate" } });

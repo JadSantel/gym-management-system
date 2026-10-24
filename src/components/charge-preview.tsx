@@ -18,6 +18,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reviewRequired, setReviewRequired] = useState(false);
   const [cashReceived, setCashReceived] = useState(saved ? pesoInput(saved.priceCentavos) : "");
   const [pending, setPending] = useState<PendingCash | null>(null);
   const [ready, setReady] = useState(false);
@@ -90,7 +91,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
         <div><dt className="text-muted-foreground">Saved preview reference</dt><dd className="break-all">{saved.id}</dd></div>
       </dl>
       {saved.priceChanged && <p role="status" className="mt-5 text-sm font-semibold">The catalogue price has changed. This saved preview preserves its original terms. {pending ? "Resolve the original operation before preparing a new preview." : "Prepare a new preview to review the current price."}</p>}
-      <p className="mt-5 text-sm text-muted-foreground">Preview dates are estimates from the preparation date. Confirmation records the actual paid period and does not prove admission before its effective start.</p>
+      <p className="mt-5 text-sm text-muted-foreground">These proposed dates use the current paid terms for this member. Confirmation rechecks them; if they change, prepare and review a new charge before collecting cash. A paid period does not prove admission before payment verification or its effective start.</p>
     </div>}
       {confirmed ? <div role="status" className="mt-6 rounded-lg border border-primary/40 bg-muted p-4" aria-live="polite">
         <h3 className="font-semibold">Full cash payment confirmed</h3>
@@ -98,8 +99,8 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
         <p>Receipt reference: <strong className="break-all">{confirmed.receipt.reference}</strong></p>
         <p className="mt-2">Paid period: {pht.format(new Date(confirmed.period.startsAt))} PHT inclusive to {pht.format(new Date(confirmed.period.endsAt))} PHT exclusive.</p>
         <p className="mt-2 text-sm text-muted-foreground">The period is paid and recorded. Normal admission still depends on its effective start time.</p>
-      </div> : canPrepare && (pending || (saved && !saved.priceChanged)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
-        event.preventDefault(); if (!ready || busy) return;
+      </div> : canPrepare && (pending || (saved && !saved.priceChanged && !reviewRequired)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
+        event.preventDefault(); if (!ready || busy || (!pendingRef.current && reviewRequired)) return;
         setBusy(true); setError("");
         try {
           if (!pendingRef.current && (!saved || parsePesos(cashReceived) === null)) throw new Error("Enter the full cash amount in PHP, with no more than two decimal places.");
@@ -110,7 +111,10 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
           const response = await fetch("/api/payments", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": operation.key }, body: JSON.stringify({ chargeId: operation.chargeId, cashReceived: operation.amount }) });
           const result = await response.json();
           if (!response.ok) {
-            if (response.headers.get("cash-confirmation-outcome") === "not-confirmed") clearPending();
+            if (response.headers.get("cash-confirmation-outcome") === "not-confirmed") {
+              clearPending();
+              if (response.status === 409) setReviewRequired(true);
+            }
             throw new Error(result.error ?? "Cash confirmation failed.");
           }
           clearPending(); setConfirmed(result);

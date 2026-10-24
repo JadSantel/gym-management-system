@@ -2,15 +2,20 @@ import { createHash, randomUUID } from "node:crypto";
 import { inGym, authorize } from "./tenant";
 import { IdentityError } from "./identity";
 import { parsePesos } from "./money";
+import type { PaidInterval } from "./eligibility";
 import type { Prisma } from "../generated/prisma/client";
 
 // Only use after the same-key operation has been serialized/read and before financial writes.
 export class CashConfirmationRejected extends IdentityError {}
 
-export function proposedPeriod(now: Date, durationDays: number) {
+export function proposedPeriod(now: Date, durationDays: number, intervals: PaidInterval[] = []) {
   if (![30, 90, 180].includes(durationDays)) throw new IdentityError(400, "Unsupported membership duration.");
+  if (intervals.some(interval => interval.startsAt > now)) {
+    throw new IdentityError(409, "A future paid period already exists. Another advance renewal is not available.");
+  }
+  const current = intervals.find(interval => interval.startsAt <= now && now < interval.endsAt);
   const manilaDate = new Date(now.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
-  const start = new Date(`${manilaDate}T00:00:00+08:00`);
+  const start = current?.endsAt ?? new Date(`${manilaDate}T00:00:00+08:00`);
   return { intendedStart: start, intendedEnd: new Date(start.getTime() + durationDays * 86400_000) };
 }
 export async function prepareCharge(headers: Headers, memberId: string, planId: string) {
@@ -19,10 +24,11 @@ export async function prepareCharge(headers: Headers, memberId: string, planId: 
     const member = await tx.member.findUnique({ where: { id: memberId } });
     const plan = await tx.plan.findUnique({ where: { id: planId } });
     if (!member || !plan) throw new IdentityError(404, "Member or approved plan unavailable.");
+    const intervals = await tx.effectiveEntitlement.findMany({ where: { gymId: actor.operator.gymId, memberId: member.id, isCurrentProjection: true } });
     const charge = await tx.charge.create({ data: {
       gymId: actor.operator.gymId, memberId: member.id, planId: plan.id, planName: plan.name,
       durationDays: plan.durationDays, priceCentavos: plan.priceCentavos, planVersion: plan.version,
-      preparedBy: actor.operator.id, ...proposedPeriod(new Date(), plan.durationDays),
+      preparedBy: actor.operator.id, ...proposedPeriod(new Date(), plan.durationDays, intervals),
     } });
     await tx.identityAudit.create({ data: { gymId: actor.operator.gymId, initiatorId: actor.operator.userId, subjectId: charge.id, action: "CHARGE_PREVIEW_PREPARED" } });
     return charge;
@@ -59,15 +65,18 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
     }
     if (amount !== charge.priceCentavos) throw new CashConfirmationRejected(400, "The full approved amount must be received before confirming membership. No payment was recorded.");
 
+    const intervals = await tx.effectiveEntitlement.findMany({ where: { gymId, memberId: charge.memberId, isCurrentProjection: true } });
     const now = new Date();
-    const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId: charge.memberId, isCurrentProjection: true }, orderBy: { startsAt: "asc" } });
-    const future = intervals.find(interval => interval.startsAt.getTime() > now.getTime());
-    if (future) throw new CashConfirmationRejected(409, "A future paid period already exists. Another advance renewal is not available.");
-    const latest = intervals.at(-1);
-    const startsAt = latest && latest.endsAt.getTime() > now.getTime()
-      ? latest.endsAt
-      : proposedPeriod(now, charge.durationDays).intendedStart;
-    const endsAt = new Date(startsAt.getTime() + charge.durationDays * 86_400_000);
+    let proposed;
+    try { proposed = proposedPeriod(now, charge.durationDays, intervals); }
+    catch (error) {
+      if (error instanceof IdentityError) throw new CashConfirmationRejected(error.status, error.message);
+      throw error;
+    }
+    const { intendedStart: startsAt, intendedEnd: endsAt } = proposed;
+    if (startsAt.getTime() !== charge.intendedStart.getTime() || endsAt.getTime() !== charge.intendedEnd.getTime()) {
+      throw new CashConfirmationRejected(409, "Membership dates changed. Prepare and review a new charge before collecting cash. No payment was recorded.");
+    }
     const id = randomUUID();
     const reference = `CASH-${randomUUID().toUpperCase()}`;
     const payment = await tx.payment.create({ data: {

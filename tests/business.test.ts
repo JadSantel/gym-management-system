@@ -368,13 +368,30 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     await assert.rejects(admin.paymentReceipt.update({ where: { id: results[0].receipt.id }, data: { reference: "rewritten" } }));
     await assert.rejects(admin.effectiveEntitlement.create({ data: { gymId: gyms[0], memberId: member.id, periodId: results[0].period.id, startsAt: new Date(results[0].period.startsAt), endsAt: new Date(results[0].period.endsAt) } }));
     const advanceCharge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    const competingAdvance = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    assert.equal(advanceCharge.intendedStart, results[0].period.endsAt);
     const advanceResponse = await paymentPost(paymentReq(owners[0], advanceCharge.id, cash, randomUUID()));
     assert.equal(advanceResponse.status, 200);
     const advance = await advanceResponse.json();
     assert.equal(new Date(advance.period.startsAt).getTime(), new Date(results[0].period.endsAt).getTime());
-    const thirdCharge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
-    assert.equal((await paymentPost(paymentReq(owners[0], thirdCharge.id, cash, randomUUID()))).status, 409);
-    await assert.rejects(admin.payment.create({ data: { gymId: gyms[0], memberId: member.id, chargeId: thirdCharge.id, reference: `BAD-${randomUUID()}`, amountCentavos: 1, collectedBy: owner.id, collectedAt: new Date(), verifiedBy: owner.id } }));
+    assert.equal(advance.period.startsAt, advanceCharge.intendedStart);
+    assert.equal(advance.period.endsAt, advanceCharge.intendedEnd);
+    const previewsBefore = await admin.charge.count({ where: { memberId: member.id } });
+    const auditsBefore = await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CHARGE_PREVIEW_PREPARED" } });
+    const blockedPreview = await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }));
+    assert.equal(blockedPreview.status, 409);
+    assert.match((await blockedPreview.json()).error, /future paid period/);
+    assert.equal(await admin.charge.count({ where: { memberId: member.id } }), previewsBefore);
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CHARGE_PREVIEW_PREPARED" } }), auditsBefore);
+    const blockedConfirmation = await paymentPost(paymentReq(owners[0], competingAdvance.id, cash, randomUUID()));
+    assert.equal(blockedConfirmation.status, 409);
+    assert.equal(blockedConfirmation.headers.get("cash-confirmation-outcome"), "not-confirmed");
+    assert.match((await blockedConfirmation.json()).error, /future paid period/);
+    // Committed-key recovery still precedes the new queued-term/date gates.
+    const replay = await paymentPost(paymentReq(owners[0], charge.id, cash, key));
+    assert.equal(replay.status, 200);
+    assert.equal((await replay.json()).payment.id, results[0].payment.id);
+    await assert.rejects(admin.payment.create({ data: { gymId: gyms[0], memberId: member.id, chargeId: competingAdvance.id, reference: `BAD-${randomUUID()}`, amountCentavos: 1, collectedBy: owner.id, collectedAt: new Date(), verifiedBy: owner.id } }));
     const operation = await admin.idempotencyOperation.findUniqueOrThrow({ where: { gymId_operationType_operationKey: { gymId: gyms[0], operationType: "CASH_CONFIRMATION", operationKey: key } } });
     await assert.rejects(admin.idempotencyOperation.update({ where: { id: operation.id }, data: { requestFingerprint: "tampered" } }));
     await assert.rejects(admin.idempotencyOperation.delete({ where: { id: operation.id } }));
@@ -383,5 +400,146 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 2);
     const policies = await db.$queryRaw<{ relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('payments','membership_periods','effective_entitlement_intervals','idempotency_operations','payment_receipts') AND relnamespace='public'::regnamespace`;
     assert.equal(policies.length, 5); for (const policy of policies) assert.deepEqual(policy, { relrowsecurity: true, relforcerowsecurity: true });
+  });
+  // Isolate added scenarios from R-03's existing shared preview throttle.
+  await admin.rateLimit.deleteMany({ where: { key: "identity:charge-preview" } });
+  await t.test("R-02 late renewal and midnight rollover require a fresh review before charging", async t => {
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
+    const cash = (plan.priceCentavos / 100).toFixed(2);
+    const member = await createMember(owners[0], { fullName: "Late Renewal Midnight Member" });
+    const midnight = proposedPeriod(new Date(), 30).intendedStart.getTime() + 86_400_000;
+    t.mock.timers.enable({ apis: ["Date"], now: midnight - 32 * 86_400_000 });
+    const preview = async (memberId = member.id) => {
+      const response = await chargePost(req("/api/charges", owners[0], { memberId, planId: plan.id }));
+      assert.equal(response.status, 200);
+      return response.json();
+    };
+    const original = await preview();
+    const originalResponse = await paymentPost(paymentReq(owners[0], original.id, cash, randomUUID()));
+    assert.equal(originalResponse.status, 200);
+    const originalPaid = await originalResponse.json();
+    const rolloverMember = await createMember(owners[0], { fullName: "Rollover Review Member" });
+    const oldRollover = await preview(rolloverMember.id);
+    assert.equal((await paymentPost(paymentReq(owners[0], oldRollover.id, cash, randomUUID()))).status, 200);
+    t.mock.timers.setTime(midnight - 1);
+    const late = await preview();
+    assert.equal(late.intendedStart, new Date(midnight - 86_400_000).toISOString());
+    assert.notEqual(late.intendedStart, originalPaid.period.endsAt, "Late renewal never backdates to old expiry");
+    const onTime = await paymentPost(paymentReq(owners[0], late.id, cash, randomUUID()));
+    assert.equal(onTime.status, 200);
+    const latePaid = await onTime.json();
+    assert.equal(latePaid.period.startsAt, late.intendedStart);
+    assert.equal(latePaid.period.endsAt, late.intendedEnd);
+
+    const early = await preview();
+    // A separate expired member reviews before midnight and confirms after it.
+    const stale = await preview(rolloverMember.id);
+    t.mock.timers.tick(1);
+    const unchanged = await paymentPost(paymentReq(owners[0], early.id, cash, randomUUID()));
+    assert.equal(unchanged.status, 200, "Midnight alone does not invalidate an unchanged early-renewal interval");
+    const earlyPaid = await unchanged.json();
+    assert.equal(earlyPaid.period.startsAt, early.intendedStart);
+    assert.equal(earlyPaid.period.endsAt, early.intendedEnd);
+    const key = randomUUID();
+    const operationsBefore = await admin.idempotencyOperation.count();
+    const auditBefore = await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED" } });
+    for (let retry = 0; retry < 2; retry++) {
+      const rejected = await paymentPost(paymentReq(owners[0], stale.id, cash, key));
+      assert.equal(rejected.status, 409);
+      assert.equal(rejected.headers.get("cash-confirmation-outcome"), "not-confirmed");
+      assert.match((await rejected.json()).error, /Prepare and review a new charge/);
+    }
+    assert.equal(await admin.payment.count({ where: { memberId: rolloverMember.id } }), 1);
+    assert.equal(await admin.membershipPeriod.count({ where: { memberId: rolloverMember.id } }), 1);
+    assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: rolloverMember.id } }), 1);
+    assert.equal(await admin.idempotencyOperation.count(), operationsBefore);
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED" } }), auditBefore);
+    const freshResponse = await chargePost(req("/api/charges", owners[0], { memberId: rolloverMember.id, planId: plan.id }));
+    assert.equal(freshResponse.status, 200);
+    const fresh = await freshResponse.json();
+    assert.equal(fresh.intendedStart, new Date(midnight).toISOString());
+    assert.notEqual(fresh.id, stale.id);
+    const freshKey = randomUUID();
+    const accepted = await paymentPost(paymentReq(owners[0], fresh.id, cash, freshKey));
+    assert.equal(accepted.status, 200);
+    const paid = await accepted.json();
+    const stored = await admin.membershipPeriod.findUniqueOrThrow({ where: { id: paid.period.id } });
+    assert.equal(stored.startsAt.toISOString(), fresh.intendedStart);
+    assert.equal(stored.endsAt.toISOString(), fresh.intendedEnd);
+    t.mock.timers.tick(86_400_000);
+    const replay = await paymentPost(paymentReq(owners[0], fresh.id, cash, freshKey));
+    assert.equal(replay.status, 200, "A committed result survives date rollover");
+    assert.equal((await replay.json()).payment.id, paid.payment.id);
+    assert.equal(await admin.payment.count({ where: { memberId: rolloverMember.id } }), 2);
+  });
+  await t.test("R-02 distinct-key competing joins and early renewals serialize and cannot charge stale dates", async () => {
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 90 } });
+    const cash = (plan.priceCentavos / 100).toFixed(2);
+    const member = await createMember(owners[0], { fullName: "Competing Review Member" });
+    for (const sale of ["join", "early renewal"]) {
+      const previews = await Promise.all([0, 1].map(async () => {
+        const response = await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }));
+        assert.equal(response.status, 200);
+        return response.json();
+      }));
+      assert.notEqual(previews[0].id, previews[1].id);
+      assert.equal(previews[0].intendedStart, previews[1].intendedStart);
+      const keys = [randomUUID(), randomUUID()];
+      // Hold the existing member advisory lock until BOTH real runtime requests wait.
+      // This verifies serialization, without claiming AD-016 row-lock compliance (R-09).
+      let pending!: Promise<Response[]>;
+      await admin.$transaction(async tx => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${gyms[0]}:${member.id}`}, 0))`;
+        pending = Promise.all(previews.map((charge, index) => paymentPost(paymentReq(owners[0], charge.id, cash, keys[index]))));
+        let waiting = 0;
+        for (let attempt = 0; attempt < 100 && waiting < 2; attempt++) {
+          const rows = await tx.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM pg_locks held JOIN pg_locks waiter
+            ON waiter.locktype = held.locktype AND waiter.database = held.database AND waiter.classid = held.classid
+            AND waiter.objid = held.objid AND waiter.objsubid = held.objsubid
+            WHERE held.pid = pg_backend_pid() AND held.locktype = 'advisory' AND held.granted AND NOT waiter.granted`;
+          waiting = Number(rows[0].count);
+          if (waiting < 2) await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        assert.equal(waiting, 2, "Both confirmations must contend on the existing member lock");
+      });
+      const responses = await pending;
+      assert.deepEqual(responses.map(response => response.status).sort(), [200, 409], sale);
+      const winner = responses.findIndex(response => response.status === 200);
+      const loser = 1 - winner;
+      const paid = await responses[winner].json();
+      const rejected = await responses[loser].json();
+      assert.match(rejected.error, sale === "join" ? /Membership dates changed/ : /future paid period/);
+      assert.equal(responses[loser].headers.get("cash-confirmation-outcome"), "not-confirmed");
+      assert.equal(paid.period.startsAt, previews[winner].intendedStart);
+      assert.equal(paid.period.endsAt, previews[winner].intendedEnd);
+      const stored = await admin.membershipPeriod.findUniqueOrThrow({ where: { id: paid.period.id } });
+      assert.equal(stored.startsAt.toISOString(), previews[winner].intendedStart);
+      assert.equal(stored.endsAt.toISOString(), previews[winner].intendedEnd);
+      assert.equal(await admin.idempotencyOperation.count({ where: { gymId: gyms[0], operationKey: keys[loser] } }), 0);
+      const expected = sale === "join" ? 1 : 2;
+      assert.equal(await admin.payment.count({ where: { memberId: member.id } }), expected);
+      assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), expected);
+      assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: member.id } }), expected);
+      assert.equal(await admin.paymentReceipt.count({ where: { payment: { memberId: member.id } } }), expected);
+      const replay = await paymentPost(paymentReq(owners[0], previews[winner].id, cash, keys[winner]));
+      assert.equal(replay.status, 200);
+      assert.equal((await replay.json()).payment.id, paid.payment.id);
+    }
+    // Exclusion remains a backstop even if a caller omits the application lock.
+    const projection = await admin.effectiveEntitlement.findFirstOrThrow({ where: { memberId: member.id } });
+    const unusedCharge = await admin.charge.findFirstOrThrow({ where: { memberId: member.id, payment: null } });
+    await assert.rejects(inGym(owners[0], "CASH", async (tx, actor) => {
+      const payment = await tx.payment.create({ data: { gymId: gyms[0], memberId: member.id, chargeId: unusedCharge.id,
+        reference: `OVERLAP-${randomUUID()}`, amountCentavos: plan.priceCentavos, collectedBy: actor.operator.id,
+        collectedAt: new Date(), verifiedBy: actor.operator.id } });
+      const period = await tx.membershipPeriod.create({ data: { gymId: gyms[0], memberId: member.id, paymentId: payment.id,
+        confirmedBy: actor.operator.id, startsAt: projection.startsAt, endsAt: projection.endsAt } });
+      await tx.effectiveEntitlement.create({ data: { gymId: gyms[0], memberId: member.id, periodId: period.id,
+        startsAt: projection.startsAt, endsAt: projection.endsAt } });
+    }), /effective_entitlement_no_overlap/);
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 2);
+    const [privileges] = await db.$queryRaw<{ update: boolean; rolsuper: boolean; rolbypassrls: boolean }[]>`SELECT
+      has_table_privilege(current_user, 'members', 'UPDATE') AS update, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
+    assert.deepEqual(privileges, { update: false, rolsuper: false, rolbypassrls: false });
   });
 });
