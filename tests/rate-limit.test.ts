@@ -153,20 +153,26 @@ test("R-03 durable actor/action limits and untrusted forwarding headers", async 
     assert.equal((await identity("reauthenticate", { password }, disposable, spoof(2))).status, 401);
   });
 
-  await t.test("unverified hosted mode fails closed for application and Better Auth routes", async () => {
-    const saved = { flag: process.env.SYNTHETIC_DATA_ONLY, url: process.env.BETTER_AUTH_URL };
+  await t.test("invalid configuration and unverified hosted mode fail closed for application and Better Auth routes", async () => {
+    const saved = assertSynthetic();
     try {
-      for (const mode of ["no-synthetic-flag", "hosted-origin"]) {
-        process.env.SYNTHETIC_DATA_ONLY = mode === "no-synthetic-flag" ? "false" : "true";
-        process.env.BETTER_AUTH_URL = mode === "hosted-origin" ? "https://unverified.example.test" : origin;
-        assert.equal((await identity("reauthenticate", { password }, owners[0].headers, spoof(1))).status, 503);
+      for (const override of [
+        { SYNTHETIC_DATA_ONLY: "false" },
+        { BETTER_AUTH_URL: "https://unverified.example.test" },
+        { DATABASE_URL: "not-a-url-CONFIG_SENTINEL" },
+        { BETTER_AUTH_SECRET: "short-CONFIG_SENTINEL" },
+        { BETTER_AUTH_URL: "not-a-url-CONFIG_SENTINEL" },
+      ]) {
+        Object.assign(process.env, saved, override);
+        const response = await identity("reauthenticate", { password }, owners[0].headers, spoof(1));
+        assert.equal(response.status, 503);
+        assert.deepEqual(await response.json(), { error: "Deployment proxy trust has not been verified." });
         assert.equal((await authPost(request("auth/sign-in/email", { email: owners[0].email, password }, undefined, spoof(2)))).status, 503);
         assert.equal((await authPost(new Request(`${origin}/api/auth/get-session`, { headers: owners[0].headers }))).status, 503);
       }
       assert.equal(await admin.rateLimit.count({ where: { key: { startsWith: "identity:" } } }), 0);
     } finally {
-      process.env.SYNTHETIC_DATA_ONLY = saved.flag;
-      process.env.BETTER_AUTH_URL = saved.url;
+      Object.assign(process.env, saved);
     }
   });
 });

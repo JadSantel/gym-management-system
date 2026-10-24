@@ -4,6 +4,7 @@ import { db } from "./db";
 import { assertSynthetic, localEmail, type EmailSender } from "./email";
 import type { Prisma, PrismaClient, InvitePurpose } from "../generated/prisma/client";
 import { identityBinding, setGymContext } from "./binding";
+import { getRuntimeConfig } from "./config";
 
 export class IdentityError extends Error {
   constructor(public status: number, message: string, public fieldErrors?: Record<string, string | undefined>) { super(message); }
@@ -60,7 +61,7 @@ async function issue(tx: Prisma.TransactionClient, operator: { id: string; gymId
 }
 
 async function deliver(issued: Awaited<ReturnType<typeof issue>>, email: string, sender: EmailSender) {
-  const url = new URL("/setup", process.env.BETTER_AUTH_URL);
+  const url = new URL("/setup", getRuntimeConfig().BETTER_AUTH_URL);
   // Fragment keeps the token out of HTTP request URLs, access logs, and referrers.
   url.hash = issued.token;
   try {

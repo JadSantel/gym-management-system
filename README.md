@@ -20,6 +20,10 @@ npm run dev
 
 `db:local` creates an isolated password-protected cluster under ignored `.local/postgres`, listening only on `127.0.0.1:55432`. It never uses the service on 5432. Restricted `gym_runtime` credentials stay in `.env.local`. Migration credentials stay in `.env.migration.local`, explicitly loaded by CLI/tests, never by Next.js. Windows sandboxes may require permission to start PostgreSQL or connect to loopback.
 
+The server validates `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `SYNTHETIC_DATA_ONLY` before database/auth initialization. Only the isolated synthetic database and an exact HTTP(S) origin on `127.0.0.1` are enabled. Database URLs require credentials and reject query/fragment overrides. Use an auth secret of at least 32 characters without surrounding whitespace; the example placeholder is rejected. Invalid configuration reports key names only. This does not enable hosted/live operation.
+
+Configuration uses the pinned `server-only` marker. The test, browser and bootstrap npm scripts supply `--conditions=react-server` for Node execution; include that condition when running these TypeScript modules directly. Migration configuration is not part of the four-key web runtime configuration.
+
 To stop without deleting records: `pg_ctl -D .local/postgres -m fast -w stop`.
 
 Manual synthetic identity check:

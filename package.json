@@ -16,9 +16,9 @@
     "db:local": "node scripts/local-db.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "bootstrap:synthetic": "tsx --env-file=.env.local --env-file=.env.migration.local scripts/bootstrap-synthetic.ts",
-    "test:browser": "tsx --env-file=.env.local --env-file=.env.migration.local scripts/test-identity-browser.ts",
-    "test": "tsx --env-file=.env.local --env-file=.env.migration.local --test --test-concurrency=1 tests/*.test.ts"
+    "bootstrap:synthetic": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/bootstrap-synthetic.ts",
+    "test:browser": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/test-identity-browser.ts",
+    "test": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local --test --test-concurrency=1 tests/*.test.ts"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "1.7.12",
@@ -32,6 +32,7 @@
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "server-only": "0.0.1",
     "tailwind-merge": "3.7.0",
     "tailwindcss": "4.3.3",
     "zod": "4.6.7"

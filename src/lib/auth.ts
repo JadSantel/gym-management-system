@@ -5,11 +5,13 @@ import { username } from "better-auth/plugins";
 import { db } from "./db";
 import { identityBinding } from "./binding";
 import { assertSynthetic } from "./email";
+import { getRuntimeConfig } from "./config";
 
+const config = getRuntimeConfig();
 export const auth = betterAuth({
   database: prismaAdapter(db, { provider: "postgresql", transaction: true }),
-  baseURL: process.env.BETTER_AUTH_URL,
-  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: config.BETTER_AUTH_URL,
+  secret: config.BETTER_AUTH_SECRET,
   // Until deployed ingress is verified, ignore all caller-supplied IP headers.
   // An empty list preserves the provider's shared fallback limiter; disabling
   // IP tracking would disable that limiter in Better Auth 1.7.12.

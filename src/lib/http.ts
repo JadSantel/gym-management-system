@@ -61,8 +61,9 @@ export async function apiResponse(request: Request, work: () => Promise<unknown>
   let output: Response;
   try {
     // No deployed ingress/proxy contract has been verified. Keep non-local APIs closed.
-    try { assertSynthetic(); } catch { throw new IdentityError(503, "Deployment proxy trust has not been verified."); }
-    if (request.method !== "GET" && request.headers.get("origin") !== process.env.BETTER_AUTH_URL) throw new IdentityError(403, "Request origin is not allowed.");
+    let config: ReturnType<typeof assertSynthetic>;
+    try { config = assertSynthetic(); } catch { throw new IdentityError(503, "Deployment proxy trust has not been verified."); }
+    if (request.method !== "GET" && request.headers.get("origin") !== config.BETTER_AUTH_URL) throw new IdentityError(403, "Request origin is not allowed.");
     if (request.headers.has("cookie")) renewal = (await auth.api.getSession({ headers: request.headers, returnHeaders: true, query: { disableCookieCache: true } })).headers;
     output = Response.json(await work() ?? { status: "ok" });
   } catch (error) {
