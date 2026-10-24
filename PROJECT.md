@@ -1,8 +1,8 @@
 # Independent Gym Management System — MVP Delivery Specification
 
 **Status:** Working delivery specification; conditional requirements remain gated by the decisions in Section 9.  
-**Date:** 2026-10-23  
-**Primary source:** [product.md](product.md), including the approved clarifications in Section 6.1a.  
+**Date:** 2026-10-24  
+**Authority:** This document is the source of truth for current MVP requirements, approved behavior, and implementation gates. [product.md](product.md) provides aligned product context and policy references.  
 **Accountable product owner:** To assign. Pilot gym owners and operational reviewers: to assign.  
 **Implementation status:** Planned; this document does not assert that any capability has been built or validated.
 
@@ -10,7 +10,7 @@
 
 Deliver a focused operational system for independent gyms serving approximately 80–150 members. Owners and staff must be able to record verified full membership payments, determine paid access accurately, investigate discrepancies, and reconcile collections without relying on delayed spreadsheet transcription.
 
-`product.md` governs product policy. This document translates it into deliverables; it does not approve additional business policies. If a conflict appears, record it and reconcile this specification with the source before implementing the affected behavior. Discovery estimates remain unverified, and pilot targets remain hypotheses.
+This document governs current MVP policy and delivery requirements. If a conflict with `product.md` appears, follow this specification and synchronize the product definition before implementing the affected behavior. New business policies still require an explicit recorded decision. Discovery estimates remain unverified, and pilot targets remain hypotheses.
 
 Requirements use these classifications:
 
@@ -29,7 +29,7 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 | Individual owner/staff access | Authenticated operators, explicit authority, attributable actions | FR-01 |
 | Member and plan records | Search/create member, show paid periods and status, owner-controlled exact prices | FR-02 |
 | Full-payment collection | Cash, GCash, and bank-transfer records; verified confirmation; retrievable receipt/reference | FR-03, FR-04 |
-| Membership lifecycle | Calendar-month periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
+| Membership lifecycle | Fixed 30-day periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
 | Payment investigation | Searchable history, evidence-backed missing-payment recovery, escalation | FR-07 |
 | Owner-controlled corrections | Preserved originals, classified reason, approval, explicit money and access outcomes | FR-08 |
 | Outage recovery | Physical numbered-receipt procedure, one-visit exceptions, back-entry and custody reconciliation | FR-09 |
@@ -37,7 +37,7 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 | Verified migration | Traceable historical entitlements and unresolved legacy flags | FR-11 |
 | Pilot evidence | Defined collection/entry timestamps, categorized incidents, closing-time and eligibility measurements | FR-12 |
 
-The initial plan targets simple monthly, owner-priced memberships. Monthly-only launch is a **proposal pending O-07**, not a settled exclusion of every other duration. No extra duration, promotion, discount, guest pass, or grandfathered contract may be invented to fill that gap.
+The initial plan targets simple owner-priced memberships labeled monthly, each lasting exactly 30 consecutive 24-hour days. Monthly-only launch is a **proposal pending O-07**, not a settled exclusion of every other duration. No extra duration, promotion, discount, guest pass, or grandfathered contract may be invented to fill that gap.
 
 ### Excluded
 
@@ -149,16 +149,16 @@ Support GCash and bank transfer as manually verified methods. Keep pending/delay
 
 **Classification:** Policy; conditional start convention and unsupported cases. **Sources:** BR-02, BR-07, BR-12–13; PR-07; Section 6.1a.1, .6; O-01, O-07.
 
-Use the gym's local timezone (Asia/Manila for the Philippines pilot). Store/evaluate start-inclusive, end-exclusive intervals: eligible at start, ineligible at end unless an adjacent paid interval applies. One month advances the calendar month, retains the day if available, and otherwise clamps to the destination month's last day. Do not substitute 30 days.
+Use the gym's local timezone (Asia/Manila for the Philippines pilot) for display. The approved MVP monthly-labeled plan lasts **exactly 30 consecutive 24-hour days**. Store/evaluate start-inclusive, end-exclusive intervals: eligible at start and ineligible at end unless an adjacent verified paid interval applies. Compute the end as start plus 30 elapsed days, **not** calendar-month advancement or end-of-month clamping. A new membership or late renewal starts at **00:00 Asia/Manila on the local date of the verified full payment**. For a valid offline cash renewal, use 00:00 on the original verified cash-collection date. A payment received later in the day therefore yields less than 30 × 24 hours of prospective access; the term still spans exactly 30 midnight-to-midnight days.
 
 For an active member, show actual expiry and remaining active days, recommend optional advance renewal, preserve current access, and schedule the paid next term at the current term's exact end. For an expired member, start on the confirmed payment date. A verified late full-cash outage renewal uses the original verified collection date after recovery, not entry/verification date. Preserve all timestamps. A queued future paid period is not an unpaid renewal or receivable.
 
-Exact start-of-day versus time-of-day behavior, remaining-day rounding, and new-member effective-start convention require the Section 9 decision before final UI examples are fixed. Further renewals when future periods already exist also require explicit handling; no overlapping periods may be improvised.
+The midnight effective-start convention is approved. Remaining-day display rounding still requires a UI decision: show the exact expiry date/time and do not overstate remaining access. Further renewals when future periods already exist also require explicit handling; no overlapping periods may be improvised.
 
-- **AC-05a:** Given a monthly boundary of 2027-01-31, then one-month advancement ends on 2027-02-28; for 2028-01-31 it ends on 2028-02-29. Advancing from 2027-04-15 ends on 2027-05-15. Exact times follow the selected local convention.
+- **AC-05a:** Given a 30-day membership beginning at 2027-01-31 00:00 Asia/Manila, its end is 2027-03-02 00:00; given a start at 2028-01-31 00:00, its end is 2028-03-01 00:00. A start on 2027-04-15 00:00 ends 2027-05-15 00:00. These are fixed elapsed durations, not calendar-month billing anniversaries. A full payment at 18:30 on the start date still uses 00:00 that date as the effective start.
 - **AC-05b:** Given a current interval ending at boundary E and one paid advance renewal, then the new interval starts exactly at E, current access is preserved, and both sides of E have the correct eligibility with no gap/overlap. Remaining days/expiry are visible before collection.
-- **AC-05c:** Given an expired membership and an online payment confirmed on local date D, then the new term starts on D under the approved convention, never on the old expiration date.
-- **AC-05d:** Given a valid full-cash outage renewal collected on D and entered/verified later on D+2, then after verification its term starts on D; entry and verification still show D+2. The earlier one-visit exception remains separately traceable.
+- **AC-05c:** Given an expired membership and an online payment confirmed on local date D, then the new term starts at 00:00 Asia/Manila on D, never on the old expiration date.
+- **AC-05d:** Given a valid full-cash outage renewal collected on D and entered/verified later on D+2, then after verification its term starts at 00:00 Asia/Manila on D; entry and verification still show D+2. The earlier one-visit exception remains separately traceable.
 - **AC-05e:** Given only a proposed renewal or unconfirmed payment, then no future paid period is created. Given an already queued paid term, the multiple-advance-renewal decision must be resolved before offering another such sale.
 
 ### FR-06 — Eligibility and basic check-in
@@ -257,6 +257,17 @@ These are conceptual records and required relationships, not a prescribed databa
 | Reconciliation | Business-day cutoff, collector/method totals, actual counts, differences, open-item links, preparer, owner approval, snapshot and later adjustments |
 | Migration evidence | Source, reviewed historical period, verifier/sign-off, uncertainty flags, pilot cutoff classification |
 
+### Status vocabulary — do not combine unrelated dimensions
+
+| Dimension | Controlled terms | Rules |
+|---|---|---|
+| Payment | Pending verification; Confirmed; Flagged | A confirmed payment is immutable financial history; reversal/refund/correction is a linked event, not an overwritten status. |
+| Membership period | Scheduled; Active; Expired; Adjusted/terminated | Scheduled means **fully paid** but not yet effective. An incomplete purchase has no paid period. |
+| Admission decision | Eligible; Not eligible; Provisional single-visit access | A provisional offline visit is not an active CRM-confirmed membership. |
+| Exception case | Open; Under review; Escalated; Resolved | Case progress never automatically grants or revokes membership access. |
+
+Display these dimensions independently. Do not treat “pending renewal” as a partly paid membership: use **uncompleted purchase request** for an unpaid transaction and **scheduled paid period** for a fully paid advance renewal. These product terms do not prescribe a database enum.
+
 Required distinctions:
 
 1. **Unconfirmed payment → confirmed:** Only after full receipt and authorized verification. Back-entry and evidence attachment alone cannot cross this boundary. A failed/unmatched transfer remains pending or flagged.
@@ -294,13 +305,29 @@ Each slice delivers a demonstrable operator journey across interface, authorizat
 
 | Slice | End-to-end deliverable | Depends on | Exit demonstration and verification | Decision gate |
 |---|---|---|---|---|
-| S-01 — First verified cash membership | Individual owner/staff access; owner-priced monthly plan; member search/create; exact charge; full cash confirmation; receipt/history; current eligibility | None | Demonstrate US-01–03 and first membership eligibility; pass AC-01a–b, AC-02a–c, AC-03a–d and applicable AC-06a–b, including short payment and lost-response retry | O-01/new-start convention, O-07 plan set, initial capability assignments |
-| S-02 — Renewal without lost time | Early/late cash renewal, expiry/remaining-time display, adjacent periods, explicit pending/scheduled status | S-01 | Demonstrate US-05–06; pass AC-05a–c, AC-05e, AC-06a–b; check leap years, month ends, exact expiry and concurrent duplicate renewal requests | Remaining-day display and multiple-advance-renewal handling |
+| S-01 — First verified cash membership | Individual owner/staff access; owner-priced monthly plan; member search/create; exact charge; full cash confirmation; receipt/history; current eligibility | None | Demonstrate US-01–03 and first membership eligibility; pass AC-01a–b, AC-02a–c, AC-03a–d and applicable AC-06a–b, including short payment and lost-response retry | O-07 plan set, initial capability assignments |
+| S-02 — Renewal without lost time | Early/late cash renewal, expiry/remaining-time display, adjacent periods, distinct uncompleted-request versus scheduled-paid-period status | S-01 | Demonstrate US-05–06; pass AC-05a–c, AC-05e, AC-06a–b; check 30-day boundaries across leap years and month ends, exact expiry and concurrent duplicate renewal requests | Remaining-day display and multiple-advance-renewal handling |
 | S-03 — Verified digital collection | Pending GCash/bank payment, designated verifier work queue, account-match confirmation, member receipt/eligibility | S-01, S-02 | Demonstrate US-04; pass AC-01c, AC-04a–d; screenshot-only and unauthorized confirmation fail; proper verification creates one period | O-04 named account verifiers and unavailable-verifier SOP |
 | S-04 — Evidence-backed discrepancy resolution | Search history, open/escalate cases, recover an omitted full payment; owner-controlled linked corrections and gated refunds with explicit access disposition | S-01–03 | Demonstrate US-07–08; pass AC-07a–d, AC-08a–d; compare duplicate ledger entry with two actual collections; staff modification attempts fail | O-03, O-05; recovered-payment effective dates; reason matrix approved for supported cases |
 | S-05 — Recover an outage shift | Controlled receipt registry, manual booklet/access SOP, one-visit record, back-entry verification, receipt uniqueness and custody handover | S-01–04 | Demonstrate US-09; pass AC-09a–f, AC-05d; simulate continued outage across shifts, lost receipt, duplicate entry, and late full-cash renewal | O-02, O-06; repeat-visit/lost-receipt SOP |
 | S-06 — Close a business day | Collector/method summaries, counted cash/verified digital actuals, visible pending items, difference submission, owner approval and later-adjustment history | S-01–05 | Demonstrate US-10; pass AC-10a–d; include shortage, pending transfer, unentered receipt, owner refund and back-entry after an earlier close | Business-day cutoff, cash counting and late-adjustment procedure |
 | S-07 — Onboard and evaluate a pilot | Reviewed legacy entitlements, uncertainty flags, metric worksheet/report, training and incident procedure | S-01–06 | Demonstrate US-11–12; pass AC-11a–c, AC-12a–c; rehearse join → renewal → eligibility → dispute → outage recovery → closing with owner/staff | O-08, O-09; security/data stewardship and release readiness |
+
+### S-01 engineering task breakdown (same business milestone)
+
+Each task is small enough for an individual coding-agent prompt, but **S-01 is not complete or safe for live use until its integrated acceptance criteria pass**.
+
+| Task | Small deliverable | Target verification |
+|---|---|---|
+| S-01a — Operator identity | Individual owner/staff sign-in, identifiable actor, deny unauthenticated requests | FR-01 authentication and actor attribution tests |
+| S-01b — Capability enforcement | Owner-controlled capabilities; cash collection permitted only to authorized actors; deny staff corrections | AC-01a–b; direct-request denial, not only hidden UI controls |
+| S-01c — Member directory | Find/create member with minimum validated fields and stable identity | FR-02 member search/create and duplicates review |
+| S-01d — Approved plan/charge | Owner maintains approved plan and exact full price; immutable price snapshot before sale | AC-02a–c; changing current catalog does not rewrite an old sale |
+| S-01e — Cash confirmation engine | Full-only cash confirmation with immutable payment reference, atomic paid-period linkage, idempotent retry | AC-03a–d; short payment, failed writes, lost response, concurrent retry |
+| S-01f — Receipt and history | Retrievable receipt and attributable member payment history | AC-03b–d; collector, amount, method, timestamp and linked period visible |
+| S-01g — Eligibility and end-to-end demo | Compute status from confirmed 30-day paid interval; owner/staff complete join → full cash → receipt → access check | AC-06a–b and complete S-01 acceptance suite, including expiry boundary |
+
+All tasks may use synthetic data. Tasks S-01e–g use the approved 00:00 Asia/Manila effective-start convention; remaining-day display rounding must not overstate eligibility. Keep nonessential features out of S-01.
 
 S-04's investigation and approval scaffolding can proceed while refund amounts remain open; discretionary refunds cannot be enabled until their case policies are approved. The final pilot must support the agreed exception process, either through supported approved cases or an explicitly accepted manual escalation procedure. An open gate must not be hidden by marking its slice complete.
 
@@ -310,8 +337,8 @@ All owners below are **proposed accountable roles, people to assign**. The sourc
 
 | Source / detail | Still required | Accountable role | Blocks / safe interim behavior |
 |---|---|---|---|
-| O-01 — Local interval convention | Date-only/start-of-day vs. clock-time starts; exact expiry display and remaining-day rounding | Product owner + pilot owner | Blocks final period UI/date acceptance and live activation; calendar-month/clamping invariants can be built/tested independently |
-| Derived date detail | New-member effective start; already queued future terms; effective dates for recovered non-outage historical claims and delayed digital confirmations across dates | Product owner + pilot owner | Blocks those specific journeys; preserve evidence/timestamps and escalate rather than guess/backdate |
+| O-01 — Local interval convention | Start at 00:00 Asia/Manila on verified payment date is settled; exact expiry display and remaining-day rounding still to decide | Product owner + pilot owner | Blocks only UI wording/rounding acceptance; midnight start and fixed 30-day period calculations can be built/tested now |
+| Derived date detail | Already queued future terms; effective dates for recovered non-outage historical claims and delayed digital confirmations across dates | Product owner + pilot owner | Blocks those specific journeys; preserve evidence/timestamps and escalate rather than guess/backdate |
 | O-02 — Repeat outage visits/lost receipts | Staff procedure and authorization evidence; no reuse of the first visit as blanket access | Pilot owner + operations lead | Blocks live outage operation; maintain one-visit boundary |
 | O-03 — P0 refund details | Written eligibility/amount rules by reason, used-membership handling, required evidence and excess-payment disposition | Pilot owner + product owner | Blocks affected discretionary refunds; retain requests, approval/access structure and owner escalation |
 | O-04 — Named digital verifiers | Authorized receiving accounts, named viewers, evidence format, unavailable-verifier escalation | Pilot owner | Blocks digital confirmation for unassigned operators; payments remain unconfirmed |
@@ -323,7 +350,7 @@ All owners below are **proposed accountable roles, people to assign**. The sourc
 | Derived closing detail | Daily cutoff/timezone, cash float/removal treatment, adjustment allocation, closing snapshot amendments | Pilot owner + operations lead | Blocks final closing totals/sign-off; show underlying records and open items |
 | Derived data stewardship detail | Necessary member fields, evidence access/retention, operational record retention, backup/restore ownership, recovery expectations | Product owner + implementation lead + pilot owner | Blocks use of live personal/financial data without an accepted operational procedure |
 
-Record each resolution with date, approver, selected behavior, examples, and affected FR/AC/slices. Update `product.md` if a decision changes or adds product policy; then reconcile this specification. Unresolved details keep the affected acceptance criteria conditional, not silently waived.
+Record each resolution here with date, approver, selected behavior, examples, and affected FR/AC/slices; then synchronize `product.md` if it changes or adds product policy. Unresolved details keep the affected acceptance criteria conditional, not silently waived.
 
 ## 10. Verification, pilot measures, and completion
 
@@ -331,7 +358,7 @@ Record each resolution with date, approver, selected behavior, examples, and aff
 
 Verify each slice with realistic owner/staff workflows and relevant negative cases. Use automated integration checks for financial/permission/date integrity and focused UI checks for complete operator journeys. Test style and tooling remain implementation decisions.
 
-Required coverage includes full-vs-short payment, screenshot-only digital claims, unauthorized direct actions, repeated/concurrent submissions, partial-write recovery, exact expiry/month-end/leap-year boundaries, one-visit outage access, custody gaps, original collection versus later entry, duplicate record versus duplicate collection, explicit correction access outcomes, and visible unresolved closing differences. Exercise both GCash and bank transfer. Use synthetic data until live-data readiness is satisfied.
+Required coverage includes full-vs-short payment, screenshot-only digital claims, unauthorized direct actions, repeated/concurrent submissions, partial-write recovery, 30-day expiry across month ends/leap years, one-visit outage access, custody gaps, original collection versus later entry, duplicate record versus duplicate collection, explicit correction access outcomes, and visible unresolved closing differences. Exercise both GCash and bank transfer. Use synthetic data until live-data readiness is satisfied.
 
 Keep acceptance results linked to AC identifiers with evidence, failures, and any decision gates. A proposed control's successful test proves implementation behavior, not pilot acceptance of the policy or a measured business outcome.
 
@@ -346,6 +373,10 @@ Keep acceptance results linked to AC identifiers with evidence, failures, and an
 | Common eligibility check time | Unknown | At most 15 seconds, exploratory; establish baseline first |
 
 Confirm discovery and preferably 2–4 weeks of baseline observations where feasible, then validate low-fidelity workflows with owner/staff before development of the affected journeys. For the limited operational pilot, assign reviewers, train operators, agree incident/fallback procedures, and review results weekly. Participant count, dates, trial duration, sample sizes, and baseline evidence remain O-09.
+
+### Additional pilot adoption measures (approved)
+
+Track (1) **point-of-collection entry rate**: CRM entry recorded during collection rather than deferred (report authorized offline receipts separately); (2) **staff adoption across shifts**: proportion of applicable shifts/operators actually using the approved workflow; and (3) **unapproved parallel recordkeeping**: occurrences of paper/spreadsheet shadow ledgers outside the authorized outage fallback. Define denominators and how each observation is verified in O-09. These measures diagnose why outcomes improve or fail; pilot targets are not assumed until baseline evidence is collected.
 
 ### Definition of done
 
