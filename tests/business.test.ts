@@ -251,6 +251,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(new Date(results[0].period.endsAt).getTime() - new Date(results[0].period.startsAt).getTime(), 30 * 86_400_000);
     assert.equal(new Date(results[0].period.startsAt).getTime(), proposedPeriod(new Date(results[0].payment.collectedAt), 30).intendedStart.getTime());
     assert.equal(results[0].receipt.paymentId, results[0].payment.id);
+    assert.equal(await inGym(owners[1], "MEMBERS", tx => tx.paymentReceipt.findUnique({ where: { id: results[0].receipt.id } })), null);
     assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED", subjectId: results[0].payment.id } }), 1);
     assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
     assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 1);

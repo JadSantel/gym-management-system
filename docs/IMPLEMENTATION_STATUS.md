@@ -1,8 +1,8 @@
 # Gym CRM - Implementation Status
 
 **Reviewed:** 2026-10-24 (Asia/Manila) | **Scope:** S-01 only | **Data:** synthetic only
-**Execution:** PAUSED after verified S-01e for the user's GitHub checkpoint. Do not start S-01f until the user resumes.
-**Current outcome:** Full-cash confirmation, immutable payment/period/receipt records, and same-key retry pass PostgreSQL and actual browser checks.
+**Execution:** PAUSED after verified S-01f for the user's GitHub checkpoint. Do not start S-01g until the user resumes.
+**Current outcome:** S-01f exposes tenant-scoped member payment history and retrievable linked receipts with financial and period details; synthetic browser checks pass.
 
 | Task | State | Evidence / next action |
 |---|---|---|
@@ -11,7 +11,7 @@
 | S-01c - Member directory | VERIFIED | Validated create/search, duplicate review, concurrent create and direct authorization/tenant checks pass. |
 | S-01d - Approved plan and exact charge | VERIFIED | Approved catalogue, owner pricing, exact centavo previews and immutable snapshots pass PostgreSQL and prior browser checks. |
 | S-01e - Atomic full-cash confirmation | VERIFIED | PostgreSQL rollback/concurrency/immutability checks pass; browser short/full cash, lost-response retry after reload, receipt linkage, mobile and axe checks pass. |
-| S-01f - Receipt and history | TODO | Next task, only after the user's GitHub checkpoint and resume. |
+| S-01f - Receipt and history | VERIFIED | Member history shows collector, amount, method, collection/entry/verification timestamps and paid interval; linked receipt page retrieves immutable receipt/payment details. Actual browser flow and axe checks pass. |
 | S-01g - Eligibility and demonstration | TODO | Requires S-01f and full S-01 acceptance suite. |
 
 ## Documentation layout
@@ -31,10 +31,17 @@
 - Browser setup gap resolved: pinned CLI 0.39.2 was already installed in npm's `_npx` cache. Its native executable was copied to ignored `.local/browser-tools/agent-browser-win32-x64.exe`; that path and installed Chrome's path are saved in ignored `.env.local`. A download attempt exposed a certificate-chain error, so the existing CLI was reused without disabling TLS. Chrome requires permission to launch outside the restricted coding sandbox; the successful browser command used that permission.
 - Non-failing test warnings: Better Auth cannot resolve a trusted client IP in this local setup; pinned `pg` warns about concurrent query scheduling ahead of pg 9. No production proxy contract or dependency changes were made.
 
+## S-01f evidence
+
+- Member detail history reads only payments within the authenticated gym transaction and orders by collection time. It shows plan snapshot, exact amount, method, collector, entry timestamp, verifier/time, linked paid interval and payment reference.
+- Each history item links to `/receipts/[id]`. The receipt page rechecks active identity/capability and gym context, then displays immutable receipt/payment references, gym/member, amount/method, plan snapshot, collector, recorded/verified/issued times and linked paid interval. Unknown or cross-gym receipt IDs are not found under tenant RLS.
+- `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd test` PASS (30/30), `npm.cmd run build`, `npm.cmd run test:browser`, and `git diff --check` PASS. Restricted PostgreSQL runtime confirms another gym cannot read the receipt. Browser test used synthetic PostgreSQL and the built local app; member history and receipt retrieval passed, as did axe WCAG A/AA checks with zero violations/incomplete checks. The existing CLI/Chrome needed sandbox permission to launch.
+- No schema or dependency change. No new financial mutation; S-01e confirmation remains the source of immutable receipt and history records.
+
 ## Next action and manual checkpoint
 
-Review the S-01e diff and take the user's GitHub checkpoint. Resume S-01f only on the user's instruction. Browser paths are configured locally; start the synthetic database/app and use `npm.cmd run test:browser` to repeat the checks. Task-owned Chrome sessions and the test app server were closed after verification. No commit or push was made.
+Review the S-01f diff and take the user's GitHub checkpoint. Resume S-01g only on the user's instruction. Browser paths are configured locally; start the synthetic database/app and use `npm.cmd run test:browser` to repeat the checks. Task-owned Chrome sessions and the test app server were closed after verification. No commit or push was made.
 
-Synthetic manual flow: sign in as owner or cash-enabled staff; open a member; prepare a current charge; submit an amount below the exact price and confirm no payment/period exists; submit the exact cash amount and confirm one payment, one period, one receipt reference and one audit event; retry the same operation after a simulated lost response and confirm the same references return. Do not treat this period as currently eligible until S-01g implements the eligibility check.
+Synthetic manual flow: sign in as owner or member-authorized staff; open a member with a confirmed cash payment; verify history shows collector, amount, cash method, collection and entry times, verifier/time, payment reference and paid period; follow the receipt link and verify its receipt reference and matching payment/period details. A guessed receipt ID from another gym must return not found. Eligibility remains pending S-01g.
 
 **Limits:** Synthetic data only. No live users, actual cash, production migration, Brevo, deployment, domain, S-02 or real-member data. RPO/RTO and live readiness remain unproven.
