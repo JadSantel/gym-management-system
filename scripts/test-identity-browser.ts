@@ -44,6 +44,32 @@ function evalBrowser(code: string) {
   if (!result.success) throw new Error("Browser evaluation failed.");
   return result.data.result;
 }
+function assertRefreshedMembership(payment: { reference: string; receipt: { id: string } | null }, collectorName: string) {
+  assert.ok(payment.receipt);
+  // Read the server-rendered panels before any navigation/reload, not the client success message.
+  browser("wait", "--fn", `(() => {
+    const access = document.getElementById('membership-access-title')?.parentElement;
+    const history = document.getElementById('payment-history-title')?.parentElement;
+    return access?.textContent.includes('A verified paid period is in effect.')
+      && history?.textContent.includes(${JSON.stringify(payment.reference)})
+      && !!history?.querySelector('a[href="/receipts/${payment.receipt.id}"]');
+  })()`);
+  assert.equal(evalBrowser(`document.getElementById('payment-history-title').parentElement.textContent.includes(${JSON.stringify(collectorName)})`), true);
+  checkText("Full cash payment confirmed");
+}
+async function confirmNewMembership(memberName: string, collector: { id: string; name: string }) {
+  const member = evalBrowser(`fetch('/api/members', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fullName:${JSON.stringify(memberName)}})}).then(r=>r.json())`);
+  assert.ok(member.id);
+  browser("open", `${origin}/members/${member.id}`); checkText("No verified paid period is recorded.");
+  clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
+  const payment = await admin.payment.findFirstOrThrow({ where: { memberId: member.id }, include: { receipt: true } });
+  assert.equal(payment.collectedBy, collector.id);
+  assertRefreshedMembership(payment, collector.name);
+  assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 1);
+}
 async function capturedUrl(operatorId: string) {
   const invitation = await admin.invitation.findFirstOrThrow({ where: { operatorId, consumedAt: null, sentAt: { not: null } }, orderBy: { createdAt: "desc" } });
   return JSON.parse(readFileSync(resolve(".local/mailbox", `${invitation.id}.json`), "utf8")).url as string;
@@ -174,6 +200,7 @@ try {
   checkText("Saved charge preview"); checkText("₱900.25"); checkText("No verified paid period is recorded.");
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
   fill("#cash-received", "900"); clickButton("Confirm full cash"); checkText("No payment was recorded.");
+  checkText("No verified paid period is recorded."); checkText("No confirmed payments recorded.");
   const latestPreviewId = new URL(evalBrowser("window.location.href")).searchParams.get("charge")!;
   const latestPreview = await admin.charge.findUniqueOrThrow({ where: { id: latestPreviewId } });
   const browserMember = await admin.member.findUniqueOrThrow({ where: { id: latestPreview.memberId } });
@@ -247,8 +274,9 @@ try {
   assert.equal(await admin.membershipPeriod.count({ where: { memberId: browserMember.id } }), 1);
   assert.equal(await admin.idempotencyOperation.count({ where: { gymId, operationKey: originalOperation.key, paymentId: committedPayment.id } }), 1);
   assert.equal(evalBrowser("Object.keys(sessionStorage).some(key => key.startsWith('cash-recovery:'))"), false);
+  assertRefreshedMembership(browserPayment, "Browser Owner");
   audit("Confirmed cash result");
-  browser("open", `${origin}/members/${browserMember.id}`); checkText("Eligible"); checkText("Current paid period"); checkText("Payment history"); checkText("Collected by"); checkText("Entry recorded"); checkText("Verified by"); checkText("Paid period");
+  checkText("Eligible"); checkText("Current paid period"); checkText("Payment history"); checkText("Collected by"); checkText("Entry recorded"); checkText("Verified by"); checkText("Paid period");
   const receiptPath = evalBrowser("Array.from(document.querySelectorAll('a')).find(a => a.getAttribute('href')?.startsWith('/receipts/'))?.getAttribute('href')");
   assert.equal(receiptPath, `/receipts/${browserPayment.receipt!.id}`);
   browser("open", `${origin}${receiptPath}`); checkText("Cash payment receipt"); checkText(browserPayment.receipt!.reference); checkText(browserPayment.reference); checkText("Browser Owner"); checkText("₱900.25"); checkText("Paid period");
@@ -259,6 +287,8 @@ try {
   evalBrowser("document.getElementById('receipt-title').scrollIntoView({block:'start'}); true");
   browser("screenshot", resolve(".local/cash-confirmed-mobile.png")); browser("set", "viewport", "1280", "900");
   console.log("R-01 browser: committed lost response, replacement submit guard, later 409, reload, member/preview navigation, catalogue change, and original-key replay passed with exactly one payment/period.");
+  const owner = await admin.operator.findFirstOrThrow({ where: { gymId, role: "OWNER" } });
+  await confirmNewMembership("Owner Immediate Refresh Member", { id: owner.id, name: "Browser Owner" });
   // Review a real early renewal, then verify the displayed dates against PostgreSQL.
   browser("open", `${origin}/members/${browserMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
   const renewalId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
@@ -326,6 +356,7 @@ try {
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
   browser("find", "role", "radio", "click", "--name", "Staff", "--exact");
   fill("#identifier", username); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Staff");
+  await confirmNewMembership("Staff Immediate Refresh Member", { id: staff.id, name: "Browser Staff" });
   browser("open", `${origin}/members/${staffRecoveryMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
   evalBrowser(`(() => {
@@ -338,7 +369,7 @@ try {
   })()`);
   clickButton("Confirm full cash"); checkText("Synthetic staff lost response after commit.");
   const staffOperation = recoveryRecord();
-  const staffPayment = await admin.payment.findFirstOrThrow({ where: { memberId: staffRecoveryMember.id } });
+  const staffPayment = await admin.payment.findFirstOrThrow({ where: { memberId: staffRecoveryMember.id }, include: { receipt: true } });
   await admin.operator.update({ where: { id: staff.id }, data: { canCollectCash: false } });
   clickButton("Retry same confirmation"); checkText("Your account does not have permission for this action.");
   assert.deepEqual(recoveryRecord(), staffOperation);
@@ -347,12 +378,14 @@ try {
   audit("Unresolved payment with revoked cash permission");
   await admin.operator.update({ where: { id: staff.id }, data: { canCollectCash: true } });
   browser("reload"); checkText("Retry same confirmation"); clickButton("Retry same confirmation"); checkText("Full cash payment confirmed"); checkText(staffPayment.reference);
+  assertRefreshedMembership(staffPayment, "Browser Staff");
   assert.equal(await admin.payment.count({ where: { memberId: staffRecoveryMember.id } }), 1);
   assert.equal(await admin.membershipPeriod.count({ where: { memberId: staffRecoveryMember.id } }), 1);
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
   fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("R-01 browser: real 403 after committed lost response retained the key across reload; restored permission returned the original payment without duplicates.");
+  console.log("S-01f/g browser: owner/staff normal confirmation and same-key recovery refresh eligibility, attributed history and receipt links without navigation; success messages remain visible.");
   browser("open", origin); checkText("Welcome, Browser Owner");
   clickButton("Send reset link"); checkText("Link captured for the recipient.");
   const resetUrl = await capturedUrl(staff.id);

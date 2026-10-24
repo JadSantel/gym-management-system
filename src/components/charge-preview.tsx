@@ -117,7 +117,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
             }
             throw new Error(result.error ?? "Cash confirmation failed.");
           }
-          clearPending(); setConfirmed(result);
+          clearPending(); setConfirmed(result); router.refresh();
         } catch (failure) {
           setError(failure instanceof Error ? failure.message : "Connection or recovery storage unavailable. Retry the same confirmation.");
           errorRef.current?.focus();
