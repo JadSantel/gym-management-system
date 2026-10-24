@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  username      String?   @unique
+  displayUsername String?
+  sessions      Session[]
+  accounts      Account[]
+  operator      Operator?
+  @@map("auth_users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @db.Timestamptz(3)
+  token     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  reauthenticatedAt DateTime? @db.Timestamptz(3)
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  @@index([identifier])
+  @@map("auth_verifications")
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+  @@map("auth_rate_limits")
+}
+
+enum OperatorRole {
+  OWNER
+  STAFF
+}
+
+enum AccessState {
+  PENDING
+  ACTIVE
+  DISABLED
+}
+
+enum InvitePurpose {
+  OWNER_SETUP
+  STAFF_SETUP
+  OWNER_RESET
+  STAFF_RESET
+}
+
+model Gym {
+  id        String @id @default(uuid()) @db.Uuid
+  name      String
+  state     AccessState @default(PENDING)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  operators Operator[]
+  invitations Invitation[]
+  auditEvents IdentityAudit[]
+  members Member[]
+  @@map("gyms")
+}
+
+// Global identity binding, separate from tenant business records. S-01b must narrow runtime access.
+model Operator {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @unique
+  gymId     String @map("gym_id") @db.Uuid
+  role      OperatorRole
+  state     AccessState @default(PENDING)
+  canManageMembers Boolean @default(false)
+  canCollectCash Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User @relation(fields: [userId], references: [id])
+  gym       Gym @relation(fields: [gymId], references: [id])
+  invitations Invitation[]
+  @@unique([id, gymId])
+  createdMembers Member[]
+  @@index([gymId])
+  @@map("gym_operators")
+}
+
+model Invitation {
+  id         String @id @default(uuid()) @db.Uuid
+  gymId      String @map("gym_id") @db.Uuid
+  operatorId String @db.Uuid
+  purpose    InvitePurpose
+  tokenHash  String @unique
+  expiresAt  DateTime @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  sentAt     DateTime? @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  operator   Operator @relation(fields: [operatorId, gymId], references: [id, gymId])
+  gym        Gym @relation(fields: [gymId], references: [id])
+  @@index([operatorId])
+  @@map("identity_invitations")
+}
+
+model IdentityAudit {
+  id          String @id @default(uuid()) @db.Uuid
+  gymId       String @map("gym_id") @db.Uuid
+  initiatorId String
+  subjectId   String
+  action      String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  gym         Gym @relation(fields: [gymId], references: [id])
+  @@index([gymId, createdAt])
+  @@map("identity_audit")
+}
+
+model Member {
+  id        String @id @default(uuid()) @db.Uuid
+  gymId     String @map("gym_id") @db.Uuid
+  fullName  String @map("full_name")
+  nameKey   String @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  gym       Gym @relation(fields: [gymId], references: [id])
+  creator   Operator @relation(fields: [createdBy, gymId], references: [id, gymId])
+  @@unique([id, gymId])
+  @@index([gymId, nameKey])
+  @@map("members")
+}

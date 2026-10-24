@@ -1,7 +1,7 @@
 # Gym CRM — Coding Agent Contract (`AGENTS.md`)
 
 **Updated:** 2026-10-24 (Asia/Manila)  
-**Mode:** Small verified increments; auto-continue *within the explicitly authorized business milestone*, not indefinitely.  
+**Mode:** Small verified increments; **pause after each resolved engineering task for the user's GitHub checkpoint** (user update, 2026-10-24). Continue within the current task only.
 **Starting milestone:** S-01 — First verified cash membership. **First task:** S-01a. **Data:** synthetic only.  
 **Reality check:** The supplied documents describe a planned system; no working app, deployment, domain, email sender or test environment is established by these files.
 
@@ -45,7 +45,7 @@ Use the installed skill's real instructions when available. **Do not pretend an 
 
 ## 3. Continuous implementation loop (foreground execution only)
 
-**Default authorization:** `CONTINUE_SCOPE=S-01`, until changed explicitly by the user. This covers **S-01a → S-01g** as one approved business milestone, with its prerequisites and safe synthetic fixtures. It does **not** authorize starting S-02, live onboarding or production changes. The agent works only while an active supported coding session is running; this file cannot create background autonomy.
+**Business scope:** `CONTINUE_SCOPE=S-01`, with **PAUSE_AT_TASK_BOUNDARY=true** per the user's 2026-10-24 update. Finish and verify the current engineering task, then pause so the user can review and push to GitHub. Resume the next task only after the user asks. S-01a → S-01g remain one approved business milestone, with safe synthetic prerequisites. S-02, live onboarding and production changes remain unauthorized. This file cannot create background autonomy.
 
 For each engineering task, subdivide **only as needed** into the smallest coherent, end-to-end increments. Do not split work into artificial UI-only/backend-only phases. Repeat:
 
@@ -55,7 +55,7 @@ For each engineering task, subdivide **only as needed** into the smallest cohere
 4. **Verify** — run relevant static/unit/integration/E2E checks available in the actual repository, including negative and authorization cases. Investigate failures, fix root cause, rerun. Never manufacture PASS or substitute mocked tests for required production-like DB/RLS tests.
 5. **Review** — inspect diff for scope, complexity, unintended behavior, secrets, cross-tenant access, concurrency and backward compatibility. Remove unneeded code. Review UX states where touched.
 6. **Record** — update `IMPLEMENTATION_STATUS.md` with task status, changed paths, **actual** commands/results, FR/AC evidence, blockers and next task. Keep it concise; replace old transient narrative instead of appending logs.
-7. **Continue automatically** to the next safe increment/task **within S-01** if all required checks for the current increment pass, it introduces no blocked dependency, and the active run has capacity. Do not request approval between routine already-authorized increments.
+7. **Continue within the current task** while checks pass and dependencies are safe. **Pause at every verified or blocked engineering task** for the user's GitHub checkpoint. Do not start the next S-01 task until the user resumes. Git commits/pushes still require explicit instructions.
 
 **On a session/context boundary:** leave a truthful status file and clear next action. A future agent can pick up. Do not promise to work after the session ends. Multiple agents may review in parallel, but **one writer owns a given branch/schema/migration** at a time; don't let concurrent agents edit the same files or run conflicting migrations.
 
@@ -70,7 +70,7 @@ Required at the relevant slice, not all upfront:
 - **S-01b (tenant/capabilities):** direct endpoint deny tests, least privilege and a **real restricted PostgreSQL runtime role + RLS** tested under transaction-local gym context, including missing context, cross-tenant references and pooled connections.
 - **S-01c–d (members/plans):** tenant-safe create/search, minimum validated fields, owner-controlled **approved** plan prices/durations, historical price snapshot; block unsupported sales when O-07 not approved.
 - **S-01e–f (money/history):** full verified cash only; amounts in **integer PHP centavos**; atomic payment + immutable original period + current entitlement + receipt/reference + audit; tenant-scoped idempotency key/fingerprint, member lock, PostgreSQL exclusion constraint; rollback, concurrent submit, same-key lost-response retry, direct unauthorized calls and historical immutability tests.
-- **S-01g (eligibility):** fixed **30×24-hour** paid periods `[start,end)`; new/late verified terms start **00:00 Asia/Manila on the verified collection date**; early paid terms begin at previous term end; store instants in UTC; a scheduled paid future period is not currently eligible, and no pre-verification admission is implied. Test exact end, leap year and month-end. Pending/unverified payment grants no normal access.
+- **S-01g (eligibility):** fixed plan-duration paid periods `[start,end)`; O-07 user approval on 2026-10-24 sets Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days, each day exactly 24 hours. New/late verified terms start **00:00 Asia/Manila on the verified collection date**; early paid terms begin at previous term end; store instants in UTC; a scheduled paid future period is not currently eligible, and no pre-verification admission is implied. Test exact end, leap year and month-end. Pending/unverified payment grants no normal access.
 - **Later milestones:** digital receipt of **actual funds** verified by designated account viewers; owner-only confirmed-finance alterations; append-preserving corrections with explicit access outcomes; full-cash numbered paper outage receipt grants **one visit only**; daily closing preserves unresolved differences; reviewed legacy imports and defensible pilot evidence.
 
 Use available test tools, not imaginary scripts. Missing critical test infrastructure means **NOT VERIFIED**, not PASS. Block advancement into work that depends on an unverified security/financial invariant. A narrow independent task may still continue if safely isolated.
@@ -108,7 +108,7 @@ Changed: path — short reason (FR/AC/AD link)
 Checks: exact command → PASS/FAIL/NOT RUN (cause)
 Manual: prerequisites → 2–5 repeatable steps + expected result, including a negative case
 Risk/gate: none | precise outstanding issue
-Next: smallest safe task; continued automatically only when inside authorized scope
+Next: smallest safe task; paused for user GitHub checkpoint before starting it
 ```
 
 For schema, auth, financial, destructive or security changes, include enough extra explanation for a human to reproduce/check safely. Never say “done” without evidence, falsely assert a test ran, or promise asynchronous completion. Git commits/pushes are not implied by auto-continue; follow the user's repository permissions and normal review practice.
@@ -119,14 +119,15 @@ Use once at the start of a supported coding-agent session (not before every smal
 
 ```text
 Resume our Gym CRM. Follow AGENTS.md and IMPLEMENTATION_STATUS.md.
-AUTO_CONTINUE_SCOPE=S-01: implement from the next unverified increment through
-S-01a..S-01g, sequentially, with synthetic data only. Activate Ponytail for
+CONTINUE_SCOPE=S-01; PAUSE_AT_TASK_BOUNDARY=true: resume the next unverified
+task with synthetic data only, then pause for my GitHub checkpoint. Activate Ponytail for
 simple correct code and Caveman for concise communication if installed.
 For touched frontend work use UI/UX Pro Max and shadcn/ui if installed.
 Read only relevant PROJECT.md FR/AC/§9, architecture.md ADs and design.md UX.
 Inspect repo and existing changes; use exact installed scripts/versions.
 For each increment: implement → run focused tests → fix → review diff →
-update IMPLEMENTATION_STATUS.md → continue if safe and tests pass.
+update IMPLEMENTATION_STATUS.md → continue within the current task if safe.
+At the task boundary, stop before starting the next task until I resume.
 Never guess an open policy or bypass a security/financial test. Stop at a real
 blocker or the S-01 milestone review. Explain final changes, check results,
 manual synthetic tests, and any missing verification. Do not claim background

@@ -148,7 +148,7 @@ Do not render a single generic “Active” badge next to a pending transfer or 
 - For meaningful writes, show **Saving…** without inventing success. Disable accidental repeats locally, but rely on server idempotency for duplicates.
 - If a network response is lost after an attempted financial confirmation, show **“Confirmation status unknown. Check the saved reference or retry safely using the same request.”** Requery the operation; do not create a new operation ID automatically.
 - A server-recognized retry shows the **same** reference and result. A reused key with different request details shows an actionable conflict, not a second charge.
-- Financial submission review displays **member, selected plan, 30-day duration, exact full amount, method, original collection timestamp, collector, and intended start/end** before approval. Do not rely solely on a confirmation button.
+- Financial submission review displays **member, selected plan, approved elapsed-day duration, exact full amount, method, original collection timestamp, collector, and intended start/end** before approval. Do not rely solely on a confirmation button.
 - Destructive or restricted changes require explicit explanation and, where policy requires, recent owner password reauthentication; no shared staff passwords and no simple “Are you sure?” substitute for approval/evidence.
 
 ### 7.3 Feedback messages — suggested wording
@@ -210,7 +210,7 @@ This is **not** a public gym signup page. A designated platform admin completes 
 
 ### UX-05 — Plan and exact full charge (**S-01d**)
 
-- Owner configures approved plan and price; initial “monthly” label means **30 elapsed days**, not calendar month. Supported plan catalog/prices are **O-07 decisions**. Seed only explicitly synthetic examples.
+- O-07 approved 2026-10-24: Monthly **₱800 / 30 days**, 3 Months **₱2,100 / 90 days**, 6 Months **₱4,000 / 180 days**. Show fixed elapsed days beside each label. Later prices remain owner-controlled; development stays synthetic.
 - Before collection: member, selected approved plan, locked price/duration snapshot, exact **full** charge, method, operator and intended time interval appear in a confirmation review.
 - Staff cannot alter plan price, offer unsupported discounts, extend duration, or turn a short payment into a balance.
 - If O-07 unresolved for a real gym, show an informational disabled sale state rather than a made-up launch plan.
@@ -333,7 +333,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | UX-D07 | Extra queued advance renewals | Disable further advance sales pending policy | Product/pilot owner decision. |
 | UX-D08 | Cross-date digital confirmation / historical recovery effective date | Hold for review; never infer start date | Product/pilot owner decision. |
 | UX-D09 | Refund rules, outage repeats, receipt custody and closing cutoff | Show case/evidence scaffolding; disable affected final decisions | O-02, O-03, O-06, closing details. |
-| UX-D10 | Launch plan catalog/prices | Use labelled synthetic mock amounts; do not offer live sale | O-07. |
+| UX-D10 | Launch plan catalog/prices | Approved Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; live readiness remains gated | O-07 resolved 2026-10-24. |
 | UX-D11 | First-owner identity proof, owner manual recovery, real email sender | Private synthetic admin fixture only for build | Before real onboarding: admin SOP, domain, authenticated Brevo sender and verified delivery. |
 
 Record any newly accepted UX decisions with approver, date, impacted screens, tests, and source-policy check. **Do not reinterpret design proposals as owner approval simply because they are written here.**

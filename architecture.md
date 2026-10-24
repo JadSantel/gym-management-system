@@ -155,7 +155,7 @@ Use `timestamptz` for event instants. Record **actual collection time**, receipt
 
 ## 6. Approved membership rules and preventing overlap
 
-The plan labeled monthly is **30 consecutive 24-hour days** (not a calendar month). For new membership or late renewal, use **00:00 Asia/Manila on the approved verified full-payment date** as period start. Valid full-cash outage back-entry instead uses midnight of the verified **original cash-collection date**. Paid early renewal starts exactly at the existing paid interval's end. Use inclusive start/exclusive end (`[start,end)`); no verified paid period, no normal ongoing eligibility. Payment at 18:30 is not retroactive proof of entry before payment. Store and evaluate exact boundaries in UTC instants; display in the pilot's Asia/Manila timezone.
+O-07 user approval (2026-10-24): Monthly **₱800 / 30 days**, 3 Months **₱2,100 / 90 days**, 6 Months **₱4,000 / 180 days**. Days are consecutive 24-hour periods, never calendar months. Snapshot duration and integer-centavo price. New membership or late renewal starts **00:00 Asia/Manila on the verified full-payment date**. Valid outage back-entry uses midnight of the verified original collection date. Early renewal starts at the existing interval's end. Use `[start,end)`; no verified period, no normal eligibility. Payment at 18:30 never proves earlier admission. Store/evaluate UTC instants; display Asia/Manila.
 
 - `membership_periods` holds the original confirmed financial provenance and sold term. Corrective/refund actions preserve this history, with linked owner approval.
 - A **separate current effective entitlement projection is approved** so authorized access-shortening/termination does not delete historical paid terms. Every paid-term creation updates this projection in the same transaction; later owner-approved adjustments append correction evidence and atomically supersede affected projection rows.
@@ -200,7 +200,7 @@ BEGIN DB TRANSACTION via pinned Prisma API
   Load approved price + duration from DB, snapshot for sale
   Validate actual **full cash received**, authenticated collector and date
   INSERT confirmed payment (integer centavos) and immutable sale snapshot
-  INSERT exactly one sourced 30-day membership period
+  INSERT exactly one sourced membership period using its approved 30/90/180-day snapshot
   INSERT current-effective entitlement segment(s) if projection exists
   INSERT unique retrievable receipt/reference and audit event
   Mark scoped operation complete with immutable result reference
@@ -357,7 +357,7 @@ Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until
 - **S-01d:** owner-only plan pricing and immutable at-sale snapshot.
 - **S-01e:** exact full cash confirmation, transaction-local tenant client, idempotency, row lock, exclusion, financial atomicity.
 - **S-01f:** retrievable receipt and attributable payment history.
-- **S-01g:** check-in eligibility, fixed 30-day time calculations, complete cash join -> receipt -> eligibility.
+- **S-01g:** eligibility, approved fixed 30/90/180-day calculations, complete cash join -> receipt -> eligibility.
 - **S-02:** early/late renewal with adjacency and no paid-time loss, subject to multiple-advance gate.
 - **S-03:** receiving-account verified GCash/bank workflows.
 - **S-04:** evidence-backed investigations and owner-approved linked correction/refund, with separate access projection if used.

@@ -29,7 +29,7 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 | Individual owner/staff access | Authenticated operators, explicit authority, attributable actions | FR-01 |
 | Member and plan records | Search/create member, show paid periods and status, owner-controlled exact prices | FR-02 |
 | Full-payment collection | Cash, GCash, and bank-transfer records; verified confirmation; retrievable receipt/reference | FR-03, FR-04 |
-| Membership lifecycle | Fixed 30-day periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
+| Membership lifecycle | Approved fixed 30/90/180-day periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
 | Payment investigation | Searchable history, evidence-backed missing-payment recovery, escalation | FR-07 |
 | Owner-controlled corrections | Preserved originals, classified reason, approval, explicit money and access outcomes | FR-08 |
 | Outage recovery | Physical numbered-receipt procedure, one-visit exceptions, back-entry and custody reconciliation | FR-09 |
@@ -37,7 +37,7 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 | Verified migration | Traceable historical entitlements and unresolved legacy flags | FR-11 |
 | Pilot evidence | Defined collection/entry timestamps, categorized incidents, closing-time and eligibility measurements | FR-12 |
 
-The initial plan targets simple owner-priced memberships labeled monthly, each lasting exactly 30 consecutive 24-hour days. Monthly-only launch is a **proposal pending O-07**, not a settled exclusion of every other duration. No extra duration, promotion, discount, guest pass, or grandfathered contract may be invented to fill that gap.
+**O-07 approved by the user on 2026-10-24:** Monthly — **₱800 / 30 elapsed days**; 3 Months — **₱2,100 / 90 elapsed days**; 6 Months — **₱4,000 / 180 elapsed days**. Each day is exactly 24 hours; none uses calendar-month arithmetic. These initial catalogue prices remain owner-controlled for later changes, preserving historical snapshots. No other duration, promotion, discount, guest pass, or grandfathered contract is approved.
 
 ### Excluded
 
@@ -305,7 +305,7 @@ Each slice delivers a demonstrable operator journey across interface, authorizat
 
 | Slice | End-to-end deliverable | Depends on | Exit demonstration and verification | Decision gate |
 |---|---|---|---|---|
-| S-01 — First verified cash membership | Individual owner/staff access; owner-priced monthly plan; member search/create; exact charge; full cash confirmation; receipt/history; current eligibility | None | Demonstrate US-01–03 and first membership eligibility; pass AC-01a–b, AC-02a–c, AC-03a–d and applicable AC-06a–b, including short payment and lost-response retry | O-07 plan set, initial capability assignments |
+| S-01 — First verified cash membership | Individual owner/staff access; approved owner-priced plans; member search/create; exact charge; full cash confirmation; receipt/history; current eligibility | None | Demonstrate US-01–03 and first membership eligibility; pass AC-01a–b, AC-02a–c, AC-03a–d and applicable AC-06a–b, including short payment and lost-response retry | O-07 resolved; initial capability assignments |
 | S-02 — Renewal without lost time | Early/late cash renewal, expiry/remaining-time display, adjacent periods, distinct uncompleted-request versus scheduled-paid-period status | S-01 | Demonstrate US-05–06; pass AC-05a–c, AC-05e, AC-06a–b; check 30-day boundaries across leap years and month ends, exact expiry and concurrent duplicate renewal requests | Remaining-day display and multiple-advance-renewal handling |
 | S-03 — Verified digital collection | Pending GCash/bank payment, designated verifier work queue, account-match confirmation, member receipt/eligibility | S-01, S-02 | Demonstrate US-04; pass AC-01c, AC-04a–d; screenshot-only and unauthorized confirmation fail; proper verification creates one period | O-04 named account verifiers and unavailable-verifier SOP |
 | S-04 — Evidence-backed discrepancy resolution | Search history, open/escalate cases, recover an omitted full payment; owner-controlled linked corrections and gated refunds with explicit access disposition | S-01–03 | Demonstrate US-07–08; pass AC-07a–d, AC-08a–d; compare duplicate ledger entry with two actual collections; staff modification attempts fail | O-03, O-05; recovered-payment effective dates; reason matrix approved for supported cases |
@@ -325,7 +325,7 @@ Each task is small enough for an individual coding-agent prompt, but **S-01 is n
 | S-01d — Approved plan/charge | Owner maintains approved plan and exact full price; immutable price snapshot before sale | AC-02a–c; changing current catalog does not rewrite an old sale |
 | S-01e — Cash confirmation engine | Full-only cash confirmation with immutable payment reference, atomic paid-period linkage, idempotent retry | AC-03a–d; short payment, failed writes, lost response, concurrent retry |
 | S-01f — Receipt and history | Retrievable receipt and attributable member payment history | AC-03b–d; collector, amount, method, timestamp and linked period visible |
-| S-01g — Eligibility and end-to-end demo | Compute status from confirmed 30-day paid interval; owner/staff complete join → full cash → receipt → access check | AC-06a–b and complete S-01 acceptance suite, including expiry boundary |
+| S-01g — Eligibility and end-to-end demo | Compute status from confirmed 30/90/180-day plan interval; owner/staff complete join → full cash → receipt → access check | AC-06a–b and complete S-01 acceptance suite, including expiry boundary |
 
 All tasks may use synthetic data. Tasks S-01e–g use the approved 00:00 Asia/Manila effective-start convention; remaining-day display rounding must not overstate eligibility. Keep nonessential features out of S-01.
 
@@ -344,7 +344,7 @@ All owners below are **proposed accountable roles, people to assign**. The sourc
 | O-04 — Named digital verifiers | Authorized receiving accounts, named viewers, evidence format, unavailable-verifier escalation | Pilot owner | Blocks digital confirmation for unassigned operators; payments remain unconfirmed |
 | O-05 — Claim SOP | Acceptable corroborating evidence, investigator assignments, secure evidence references/retention, high-risk escalation examples | Pilot owner + operations lead | Blocks staff recovery until authority/evidence standard is documented; record/escalate claims only |
 | O-06 — Receipt custody | Booklet/number scope, assignment, cutoff, used/unused/void/missing counts, custody handovers, prolonged outages, aging/escalation | Pilot owner + operations lead | Blocks live outage fallback; physical controls must work without application connectivity |
-| O-07 — Launch plan catalog | Monthly-only proposal, exact prices, any evidenced additional durations or grandfathered terms | Pilot owner + product owner | Blocks sales of unapproved plans/discounts; do not implement speculative variants |
+| O-07 — Launch plan catalog | **RESOLVED 2026-10-24:** Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; all fixed elapsed days | User approval recorded; future price changes owner-controlled | Only these durations; no discounts/other variants. Live readiness gates remain separate. |
 | O-08 — Legacy acceptance | Source verification, sign-off authority, contradictory records/legacy balances, historical entitlement acceptance and metric cutoff | Pilot owner + product owner | Blocks unverified migration/activation; flag uncertain records and preserve provenance |
 | O-09 — Pilot protocol | Participants, baseline/trial dates, duration, collection evidence/denominator, operating-day definition, outages/partial days, reviewers and incident protocol | Product owner + pilot reviewer | Blocks credible success claims and pilot launch; record real timestamps without manufactured baselines |
 | Derived closing detail | Daily cutoff/timezone, cash float/removal treatment, adjustment allocation, closing snapshot amendments | Pilot owner + operations lead | Blocks final closing totals/sign-off; show underlying records and open items |
