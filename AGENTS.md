@@ -11,16 +11,16 @@
 
 Source order and purpose:
 
-1. `PROJECT.md`: **controlling** MVP behavior, FR/AC acceptance, S-01–S-07 and §9 decisions/gates.
-2. `product.md`: business rationale/approved BR policies; align after approved policy changes.
-3. `architecture.md`: approved AD-001–AD-032, integrations, tenant/financial contracts; distinguish approved/proposed/open.
-4. `design.md`: proposed UX, route labels, accessibility, state/confirmation patterns.
-5. `IMPLEMENTATION_STATUS.md`: **current implementation state**, next increment, actual check evidence and blockers—not a policy authority.
+1. `docs/PROJECT.md`: **controlling** MVP behavior, FR/AC acceptance, S-01–S-07 and §9 decisions/gates.
+2. `docs/product.md`: business rationale/approved BR policies; align after approved policy changes.
+3. `docs/architecture.md`: approved AD-001–AD-032, integrations, tenant/financial contracts; distinguish approved/proposed/open.
+4. `docs/design.md`: proposed UX, route labels, accessibility, state/confirmation patterns.
+5. `docs/IMPLEMENTATION_STATUS.md`: **current implementation state**, next increment, actual check evidence and blockers—not a policy authority.
 6. This `AGENTS.md`: implementation process and stop rules. Historical handoffs are context only.
 
-On session start, inspect `git status`, the local package scripts/dependencies, `IMPLEMENTATION_STATUS.md`, and **only the sections relevant to the next task**. Search for headings/IDs before reading large documents. Never invent missing source code, dependency versions, commands, CI, migrations or cloud resources. Preserve uncommitted human changes; do not override without resolving the conflict.
+On session start, inspect `git status`, the local package scripts/dependencies, `docs/IMPLEMENTATION_STATUS.md`, and **only the sections relevant to the next task**. Search for headings/IDs before reading large documents. Never invent missing source code, dependency versions, commands, CI, migrations or cloud resources. Preserve uncommitted human changes; do not override without resolving the conflict.
 
-**Conflict rule:** If any docs contradict each other, identify exact references and stop **only the affected operation**. `PROJECT.md` governs current delivery behavior; do not silently rewrite an approved business policy or architecture decision. Non-policy, reversible code choices may be made minimally and recorded.
+**Conflict rule:** If any docs contradict each other, identify exact references and stop **only the affected operation**. `docs/PROJECT.md` governs current delivery behavior; do not silently rewrite an approved business policy or architecture decision. Non-policy, reversible code choices may be made minimally and recorded.
 
 ## 2. Required skills and response budget
 
@@ -30,7 +30,7 @@ Use the installed skill's real instructions when available. **Do not pretend an 
 |---|---|---|
 | **Ponytail** (`DietrichGebert/ponytail`) | Every coding, refactor and review increment; prefer default/**full**, not ultra | Understand the touched flow; reuse existing code/browser/framework primitives; use the smallest readable solution; no speculative layers, wrappers, generalized engines, caches, packages, premature microservices or unrelated cleanup. Never cut tests, validation, auth, accessibility, audit or error handling. |
 | **Caveman** (`JuliusBrussee/caveman`) | Routine updates, plans, reports; **standard**, not ultra | Answer first, short precise sentences, no narration or repeated context. **Never shorten code, paths, commands, error evidence, security warnings, critical conditions or manual test steps until ambiguous.** Its plain skill reduces reply verbosity; a separate proxy is not required or implicitly enabled. |
-| **UI/UX Pro Max** | New/changed screens, UX flows and visual choices | Consult for usable layout and interaction; design decisions remain subordinate to `design.md` and approved business behavior. No visual redesign of backend-only tasks. |
+| **UI/UX Pro Max** | New/changed screens, UX flows and visual choices | Consult for usable layout and interaction; design decisions remain subordinate to `docs/design.md` and approved business behavior. No visual redesign of backend-only tasks. |
 | **shadcn/ui** | Implementing frontend components | Prefer existing project-configured primitives and accessible patterns; only add components actually required. Do not install a broad component catalog or duplicate component libraries. |
 
 **Default simplification ladder:** (1) existing code, (2) built-in browser/Next.js/TypeScript feature, (3) existing installed dependency, (4) one small local helper, (5) a **justified** new dependency. Prefer explicit straightforward code over clever one-liners. For auth, use verified Better Auth behavior instead of custom crypto/session machinery. Use Prisma where appropriate; reviewed parameterized PostgreSQL SQL only where its constraints require it.
@@ -49,17 +49,17 @@ Use the installed skill's real instructions when available. **Do not pretend an 
 
 For each engineering task, subdivide **only as needed** into the smallest coherent, end-to-end increments. Do not split work into artificial UI-only/backend-only phases. Repeat:
 
-1. **Resume** — read `IMPLEMENTATION_STATUS.md`, inspect git diff/state and relevant files, confirm what really exists; recheck prior failures.
-2. **Scope** — state one observable outcome, affected FR/AC/AD/UX IDs, permitted files, necessary negative cases and open gates in **2–5 short lines**. Follow the seven tasks in `PROJECT.md` §8.
+1. **Resume** — read `docs/IMPLEMENTATION_STATUS.md`, inspect git diff/state and relevant files, confirm what really exists; recheck prior failures.
+2. **Scope** — state one observable outcome, affected FR/AC/AD/UX IDs, permitted files, necessary negative cases and open gates in **2–5 short lines**. Follow the seven tasks in `docs/PROJECT.md` §8.
 3. **Implement** — smallest correct code + schema/migration when needed + focused tests. Reuse patterns. No future-slice features or speculative settings.
 4. **Verify** — run relevant static/unit/integration/E2E checks available in the actual repository, including negative and authorization cases. Investigate failures, fix root cause, rerun. Never manufacture PASS or substitute mocked tests for required production-like DB/RLS tests.
 5. **Review** — inspect diff for scope, complexity, unintended behavior, secrets, cross-tenant access, concurrency and backward compatibility. Remove unneeded code. Review UX states where touched.
-6. **Record** — update `IMPLEMENTATION_STATUS.md` with task status, changed paths, **actual** commands/results, FR/AC evidence, blockers and next task. Keep it concise; replace old transient narrative instead of appending logs.
+6. **Record** — update `docs/IMPLEMENTATION_STATUS.md` with task status, changed paths, **actual** commands/results, FR/AC evidence, blockers and next task. Keep it concise; replace old transient narrative instead of appending logs.
 7. **Continue within the current task** while checks pass and dependencies are safe. **Pause at every verified or blocked engineering task** for the user's GitHub checkpoint. Do not start the next S-01 task until the user resumes. Git commits/pushes still require explicit instructions.
 
 **On a session/context boundary:** leave a truthful status file and clear next action. A future agent can pick up. Do not promise to work after the session ends. Multiple agents may review in parallel, but **one writer owns a given branch/schema/migration** at a time; don't let concurrent agents edit the same files or run conflicting migrations.
 
-**At S-01 completion:** demonstrate join → full cash → durable receipt → current eligibility with synthetic data; verify acceptance criteria and negative cases, then **STOP for milestone review/approval**. Do not automatically start S-02 merely because some tests pass. Full business milestones S-01–S-07 retain `PROJECT.md`'s names/order.
+**At S-01 completion:** demonstrate join → full cash → durable receipt → current eligibility with synthetic data; verify acceptance criteria and negative cases, then **STOP for milestone review/approval**. Do not automatically start S-02 merely because some tests pass. Full business milestones S-01–S-07 retain `docs/PROJECT.md`'s names/order.
 
 ## 4. Quality gates before moving forward
 
@@ -88,7 +88,7 @@ Use available test tools, not imaginary scripts. Missing critical test infrastru
 
 **STOP the affected operation** and report a precise decision needed when:
 
-1. `PROJECT.md` §9 has an unresolved required policy (e.g. pilot plan/price O-07, extra advance renewals, ambiguous past collection date, refund amounts, evidence/receipt custody, closing cutoff) or documents conflict.
+1. `docs/PROJECT.md` §9 has an unresolved required policy (e.g. pilot plan/price O-07, extra advance renewals, ambiguous past collection date, refund amounts, evidence/receipt custody, closing cutoff) or documents conflict.
 2. A change would alter an approved AD/BR/FR/AC, introduce major dependencies/infrastructure complexity or change scope without authorization.
 3. You would create live users, use real personal/payment data, activate live Brevo, buy/enable paid services, change production secrets, access live bank accounts, run destructive migrations, push/deploy to production or modify external services without explicit approval.
 4. Critical checks fail and cannot be repaired safely; verified RLS, auth, idempotency or atomic money invariants are missing; the repository has conflicting unexplained edits.
@@ -98,7 +98,7 @@ Use available test tools, not imaginary scripts. Missing critical test infrastru
 
 ## 7. Status file and compact reporting
 
-Maintain `IMPLEMENTATION_STATUS.md` as the resumable single-page ledger. Each task has `TODO / IN_PROGRESS / VERIFIED / BLOCKED`, concrete evidence and next action; update it **after** verification, not as a claim of progress. Record a known baseline failure separately from a new regression. No huge terminal logs or chat transcript dumps.
+Maintain `docs/IMPLEMENTATION_STATUS.md` as the resumable single-page ledger. Each task has `TODO / IN_PROGRESS / VERIFIED / BLOCKED`, concrete evidence and next action; update it **after** verification, not as a claim of progress. Record a known baseline failure separately from a new regression. No huge terminal logs or chat transcript dumps.
 
 After each finished or blocked increment, communicate briefly:
 
@@ -118,15 +118,15 @@ For schema, auth, financial, destructive or security changes, include enough ext
 Use once at the start of a supported coding-agent session (not before every small increment):
 
 ```text
-Resume our Gym CRM. Follow AGENTS.md and IMPLEMENTATION_STATUS.md.
+Resume our Gym CRM. Follow AGENTS.md and docs/IMPLEMENTATION_STATUS.md.
 CONTINUE_SCOPE=S-01; PAUSE_AT_TASK_BOUNDARY=true: resume the next unverified
 task with synthetic data only, then pause for my GitHub checkpoint. Activate Ponytail for
 simple correct code and Caveman for concise communication if installed.
 For touched frontend work use UI/UX Pro Max and shadcn/ui if installed.
-Read only relevant PROJECT.md FR/AC/§9, architecture.md ADs and design.md UX.
+Read only relevant docs/PROJECT.md FR/AC/§9, docs/architecture.md ADs and docs/design.md UX.
 Inspect repo and existing changes; use exact installed scripts/versions.
 For each increment: implement → run focused tests → fix → review diff →
-update IMPLEMENTATION_STATUS.md → continue within the current task if safe.
+update docs/IMPLEMENTATION_STATUS.md → continue within the current task if safe.
 At the task boundary, stop before starting the next task until I resume.
 Never guess an open policy or bypass a security/financial test. Stop at a real
 blocker or the S-01 milestone review. Explain final changes, check results,

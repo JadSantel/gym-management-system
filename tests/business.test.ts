@@ -12,6 +12,7 @@ import { createMember } from "../src/lib/members";
 import { GET as memberGet, POST as memberPost } from "../src/app/api/members/route";
 import { GET as plansGet, POST as plansPost } from "../src/app/api/plans/route";
 import { GET as chargeGet, POST as chargePost } from "../src/app/api/charges/route";
+import { POST as paymentPost } from "../src/app/api/payments/route";
 import { proposedPeriod } from "../src/lib/charges";
 import { parsePesos, formatPhp } from "../src/lib/money";
 
@@ -29,6 +30,10 @@ async function login(identifier: string, mode = "email") {
 function req(path: string, headers: Headers, body?: object) {
   const h = new Headers(headers); h.set("origin", "http://127.0.0.1:3000"); h.set("content-type", "application/json");
   return new Request(`http://127.0.0.1:3000${path}`, { method: body ? "POST" : "GET", headers: h, ...(body ? { body: JSON.stringify(body) } : {}) });
+}
+function paymentReq(headers: Headers, chargeId: string, amount: string, key: string) {
+  const h = new Headers(headers); h.set("origin", "http://127.0.0.1:3000"); h.set("content-type", "application/json"); h.set("idempotency-key", key);
+  return new Request("http://127.0.0.1:3000/api/payments", { method: "POST", headers: h, body: JSON.stringify({ chargeId, cashReceived: amount }) });
 }
 after(async () => { await db.$disconnect(); await admin.$disconnect(); });
 
@@ -186,5 +191,97 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     await assert.rejects(admin.charge.delete({ where: { id: chargeId } }));
     await assert.rejects(inGym(owners[0], "MEMBERS", tx => tx.plan.update({ where: { id: plans[0].id }, data: { durationDays: 31 } })));
     assert.deepEqual(await admin.charge.findUniqueOrThrow({ where: { id: chargeId } }), original);
+  });
+  await t.test("S-01e rejects short, stale, unauthorized and malformed cash confirmations", async () => {
+    const member = await createMember(owners[0], "Short Payment Member");
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
+    const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    assert.equal((await paymentPost(paymentReq(owners[0], chargeId, "800", randomUUID()))).status, 409);
+    assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900", randomUUID()))).status, 400);
+    assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900.001", randomUUID()))).status, 400);
+    assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900.25", "bad-key"))).status, 400);
+    assert.equal((await paymentPost(paymentReq(new Headers(), charge.id, "900.25", randomUUID()))).status, 401);
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
+    assert.equal((await paymentPost(paymentReq(staffHeaders, charge.id, "900.25", randomUUID()))).status, 403);
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: true });
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 0);
+    assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 0);
+  });
+  await t.test("S-01e payment, paid period, projection, receipt and audit roll back together on a failed write", async () => {
+    const member = await createMember(owners[0], "Rollback Member");
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 90 } });
+    const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    const key = randomUUID();
+    const receiptsBefore = await admin.paymentReceipt.count();
+    const operationsBefore = await admin.idempotencyOperation.count();
+    const auditBefore = await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED" } });
+    await admin.$executeRawUnsafe(`CREATE FUNCTION public.fail_period_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic period write failure'; END $$`);
+    await admin.$executeRawUnsafe("CREATE TRIGGER synthetic_period_failure BEFORE INSERT ON membership_periods FOR EACH ROW EXECUTE FUNCTION public.fail_period_insert()");
+    try { assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "2100", key))).status, 500); }
+    finally {
+      await admin.$executeRawUnsafe("DROP TRIGGER synthetic_period_failure ON membership_periods");
+      await admin.$executeRawUnsafe("DROP FUNCTION public.fail_period_insert()");
+    }
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 0);
+    assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 0);
+    assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: member.id } }), 0);
+    assert.equal(await admin.paymentReceipt.count(), receiptsBefore);
+    assert.equal(await admin.idempotencyOperation.count(), operationsBefore);
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED" } }), auditBefore);
+    const retried = await paymentPost(paymentReq(owners[0], charge.id, "2100", key));
+    assert.equal(retried.status, 200);
+    assert.equal((await retried.json()).payment.amountCentavos, 210_000);
+  });
+  await t.test("S-01e same-key concurrent retry returns one immutable confirmed result", async () => {
+    const member = await createMember(owners[0], "Confirmed Cash Member");
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
+    const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    const cash = `${Math.floor(plan.priceCentavos / 100)}.${String(plan.priceCentavos % 100).padStart(2, "0")}`;
+    const key = randomUUID();
+    const [first, retry] = await Promise.all([paymentPost(paymentReq(owners[0], charge.id, cash, key)), paymentPost(paymentReq(owners[0], charge.id, cash, key))]);
+    assert.deepEqual([first.status, retry.status], [200, 200]);
+    const results = await Promise.all([first.json(), retry.json()]);
+    assert.equal(results[0].payment.id, results[1].payment.id);
+    assert.equal(results[0].payment.reference, results[1].payment.reference);
+    assert.equal(results[0].payment.amountCentavos, plan.priceCentavos);
+    assert.equal(results[0].payment.method, "CASH");
+    const owner = await admin.operator.findFirstOrThrow({ where: { gymId: gyms[0], role: "OWNER" } });
+    assert.equal(results[0].payment.collectedBy, owner.id);
+    assert.equal(results[0].payment.verifiedBy, owner.id);
+    assert.equal(new Date(results[0].period.endsAt).getTime() - new Date(results[0].period.startsAt).getTime(), 30 * 86_400_000);
+    assert.equal(new Date(results[0].period.startsAt).getTime(), proposedPeriod(new Date(results[0].payment.collectedAt), 30).intendedStart.getTime());
+    assert.equal(results[0].receipt.paymentId, results[0].payment.id);
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: "CASH_PAYMENT_CONFIRMED", subjectId: results[0].payment.id } }), 1);
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
+    assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 1);
+    assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: member.id } }), 1);
+    assert.equal(await admin.paymentReceipt.count({ where: { paymentId: results[0].payment.id } }), 1);
+    const conflictAmount = `${Math.floor((plan.priceCentavos + 1) / 100)}.${String((plan.priceCentavos + 1) % 100).padStart(2, "0")}`;
+    const conflict = await paymentPost(paymentReq(owners[0], charge.id, conflictAmount, key));
+    assert.equal(conflict.status, 409);
+    assert.equal((await paymentPost(paymentReq(owners[1], charge.id, cash, randomUUID()))).status, 404);
+    assert.equal((await paymentPost(paymentReq(owners[0], charge.id, cash, randomUUID()))).status, 409);
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
+    await assert.rejects(inGym(owners[0], "CASH", tx => tx.payment.update({ where: { id: results[0].payment.id }, data: { amountCentavos: 1 } })));
+    await assert.rejects(admin.payment.update({ where: { id: results[0].payment.id }, data: { amountCentavos: 1 } }));
+    await assert.rejects(admin.membershipPeriod.delete({ where: { id: results[0].period.id } }));
+    await assert.rejects(admin.paymentReceipt.update({ where: { id: results[0].receipt.id }, data: { reference: "rewritten" } }));
+    await assert.rejects(admin.effectiveEntitlement.create({ data: { gymId: gyms[0], memberId: member.id, periodId: results[0].period.id, startsAt: new Date(results[0].period.startsAt), endsAt: new Date(results[0].period.endsAt) } }));
+    const advanceCharge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    const advanceResponse = await paymentPost(paymentReq(owners[0], advanceCharge.id, cash, randomUUID()));
+    assert.equal(advanceResponse.status, 200);
+    const advance = await advanceResponse.json();
+    assert.equal(new Date(advance.period.startsAt).getTime(), new Date(results[0].period.endsAt).getTime());
+    const thirdCharge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    assert.equal((await paymentPost(paymentReq(owners[0], thirdCharge.id, cash, randomUUID()))).status, 409);
+    await assert.rejects(admin.payment.create({ data: { gymId: gyms[0], memberId: member.id, chargeId: thirdCharge.id, reference: `BAD-${randomUUID()}`, amountCentavos: 1, collectedBy: owner.id, collectedAt: new Date(), verifiedBy: owner.id } }));
+    const operation = await admin.idempotencyOperation.findUniqueOrThrow({ where: { gymId_operationType_operationKey: { gymId: gyms[0], operationType: "CASH_CONFIRMATION", operationKey: key } } });
+    await assert.rejects(admin.idempotencyOperation.update({ where: { id: operation.id }, data: { requestFingerprint: "tampered" } }));
+    await assert.rejects(admin.idempotencyOperation.delete({ where: { id: operation.id } }));
+    const projection = await admin.effectiveEntitlement.findFirstOrThrow({ where: { periodId: advance.period.id } });
+    await assert.rejects(admin.effectiveEntitlement.update({ where: { id: projection.id }, data: { startsAt: new Date(new Date(projection.startsAt).getTime() - 1000) } }));
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 2);
+    const policies = await db.$queryRaw<{ relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('payments','membership_periods','effective_entitlement_intervals','idempotency_operations','payment_receipts') AND relnamespace='public'::regnamespace`;
+    assert.equal(policies.length, 5); for (const policy of policies) assert.deepEqual(policy, { relrowsecurity: true, relforcerowsecurity: true });
   });
 });

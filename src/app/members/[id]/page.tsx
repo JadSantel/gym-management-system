@@ -22,8 +22,8 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
   if (!data) notFound();
   const { member, plans, charge } = data;
   return <><Link href="/members" className="text-sm underline">Back to members</Link><h1 className="mt-5 text-3xl font-semibold tracking-tight">{member.fullName}</h1><p className="mt-3 break-all text-sm text-muted-foreground">Member reference: {member.id}</p>
-    <section className="mt-8 rounded-xl border border-border bg-card p-6"><h2 className="text-xl font-semibold">No confirmed membership</h2><p className="mt-2 text-muted-foreground">Creating a member does not grant admission. A verified full payment is required.</p></section>
-    <ChargePreview memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare}
+    <section className="mt-8 rounded-xl border border-border bg-card p-6"><h2 className="text-xl font-semibold">Membership access</h2><p className="mt-2 text-muted-foreground">Eligibility depends on verified paid periods, not the member record alone. A charge preview does not grant admission.</p></section>
+    <ChargePreview key={charge?.id ?? "no-preview"} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare}
       plans={plans.map(({ id, name, durationDays, priceCentavos, version }) => ({ id, name, durationDays, priceCentavos, version }))}
       saved={charge ? { id: charge.id, planName: charge.planName, durationDays: charge.durationDays, priceCentavos: charge.priceCentavos,
         intendedStart: charge.intendedStart.toISOString(), intendedEnd: charge.intendedEnd.toISOString(), preparedAt: charge.preparedAt.toISOString(),

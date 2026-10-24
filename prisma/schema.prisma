@@ -105,6 +105,11 @@ model Gym {
   members Member[]
   plans Plan[]
   charges Charge[]
+  payments Payment[]
+  membershipPeriods MembershipPeriod[]
+  entitlements EffectiveEntitlement[]
+  idempotencyOperations IdempotencyOperation[]
+  receipts PaymentReceipt[]
   @@map("gyms")
 }
 
@@ -127,6 +132,9 @@ model Operator {
   preparedCharges Charge[]
   @@index([gymId])
   @@map("gym_operators")
+  collectedPayments Payment[] @relation("CashCollector")
+  confirmedPayments Payment[] @relation("CashVerifier")
+  confirmedPeriods MembershipPeriod[]
 }
 
 model Invitation {
@@ -167,6 +175,9 @@ model Member {
   gym       Gym @relation(fields: [gymId], references: [id])
   creator   Operator @relation(fields: [createdBy, gymId], references: [id, gymId])
   charges   Charge[]
+  payments Payment[]
+  membershipPeriods MembershipPeriod[]
+  entitlements EffectiveEntitlement[]
   @@unique([id, gymId])
   @@index([gymId, nameKey])
   @@map("members")
@@ -209,4 +220,93 @@ model Charge {
   @@unique([id, gymId], map: "charges_id_gym_key")
   @@index([gymId, memberId], map: "charges_gym_member_idx")
   @@map("charge_snapshots")
+  payment Payment?
+}
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  chargeId String @unique @map("charge_id") @db.Uuid
+  reference String @unique
+  amountCentavos Int @map("amount_centavos")
+  currencyCode String @default("PHP") @map("currency_code")
+  method String @default("CASH")
+  collectedBy String @map("collected_by") @db.Uuid
+  collectedAt DateTime @map("collected_at") @db.Timestamptz(3)
+  enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
+  verifiedBy String @map("verified_by") @db.Uuid
+  verifiedAt DateTime @default(now()) @map("verified_at") @db.Timestamptz(3)
+  gym Gym @relation(fields: [gymId], references: [id])
+  member Member @relation(fields: [memberId, gymId], references: [id, gymId])
+  charge Charge @relation(fields: [chargeId, gymId], references: [id, gymId])
+  collector Operator @relation("CashCollector", fields: [collectedBy, gymId], references: [id, gymId])
+  verifier Operator @relation("CashVerifier", fields: [verifiedBy, gymId], references: [id, gymId])
+  period MembershipPeriod?
+  receipt PaymentReceipt?
+  idempotencyOperations IdempotencyOperation[]
+  @@unique([chargeId, gymId])
+  @@unique([id, gymId])
+  @@map("payments")
+}
+
+model MembershipPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  paymentId String @unique @map("payment_id") @db.Uuid
+  confirmedBy String @map("confirmed_by") @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  gym Gym @relation(fields: [gymId], references: [id])
+  member Member @relation(fields: [memberId, gymId], references: [id, gymId])
+  payment Payment @relation(fields: [paymentId, gymId], references: [id, gymId])
+  confirmer Operator @relation(fields: [confirmedBy, gymId], references: [id, gymId])
+  entitlement EffectiveEntitlement?
+  @@unique([paymentId, gymId])
+  @@unique([id, gymId])
+  @@map("membership_periods")
+}
+
+model EffectiveEntitlement {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  periodId String @unique @map("period_id") @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+  isCurrentProjection Boolean @default(true) @map("is_current_projection")
+  gym Gym @relation(fields: [gymId], references: [id])
+  member Member @relation(fields: [memberId, gymId], references: [id, gymId])
+  period MembershipPeriod @relation(fields: [periodId, gymId], references: [id, gymId])
+  @@unique([periodId, gymId])
+  @@unique([id, gymId])
+  @@map("effective_entitlement_intervals")
+}
+
+model IdempotencyOperation {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  operationType String @map("operation_type")
+  operationKey String @map("operation_key")
+  requestFingerprint String @map("request_fingerprint")
+  paymentId String? @map("payment_id") @db.Uuid
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  gym Gym @relation(fields: [gymId], references: [id])
+  payment Payment? @relation(fields: [paymentId, gymId], references: [id, gymId])
+  @@unique([gymId, operationType, operationKey])
+  @@map("idempotency_operations")
+}
+
+model PaymentReceipt {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  paymentId String @unique @map("payment_id") @db.Uuid
+  reference String @unique
+  issuedAt DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+  gym Gym @relation(fields: [gymId], references: [id])
+  payment Payment @relation(fields: [paymentId, gymId], references: [id, gymId])
+  @@unique([paymentId, gymId])
+  @@map("payment_receipts")
 }
