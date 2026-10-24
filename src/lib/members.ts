@@ -1,17 +1,17 @@
 import { inGym } from "./tenant";
 import { IdentityError } from "./identity";
+import { memberCreateSchema, memberFieldErrors, memberSearchSchema } from "./member-schema";
 
-export function memberName(value: string) {
-  const fullName = value.normalize("NFKC").trim().replace(/\s+/g, " ");
-  if (fullName.length < 1 || fullName.length > 100 || /[\p{Cc}\p{Cf}]/u.test(fullName)) throw new IdentityError(400, "Enter a member name with 1–100 visible characters.");
-  return { fullName, nameKey: fullName.toLowerCase() };
+export async function findMembers(headers: Headers, search: unknown) {
+  const parsed = memberSearchSchema.safeParse(search);
+  if (!parsed.success) throw new IdentityError(400, parsed.error.issues[0].message, { q: parsed.error.issues[0].message });
+  return inGym(headers, "MEMBERS", tx => tx.member.findMany({ where: { fullName: { contains: parsed.data, mode: "insensitive" } }, orderBy: [{ fullName: "asc" }, { id: "asc" }], take: 25 }));
 }
-export async function findMembers(headers: Headers, search: string) {
-  if (search.length > 100) throw new IdentityError(400, "Search must be 100 characters or fewer.");
-  return inGym(headers, "MEMBERS", tx => tx.member.findMany({ where: { fullName: { contains: search.trim(), mode: "insensitive" } }, orderBy: [{ fullName: "asc" }, { id: "asc" }], take: 25 }));
-}
-export async function createMember(headers: Headers, value: string, confirmDuplicate = false) {
-  const name = memberName(value);
+export async function createMember(headers: Headers, input: unknown) {
+  const parsed = memberCreateSchema.safeParse(input);
+  if (!parsed.success) throw new IdentityError(400, "Check the member fields. Only full name and duplicate confirmation are accepted.", memberFieldErrors(parsed.error));
+  const { fullName, confirmDuplicate } = parsed.data;
+  const name = { fullName, nameKey: fullName.toLowerCase() };
   return inGym(headers, "MEMBERS", async (tx, actor) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${actor.operator.gymId}:${name.nameKey}`}, 0))`;
     if (!confirmDuplicate && await tx.member.count({ where: { nameKey: name.nameKey } }) > 0) {

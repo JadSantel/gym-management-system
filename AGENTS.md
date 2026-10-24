@@ -2,8 +2,8 @@
 
 **Updated:** 2026-10-24 (Asia/Manila)  
 **Mode:** Small verified increments; **pause after each resolved engineering task for the user's GitHub checkpoint** (user update, 2026-10-24). Continue within the current task only.
-**Starting milestone:** S-01 — First verified cash membership. **First task:** S-01a. **Data:** synthetic only.  
-**Reality check:** The supplied documents describe a planned system; no working app, deployment, domain, email sender or test environment is established by these files.
+**Historical starting milestone:** S-01 / S-01a. **Current handoff:** user reports S-01–S-07 complete; reconcile repository evidence and follow §9 for Zod integration. **Data:** synthetic only.  
+**Reality check:** Implementation is user-reported complete; the supplied evidence covers S-01 only. No repository was inspected during this documentation update. Deployment, domain, email sender and live readiness require their own evidence.
 
 > Objective: build the **smallest correct, demonstrable increment**, test it, record evidence, then advance safely. Never trade away financial integrity, security, accessibility or acceptance criteria to reduce code or tokens.
 
@@ -115,7 +115,7 @@ For schema, auth, financial, destructive or security changes, include enough ext
 
 ## 8. One reusable kickoff instruction
 
-Use once at the start of a supported coding-agent session (not before every small increment):
+Historical S-01 kickoff, retained for reference. Do not use to restart completed work; use the current handoff in §9 instead:
 
 ```text
 Resume our Gym CRM. Follow AGENTS.md and docs/IMPLEMENTATION_STATUS.md.
@@ -133,3 +133,15 @@ blocker or the S-01 milestone review. Explain final changes, check results,
 manual synthetic tests, and any missing verification. Do not claim background
 execution after this session ends.
 ```
+
+## 9. Zod integration and post-implementation handoff (2026-10-24)
+
+The user reports S-01–S-07 implemented; the supplied status snapshot records only S-01. Earlier starting-task/scope instructions are historical and must not restart S-01 or authorize new milestones. Reconcile against the actual repository and retain task-boundary GitHub checkpoints. The current authorized change is Zod documentation; subsequent code integration must begin from verified repository state.
+
+For application validation, follow architecture.md AD-033/§17 and PROJECT.md VAL-01–VAL-06:
+
+- Inspect installed Zod, current schemas, request adapters, environment access and tests first. Reuse existing conventions and pin compatible dependency versions; no speculative validation framework or unrelated refactor.
+- Validate application-owned untrusted input on the server and consume only parsed, allowlisted values. Reuse browser-safe schemas for forms; keep environment/secrets/database imports server-only. Use inferred types rather than manually duplicating schema types.
+- Preserve exact centavo conversion, timezone rules, Better Auth ownership, current endpoint contracts and idempotency semantics. Never trust client gym/actor/capabilities or replace transaction checks, RLS, constraints or locks with Zod.
+- Map failures to safe field/form errors. Never log raw credentials, tokens, configuration values, DB URLs or raw parse errors containing sensitive input. Preserve auth enumeration protections.
+- Migrate one workflow per task, add meaningful boundary/negative tests and rerun relevant existing integrity checks. Do not mark Zod installed, a workflow covered, or milestones verified without source and executable evidence. Track the inventory, next task and exact results in docs/IMPLEMENTATION_STATUS.md.

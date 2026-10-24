@@ -6,7 +6,7 @@ import type { Prisma, PrismaClient, InvitePurpose } from "../generated/prisma/cl
 import { identityBinding, setGymContext } from "./binding";
 
 export class IdentityError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public fieldErrors?: Record<string, string | undefined>) { super(message); }
 }
 const fail = () => new IdentityError(403, "Account access is unavailable.");
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");

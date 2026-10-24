@@ -118,9 +118,46 @@ try {
   browser("uncheck", "input[name=cash]"); clickButton("Save permissions"); checkText("Staff permissions saved.");
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, false);
   browser("find", "role", "link", "click", "--name", "Find or create a member", "--exact"); checkText("Find a member");
+  const beforeMembers = await admin.member.count({ where: { gymId } });
+  fill("#member-name", "   "); clickButton("Create member"); checkText("Enter a member name with 1–100 visible characters.");
+  assert.equal(evalBrowser("document.activeElement?.id"), "member-feedback");
+  assert.equal(evalBrowser("document.getElementById('member-name').value"), "   ");
+  assert.equal(evalBrowser("document.getElementById('member-name').getAttribute('aria-describedby')"), "member-name-error");
+  audit("Member validation errors");
+  browser("press", "Tab"); browser("press", "Enter");
+  assert.equal(evalBrowser("document.activeElement?.id"), "member-name");
+  fill("#member-name", "Browser Synthetic Member");
+  assert.equal(evalBrowser("document.getElementById('member-name').getAttribute('aria-invalid')"), "false");
+  // Bypass the shared client schema once to prove real HTTP server rejection and safe form recovery.
+  evalBrowser(`(() => {
+    const original = window.fetch;
+    window.fetch = function(input, init) {
+      if (input === '/api/members' && init?.method === 'POST') {
+        window.fetch = original;
+        return original.call(this, input, {...init, body:JSON.stringify({fullName:null})});
+      }
+      return original.call(this, input, init);
+    };
+    return true;
+  })()`);
+  clickButton("Create member"); checkText("Enter a member name with 1–100 visible characters.");
+  assert.equal(evalBrowser("document.activeElement?.id"), "member-feedback");
+  assert.equal(evalBrowser("document.getElementById('member-name').value"), "Browser Synthetic Member");
+  assert.equal(await admin.member.count({ where: { gymId } }), beforeMembers);
+  assert.equal(evalBrowser("fetch('/api/members?q=one&q=two').then(r=>r.status)"), 400);
+  browser("set", "viewport", "375", "812");
+  assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  audit("Member server rejection at mobile width");
+  browser("screenshot", resolve(".local/member-validation-mobile.png"));
+  browser("set", "viewport", "1280", "900");
   fill("#member-name", "Browser Synthetic Member"); clickButton("Create member"); checkText("Member created.");
+  fill("#search-name", "Browser Synthetic Member"); clickButton("Search"); checkText("1 matching members");
+  assert.equal(evalBrowser("document.getElementById('search-name').value"), "Browser Synthetic Member");
   clickButton("Create member"); checkText("A member with this name exists.");
+  clickButton("Create member"); checkText("Confirm that you reviewed the matches and this is a separate person.");
+  assert.equal(evalBrowser("document.getElementById('duplicate-review').getAttribute('aria-invalid')"), "true");
   browser("check", "input[name=confirmDuplicate]"); clickButton("Create member"); checkText("Member created.");
+  console.log("Z-02 browser: shared/client and direct server rejection, retained values, corrected resubmission, keyboard error links, duplicate review, scoped search, mobile and accessibility passed.");
   audit("Member directory");
   browser("find", "role", "link", "click", "--name", "Browser Synthetic Member", "--exact"); checkText("Not eligible"); checkText("No verified paid period is recorded.");
   clickButton("Prepare charge preview"); checkText("Saved charge preview");

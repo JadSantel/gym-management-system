@@ -51,7 +51,8 @@ export async function apiResponse(request: Request, work: () => Promise<unknown>
   } catch (error) {
     const known = error instanceof IdentityError;
     const status = known ? error.status : error instanceof APIError ? 401 : typeof error === "object" && error && "code" in error && error.code === "P2002" ? 409 : 500;
-    output = Response.json({ error: known ? error.message : status === 409 ? "Those record details are unavailable." : status === 401 ? "Unable to verify your password." : "Request could not be completed. Try again." }, { status });
+    output = Response.json({ error: known ? error.message : status === 409 ? "Those record details are unavailable." : status === 401 ? "Unable to verify your password." : "Request could not be completed. Try again.",
+      ...(known && error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}) }, { status });
   }
   output.headers.set("cache-control", "no-store");
   for (const cookie of renewal?.getSetCookie() ?? []) output.headers.append("set-cookie", cookie);

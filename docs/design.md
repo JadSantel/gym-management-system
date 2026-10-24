@@ -360,3 +360,14 @@ Record any newly accepted UX decisions with approver, date, impacted screens, te
 Before significant implementation of each screen family, test the smallest complete job with representative owner/staff participants using **synthetic** gym and member details: identify task, observe actions without coaching, record errors/terms misunderstood, and evaluate time to complete and confidence in eligibility/financial status. Specifically probe how operators interpret **Confirmed vs Pending**, **Scheduled vs Uncompleted**, midnight expiry, one-time outage access, and an unresolved closing difference.
 
 Keep feedback separate from approved changes. Proposed UX refinements can be accepted by the implementation/product team; a rule that changes price, entitlement, evidence, exception or approval authority must first update the authoritative `PROJECT.md` decision record and related source documents.
+
+## 15. Validation interaction contract — Zod (AD-033)
+
+Apply to existing forms as validation is integrated; preserve their workflow and visual system. Zod is an implementation detail and must not appear in operator-facing copy.
+
+- Share browser-safe field rules with the server where practical. Validate on submit; after an attempted submission, revalidate corrected fields without noisy errors on every initial keystroke. Server validation always remains required.
+- Show specific inline messages associated with labels/controls using accessible descriptions and invalid state. Do not rely on color or a toast alone. On failed submission, focus the first invalid field or an accessible error summary with links to fields; announce updates without repeatedly interrupting typing.
+- Preserve non-sensitive entered values and selections on validation failure. Never persist or echo passwords, setup/reset tokens or other secrets in retry storage, returned errors or logs. A rejected form creates no success receipt or eligibility state.
+- Explain the correction: for example, “Enter the full amount shown” or “Use at most two decimal places.” Keep approved formatting and optional-field rules; do not silently change money, dates or credentials to make them valid.
+- Keep invalid input distinct from permission denial, stale plan/operation conflict, connectivity failure and unknown payment confirmation. An unknown financial outcome retains the same operation key and recovery path in §7.2. If the user edits a payload after an attempted operation, resolve its previous outcome before creating a new operation; never reuse a key for changed financial details.
+- Check keyboard navigation, screen-reader error association, narrow layouts, corrected resubmission and direct server rejection with JavaScript/client checks bypassed. Preserve generic authentication messages where required to prevent enumeration.

@@ -4,7 +4,7 @@
 **Date:** 2026-10-24  
 **Authority:** This document is the source of truth for current MVP requirements, approved behavior, and implementation gates. [product.md](product.md) provides aligned product context and policy references.  
 **Accountable product owner:** To assign. Pilot gym owners and operational reviewers: to assign.  
-**Implementation status:** Planned; this document does not assert that any capability has been built or validated.
+**Implementation status:** User reports S-01–S-07 implemented (2026-10-24). The attached status snapshot documents S-01 only; repository verification of later milestones is pending. This requirements document does not certify implementation or release readiness.
 
 ## 1. Authority, outcome, and interpretation
 
@@ -389,3 +389,18 @@ Track (1) **point-of-collection entry rate**: CRM entry recorded during collecti
 - Pilot reviewers can reproduce measurements and disclose missing evidence, open discrepancies, workarounds, incorrect denials, and outages.
 
 Delivery readiness and pilot success are separate decisions. Broader rollout requires credible evidence of improved payment accuracy and closing time, accurate eligibility, and no unresolved critical integrity issues. Weak results require diagnosis of workflow, adoption, policy fit, or measurement before expanding scope.
+
+## 11. Runtime validation acceptance supplement (2026-10-24)
+
+Zod is the selected application runtime-validation library (architecture.md AD-033/§17). This adds engineering acceptance criteria across existing FR-01–FR-12, not a new business milestone or changed membership/payment policy. Existing milestones must not be marked incomplete solely because the supplied documentation snapshot is older than the repository.
+
+| ID | Acceptance criterion | Applies to |
+|---|---|---|
+| VAL-01 | Application-owned untrusted input is parsed on the server before relevant domain processing/writes. Malformed, wrong-type, missing and disallowed mutation fields fail safely with no domain/financial mutation. Necessary denial auditing remains permitted without sensitive payloads. Client bypass tests prove enforcement. | Existing input boundaries across FR-01–FR-12 |
+| VAL-02 | Forms reuse browser-safe schemas where useful, show accessible field/form errors, preserve non-sensitive values and allow correction/resubmission. Server-only imports and secret configuration do not enter client bundles. | Existing owner/staff forms |
+| VAL-03 | Money conversion is exact to integer centavos; unsafe/out-of-range/unsupported-precision amounts and invalid or ambiguous dates are rejected. Approved plan durations and Asia/Manila interval semantics remain unchanged. | FR-02–FR-05, FR-08–FR-11 |
+| VAL-04 | Schema success does not grant authorization or verify funds. Existing tenant lookup, current capability checks, RLS, constraints, atomicity and idempotency pass relevant regressions, including valid-format cross-gym IDs. | All protected reads/writes |
+| VAL-05 | Required configuration is validated before use; invalid configuration fails closed with key-only safe diagnostics. No secrets/raw configuration or sensitive validation payloads appear in logs, responses or browser bundles. | Authentication, database, email and deployment configuration |
+| VAL-06 | A repository-backed inventory records covered/uncovered boundaries and incremental migration evidence. Relevant positive/negative checks and retry behavior pass before declaring a workflow integrated; unresolved coverage and skipped checks remain explicit. | Release-readiness evidence and IMPLEMENTATION_STATUS.md |
+
+No live email, real-member onboarding or production deployment is authorized by this supplement. Existing release gates still apply.

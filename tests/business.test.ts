@@ -8,7 +8,8 @@ import { auth } from "../src/lib/auth";
 import { bootstrapSyntheticOwner, completeSetup, inviteStaff, reauthenticate, setCapabilities } from "../src/lib/identity";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { inGym } from "../src/lib/tenant";
-import { createMember } from "../src/lib/members";
+import { createMember, findMembers } from "../src/lib/members";
+import { memberCreateSchema, memberSearchSchema } from "../src/lib/member-schema";
 import { GET as memberGet, POST as memberPost } from "../src/app/api/members/route";
 import { GET as plansGet, POST as plansPost } from "../src/app/api/plans/route";
 import { GET as chargeGet, POST as chargePost } from "../src/app/api/charges/route";
@@ -37,6 +38,18 @@ function paymentReq(headers: Headers, chargeId: string, amount: string, key: str
   return new Request("http://127.0.0.1:3000/api/payments", { method: "POST", headers: h, body: JSON.stringify({ chargeId, cashReceived: amount }) });
 }
 after(async () => { await db.$disconnect(); await admin.$disconnect(); });
+
+test("Z-02 member schemas preserve normalization and reject malformed or expanded names", () => {
+  assert.deepEqual(memberCreateSchema.parse({ fullName: "  Ｍｅｍｂｅｒ　 Name  " }), { fullName: "Member Name", confirmDuplicate: false });
+  assert.equal(memberCreateSchema.safeParse({ fullName: "a".repeat(100), confirmDuplicate: true }).success, true);
+  for (const fullName of [undefined, null, 123, [], {}, "", "   ", "a".repeat(101), "Hidden\u0000Name", "Hidden\u200bName", "ﷺ".repeat(6)]) {
+    assert.equal(memberCreateSchema.safeParse({ fullName }).success, false);
+  }
+  assert.equal(memberSearchSchema.parse("  Synthetic  "), "Synthetic");
+  assert.equal(memberSearchSchema.parse(""), "");
+  assert.equal(memberSearchSchema.safeParse("a".repeat(100)).success, true);
+  for (const search of [null, 1, ["Synthetic"], "a".repeat(101)]) assert.equal(memberSearchSchema.safeParse(search).success, false);
+});
 
 test("S-01d parses exact integer centavos and proposes fixed plan-duration PHT intervals", () => {
   for (const [input, expected] of [["800", 80_000], ["2100.00", 210_000], ["4000.5", 400_050], ["0.01", 1], ["21474836.47", 2_147_483_647]] as const) assert.equal(parsePesos(input), expected);
@@ -82,7 +95,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
   const staffHeaders = await login(`business_${suffix}`, "username");
   const staff = await admin.operator.findFirstOrThrow({ where: { gymId: gyms[0], role: "STAFF" } });
   await t.test("S-01c member create/search validate inputs and deny anonymous/ungranted staff endpoints", async () => {
-    await createMember(owners[0], "Direct service check");
+    await createMember(owners[0], { fullName: "Direct service check" });
     assert.equal((await memberGet(req("/api/members", new Headers()))).status, 401);
     assert.equal((await memberPost(req("/api/members", staffHeaders, { fullName: "Synthetic Member" }))).status, 403);
     assert.equal((await memberGet(req("/api/members", staffHeaders))).status, 403);
@@ -107,6 +120,42 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const matches = await (await memberGet(req("/api/members?q=Synthetic%20Member", owners[0]))).json();
     assert.equal(matches.length, 2);
     assert.notEqual(matches[0].id, matches[1].id);
+  });
+  await t.test("Z-02 direct member input failures reject protected fields without writes or raw-input disclosure", async () => {
+    const beforeMembers = await admin.member.count();
+    const beforeAudit = await admin.identityAudit.count({ where: { action: "MEMBER_CREATED" } });
+    const forbidden = "DO_NOT_ECHO_SYNTHETIC_INPUT";
+    const invalidBodies: unknown[] = [null, [], {}, { fullName: null }, { fullName: 1 }, { fullName: [] },
+      { fullName: "   " }, { fullName: "a".repeat(101) }, { fullName: "Hidden\u0000Name" }, { fullName: "ﷺ".repeat(6) },
+      { fullName: "Synthetic", confirmDuplicate: "true" }, { fullName: "Synthetic", confirmDuplicate: null },
+      ...["gymId", "createdBy", "role", "canManageMembers", forbidden].map(key => ({ fullName: "Synthetic", [key]: forbidden }))];
+    for (const body of invalidBodies) {
+      const headers = new Headers(owners[0]); headers.set("origin", "http://127.0.0.1:3000"); headers.set("content-type", "application/json");
+      const response = await memberPost(new Request("http://127.0.0.1:3000/api/members", { method: "POST", headers, body: JSON.stringify(body) }));
+      assert.equal(response.status, 400);
+      const result = await response.json();
+      assert.equal(typeof result.error, "string");
+      assert.equal(JSON.stringify(result).includes(forbidden), false);
+      assert.equal("issues" in result, false);
+      assert.equal("stack" in result, false);
+      if (body && typeof body === "object" && "fullName" in body && body.fullName === null) {
+        assert.equal(result.fieldErrors.fullName, "Enter a member name with 1–100 visible characters.");
+      }
+    }
+    for (const query of [`q=${"a".repeat(101)}`, "q=Synthetic&q=Other"]) {
+      const response = await memberGet(req(`/api/members?${query}`, owners[0]));
+      assert.equal(response.status, 400);
+      assert.equal(typeof (await response.json()).fieldErrors.q, "string");
+    }
+    await assert.rejects(createMember(owners[0], { fullName: "Synthetic", gymId: gyms[1] }), { status: 400 });
+    await assert.rejects(findMembers(owners[0], ["Synthetic"]), { status: 400 });
+    assert.equal(await admin.member.count(), beforeMembers);
+    assert.equal(await admin.identityAudit.count({ where: { action: "MEMBER_CREATED" } }), beforeAudit);
+    assert.equal((await memberPost(req("/api/members", new Headers(), { fullName: "Anonymous" }))).status, 401);
+    assert.equal((await memberPost(req("/api/members", owners[1], { fullName: "  Ｍｅｍｂｅｒ　 Name  " }))).status, 200);
+    const found = await (await memberGet(req("/api/members?q=%20Member%20Name%20", owners[1]))).json();
+    assert.equal(found.length, 1); assert.equal(found[0].fullName, "Member Name"); assert.equal(found[0].gymId, gyms[1]);
+    assert.equal((await (await memberGet(req("/api/members?q=Member%20Name", owners[0]))).json()).length, 0);
   });
   await t.test("S-01c grants take effect at direct endpoints and revocation denies the same cookie", async () => {
     await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
@@ -134,7 +183,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(await admin.plan.count({ where: { gymId: gyms[0] } }), 3);
     assert.equal((await plansPost(req("/api/plans", owners[0], { action: "initialize", durationDays: 31 }))).status, 400);
     assert.equal((await plansPost(req("/api/plans", owners[0], { action: "create", name: "Guest pass" }))).status, 400);
-    memberId = (await createMember(owners[0], "Charge Preview Member")).id;
+    memberId = (await createMember(owners[0], { fullName: "Charge Preview Member" })).id;
   });
   await t.test("S-01d charge endpoint uses authoritative exact terms and persists a retrievable preview", async () => {
     for (const plan of plans) {
@@ -168,7 +217,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal((await chargePost(req("/api/charges", staffHeaders, { memberId, planId: plans[0].id }))).status, 403);
   });
   await t.test("S-01d runtime RLS and composite references reject foreign gym plans and members", async () => {
-    const foreignMember = await createMember(owners[1], "Other Gym Member");
+    const foreignMember = await createMember(owners[1], { fullName: "Other Gym Member" });
     const foreignPlans = await (await plansPost(req("/api/plans", owners[1], { action: "initialize" }))).json();
     assert.equal((await chargeGet(req(`/api/charges?id=${chargeId}`, owners[1]))).status, 404);
     assert.equal((await chargePost(req("/api/charges", owners[0], { memberId: foreignMember.id, planId: plans[0].id }))).status, 404);
@@ -209,7 +258,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.deepEqual(await admin.charge.findUniqueOrThrow({ where: { id: chargeId } }), original);
   });
   await t.test("S-01e rejects short, stale, unauthorized and malformed cash confirmations", async () => {
-    const member = await createMember(owners[0], "Short Payment Member");
+    const member = await createMember(owners[0], { fullName: "Short Payment Member" });
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
     const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
     assert.equal((await paymentPost(paymentReq(owners[0], chargeId, "800", randomUUID()))).status, 409);
@@ -224,7 +273,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 0);
   });
   await t.test("S-01e payment, paid period, projection, receipt and audit roll back together on a failed write", async () => {
-    const member = await createMember(owners[0], "Rollback Member");
+    const member = await createMember(owners[0], { fullName: "Rollback Member" });
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 90 } });
     const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
     const key = randomUUID();
@@ -249,7 +298,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal((await retried.json()).payment.amountCentavos, 210_000);
   });
   await t.test("S-01e same-key concurrent retry returns one immutable confirmed result", async () => {
-    const member = await createMember(owners[0], "Confirmed Cash Member");
+    const member = await createMember(owners[0], { fullName: "Confirmed Cash Member" });
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
     const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
     const cash = `${Math.floor(plan.priceCentavos / 100)}.${String(plan.priceCentavos % 100).padStart(2, "0")}`;
