@@ -4,6 +4,9 @@ import { IdentityError } from "./identity";
 import { parsePesos } from "./money";
 import type { Prisma } from "../generated/prisma/client";
 
+// Only use after the same-key operation has been serialized/read and before financial writes.
+export class CashConfirmationRejected extends IdentityError {}
+
 export function proposedPeriod(now: Date, durationDays: number) {
   if (![30, 90, 180].includes(durationDays)) throw new IdentityError(400, "Unsupported membership duration.");
   const manilaDate = new Date(now.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
@@ -47,19 +50,19 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
     if (operation.completedAt) throw new IdentityError(409, "This confirmation is incomplete. Retry with the same key.");
 
     const charge = await tx.charge.findUnique({ where: { id: chargeId } });
-    if (!charge) throw new IdentityError(404, "Charge preview unavailable.");
+    if (!charge) throw new CashConfirmationRejected(404, "Charge preview unavailable.");
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${gymId}:${charge.memberId}`}, 0))`;
     await tx.$queryRaw`SELECT id FROM plans WHERE id = ${charge.planId}::uuid AND gym_id = ${gymId}::uuid FOR SHARE`;
     const currentPlan = await tx.plan.findUnique({ where: { id: charge.planId } });
     if (!currentPlan || currentPlan.version !== charge.planVersion || currentPlan.priceCentavos !== charge.priceCentavos || currentPlan.durationDays !== charge.durationDays) {
-      throw new IdentityError(409, "The approved price changed. Prepare and review a new charge before collecting cash.");
+      throw new CashConfirmationRejected(409, "The approved price changed. Prepare and review a new charge before collecting cash.");
     }
-    if (amount !== charge.priceCentavos) throw new IdentityError(400, "The full approved amount must be received before confirming membership. No payment was recorded.");
+    if (amount !== charge.priceCentavos) throw new CashConfirmationRejected(400, "The full approved amount must be received before confirming membership. No payment was recorded.");
 
     const now = new Date();
     const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId: charge.memberId, isCurrentProjection: true }, orderBy: { startsAt: "asc" } });
     const future = intervals.find(interval => interval.startsAt.getTime() > now.getTime());
-    if (future) throw new IdentityError(409, "A future paid period already exists. Another advance renewal is not available.");
+    if (future) throw new CashConfirmationRejected(409, "A future paid period already exists. Another advance renewal is not available.");
     const latest = intervals.at(-1);
     const startsAt = latest && latest.endsAt.getTime() > now.getTime()
       ? latest.endsAt

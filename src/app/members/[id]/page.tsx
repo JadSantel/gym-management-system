@@ -22,7 +22,7 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
     const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId: member.id, isCurrentProjection: true }, orderBy: { startsAt: "asc" } });
     const charge = chargeId ? await tx.charge.findFirst({ where: { id: uuid(chargeId), memberId: member.id }, include: { plan: { select: { version: true } }, preparer: { select: { user: { select: { name: true } } } } } }) : null;
     if (chargeId && !charge) throw new IdentityError(404, "Charge preview unavailable.");
-    return { member, plans, charge, payments, intervals, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
+    return { member, plans, charge, payments, intervals, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
   }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400 || error.status === 404) notFound(); redirect("/"); } throw error;
   });
@@ -43,7 +43,7 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
         {payment.receipt && <p className="mt-3 text-sm">Payment reference: <span className="break-all font-medium">{payment.reference}</span> · <Link className="font-semibold underline" href={`/receipts/${payment.receipt.id}`}>View receipt {payment.receipt.reference}</Link></p>}
       </li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">No confirmed payments recorded.</p>}
     </section>
-    <ChargePreview key={charge?.id ?? "no-preview"} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare}
+    <ChargePreview key={`${member.id}:${charge?.id ?? "no-preview"}`} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare} recoveryScope={data.recoveryScope}
       plans={plans.map(({ id, name, durationDays, priceCentavos, version }) => ({ id, name, durationDays, priceCentavos, version }))}
       saved={charge ? { id: charge.id, planName: charge.planName, durationDays: charge.durationDays, priceCentavos: charge.priceCentavos,
         intendedStart: charge.intendedStart.toISOString(), intendedEnd: charge.intendedEnd.toISOString(), preparedAt: charge.preparedAt.toISOString(),

@@ -194,15 +194,59 @@ try {
   })()`);
   clickButton("Confirm full cash"); checkText("Synthetic lost response after commit.");
   const committedPayment = await admin.payment.findFirstOrThrow({ where: { memberId: browserMember.id } });
+  const recoveryRecord = () => evalBrowser("JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(key => key.startsWith('cash-recovery:'))))");
+  const originalOperation = recoveryRecord();
+  assert.equal(originalOperation.chargeId, latestPreviewId);
+  const previewsBeforeRecovery = await admin.charge.count({ where: { gymId } });
+  async function assertRecoveryGate() {
+    checkText("Confirmation status unknown.");
+    assert.equal(evalBrowser("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Prepare charge preview').disabled"), true);
+    // Bypass the disabled button to exercise the submit handler's recovery guard too.
+    evalBrowser("document.getElementById('charge-plan').form.requestSubmit(); true");
+    assert.equal(await admin.charge.count({ where: { gymId } }), previewsBeforeRecovery);
+    assert.deepEqual(recoveryRecord(), originalOperation);
+    assert.equal(await admin.payment.count({ where: { memberId: browserMember.id } }), 1);
+  }
+  await assertRecoveryGate();
+  // An unrelated 4xx from a later attempt cannot prove the original did not commit.
+  evalBrowser(`(() => {
+    const send = window.fetch;
+    window.fetch = async function (...args) {
+      if (args[0] === '/api/payments') {
+        window.fetch = send;
+        return Response.json({error:'Synthetic later 409; original outcome unresolved.'}, {status:409});
+      }
+      return send.apply(this, args);
+    }; return true;
+  })()`);
+  clickButton("Retry same confirmation"); checkText("Synthetic later 409;"); await assertRecoveryGate();
   browser("reload"); checkText("Retry same confirmation");
   assert.equal(evalBrowser("document.getElementById('cash-received').disabled"), true);
-  audit("Cash retry after reload"); clickButton("Retry same confirmation");
+  await assertRecoveryGate(); audit("Cash retry after reload");
+  // Navigating without a preview, to another member, or to another saved preview
+  // must retain the original payload/key and prevent a replacement collection.
+  browser("open", `${origin}/members/${browserMember.id}`); await assertRecoveryGate();
+  const otherMember = await admin.member.findFirstOrThrow({ where: { gymId, id: { not: browserMember.id } } });
+  browser("open", `${origin}/members/${otherMember.id}`); await assertRecoveryGate();
+  browser("open", `${origin}/plans`); fill("#pricing-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  fill(`#price-${monthly.id}`, "1000.25"); clickButton("Save Monthly price"); checkText("Catalogue saved.");
+  browser("open", firstPreviewUrl); checkText("The catalogue price has changed."); await assertRecoveryGate();
+  assert.equal(evalBrowser("document.getElementById('cash-received').value"), "900.25");
+  browser("find", "role", "link", "click", "--name", "Review unresolved charge", "--exact");
+  browser("wait", "--fn", `new URL(location.href).searchParams.get('charge') === '${latestPreviewId}'`);
+  await assertRecoveryGate();
+  browser("set", "viewport", "375", "812");
+  assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  audit("Cash recovery after catalogue change"); browser("screenshot", resolve(".local/payment-recovery-mobile.png"));
+  browser("set", "viewport", "1280", "900"); clickButton("Retry same confirmation");
   checkText("Full cash payment confirmed"); checkText("Receipt reference:");
   const browserPayment = await admin.payment.findFirstOrThrow({ where: { memberId: browserMember.id }, include: { period: true, receipt: true } });
   assert.equal(browserPayment.id, committedPayment.id); checkText(committedPayment.reference);
   assert.equal(await admin.payment.count({ where: { memberId: browserMember.id } }), 1);
   assert.equal(browserPayment.amountCentavos, 90_025); assert.ok(browserPayment.period); assert.ok(browserPayment.receipt);
   assert.equal(await admin.membershipPeriod.count({ where: { memberId: browserMember.id } }), 1);
+  assert.equal(await admin.idempotencyOperation.count({ where: { gymId, operationKey: originalOperation.key, paymentId: committedPayment.id } }), 1);
+  assert.equal(evalBrowser("Object.keys(sessionStorage).some(key => key.startsWith('cash-recovery:'))"), false);
   audit("Confirmed cash result");
   browser("open", `${origin}/members/${browserMember.id}`); checkText("Eligible"); checkText("Current paid period"); checkText("Payment history"); checkText("Collected by"); checkText("Entry recorded"); checkText("Verified by"); checkText("Paid period");
   const receiptPath = evalBrowser("Array.from(document.querySelectorAll('a')).find(a => a.getAttribute('href')?.startsWith('/receipts/'))?.getAttribute('href')");
@@ -214,7 +258,44 @@ try {
   assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
   evalBrowser("document.getElementById('receipt-title').scrollIntoView({block:'start'}); true");
   browser("screenshot", resolve(".local/cash-confirmed-mobile.png")); browser("set", "viewport", "1280", "900");
-  console.log("S-01d–g browser: owner pricing/reauth, staff denial, durable previews, stale price protection, short cash denial, full cash, lost-response retry after reload, current eligibility, attributable member history, and retrievable linked receipt passed.");
+  console.log("R-01 browser: committed lost response, replacement submit guard, later 409, reload, member/preview navigation, catalogue change, and original-key replay passed with exactly one payment/period.");
+  // Real permission loss after commit must retain recovery until authority returns.
+  // Isolate this fixture from the known shared reauthentication bucket (R-03).
+  await admin.rateLimit.deleteMany({ where: { key: "identity:reauthenticate" } });
+  browser("open", `${origin}/members`);
+  const staffRecoveryMember = evalBrowser("fetch('/api/members',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fullName:'Staff Recovery Synthetic Member'})}).then(r=>r.json())");
+  assert.ok(staffRecoveryMember.id);
+  await admin.operator.update({ where: { id: staff.id }, data: { canCollectCash: true } });
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  browser("find", "role", "radio", "click", "--name", "Staff", "--exact");
+  fill("#identifier", username); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Staff");
+  browser("open", `${origin}/members/${staffRecoveryMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  evalBrowser(`(() => {
+    const send = window.fetch;
+    window.fetch = async function (...args) {
+      const response = await send.apply(this, args);
+      if (args[0] === '/api/payments' && response.ok) { window.fetch = send; throw new TypeError('Synthetic staff lost response after commit.'); }
+      return response;
+    }; return true;
+  })()`);
+  clickButton("Confirm full cash"); checkText("Synthetic staff lost response after commit.");
+  const staffOperation = recoveryRecord();
+  const staffPayment = await admin.payment.findFirstOrThrow({ where: { memberId: staffRecoveryMember.id } });
+  await admin.operator.update({ where: { id: staff.id }, data: { canCollectCash: false } });
+  clickButton("Retry same confirmation"); checkText("Your account does not have permission for this action.");
+  assert.deepEqual(recoveryRecord(), staffOperation);
+  browser("reload"); checkText("Preparing a charge requires member access and cash collection permission"); checkText("Confirmation status unknown.");
+  assert.deepEqual(recoveryRecord(), staffOperation);
+  audit("Unresolved payment with revoked cash permission");
+  await admin.operator.update({ where: { id: staff.id }, data: { canCollectCash: true } });
+  browser("reload"); checkText("Retry same confirmation"); clickButton("Retry same confirmation"); checkText("Full cash payment confirmed"); checkText(staffPayment.reference);
+  assert.equal(await admin.payment.count({ where: { memberId: staffRecoveryMember.id } }), 1);
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId: staffRecoveryMember.id } }), 1);
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  console.log("R-01 browser: real 403 after committed lost response retained the key across reload; restored permission returned the original payment without duplicates.");
   browser("open", origin); checkText("Welcome, Browser Owner");
   clickButton("Send reset link"); checkText("Link captured for the recipient.");
   const resetUrl = await capturedUrl(staff.id);

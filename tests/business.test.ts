@@ -262,10 +262,14 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
     const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
     assert.equal((await paymentPost(paymentReq(owners[0], chargeId, "800", randomUUID()))).status, 409);
-    assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900", randomUUID()))).status, 400);
+    const short = await paymentPost(paymentReq(owners[0], charge.id, "900", randomUUID()));
+    assert.equal(short.status, 400);
+    assert.equal(short.headers.get("cash-confirmation-outcome"), "not-confirmed");
     assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900.001", randomUUID()))).status, 400);
     assert.equal((await paymentPost(paymentReq(owners[0], charge.id, "900.25", "bad-key"))).status, 400);
-    assert.equal((await paymentPost(paymentReq(new Headers(), charge.id, "900.25", randomUUID()))).status, 401);
+    const anonymous = await paymentPost(paymentReq(new Headers(), charge.id, "900.25", randomUUID()));
+    assert.equal(anonymous.status, 401);
+    assert.equal(anonymous.headers.get("cash-confirmation-outcome"), null);
     await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
     assert.equal((await paymentPost(paymentReq(staffHeaders, charge.id, "900.25", randomUUID()))).status, 403);
     await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: true });
@@ -297,6 +301,35 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(retried.status, 200);
     assert.equal((await retried.json()).payment.amountCentavos, 210_000);
   });
+  await t.test("R-01 lost response survives price changes and permission denial; same-key retry retrieves the original", async () => {
+    const member = await createMember(owners[0], { fullName: "Recovery Regression Member" });
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
+    const charge = await (await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }))).json();
+    const cash = `${Math.floor(plan.priceCentavos / 100)}.${String(plan.priceCentavos % 100).padStart(2, "0")}`;
+    const key = randomUUID();
+    const lost = await paymentPost(paymentReq(staffHeaders, charge.id, cash, key));
+    assert.equal(lost.status, 200); // Discard the committed response as if the connection was lost.
+    const original = await admin.payment.findFirstOrThrow({ where: { memberId: member.id } });
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
+    const denied = await paymentPost(paymentReq(staffHeaders, charge.id, cash, key));
+    assert.equal(denied.status, 403);
+    assert.equal(denied.headers.get("cash-confirmation-outcome"), null, "403 cannot settle the prior commit");
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: true });
+    const priceChange = await plansPost(req("/api/plans", owners[0], { action: "update", planId: plan.id, version: plan.version, price: "950.25" }));
+    assert.equal(priceChange.status, 200);
+    const retry = await paymentPost(paymentReq(staffHeaders, charge.id, cash, key));
+    assert.equal(retry.status, 200, "Replay must precede current catalogue validation");
+    const result = await retry.json();
+    assert.equal(result.payment.id, original.id);
+    assert.equal(result.payment.reference, original.reference);
+    assert.equal(result.receipt.paymentId, original.id);
+    assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
+    assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 1);
+    // A different, uncommitted stale operation can be released only after serialized lookup.
+    const stale = await paymentPost(paymentReq(staffHeaders, charge.id, cash, randomUUID()));
+    assert.equal(stale.status, 409);
+    assert.equal(stale.headers.get("cash-confirmation-outcome"), "not-confirmed");
+  });
   await t.test("S-01e same-key concurrent retry returns one immutable confirmed result", async () => {
     const member = await createMember(owners[0], { fullName: "Confirmed Cash Member" });
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
@@ -325,6 +358,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const conflictAmount = `${Math.floor((plan.priceCentavos + 1) / 100)}.${String((plan.priceCentavos + 1) % 100).padStart(2, "0")}`;
     const conflict = await paymentPost(paymentReq(owners[0], charge.id, conflictAmount, key));
     assert.equal(conflict.status, 409);
+    assert.equal(conflict.headers.get("cash-confirmation-outcome"), null);
     assert.equal((await paymentPost(paymentReq(owners[1], charge.id, cash, randomUUID()))).status, 404);
     assert.equal((await paymentPost(paymentReq(owners[0], charge.id, cash, randomUUID()))).status, 409);
     assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
