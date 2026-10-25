@@ -2,15 +2,19 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { inGym } from "@/lib/tenant";
-import { uuid } from "@/lib/http";
+import { recordParamsSchema } from "@/lib/route-schema";
 import { IdentityError } from "@/lib/identity";
 export const dynamic = "force-dynamic";
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const receipt = await inGym(await headers(), "MEMBERS", async tx => tx.paymentReceipt.findUnique({ where: { id: uuid(id) }, include: {
-    payment: { include: { gym: true, member: true, collector: { select: { user: { select: { name: true } } } }, verifier: { select: { user: { select: { name: true } } } }, charge: true, period: true } },
-  } })).catch(error => {
+  const rawParams = await params;
+  const receipt = await inGym(await headers(), "MEMBERS", async tx => {
+    const parsed = recordParamsSchema.safeParse({ id: rawParams.id });
+    if (!parsed.success) throw new IdentityError(400, "Invalid record reference.");
+    return tx.paymentReceipt.findUnique({ where: { id: parsed.data.id }, include: {
+      payment: { include: { gym: true, member: true, collector: { select: { user: { select: { name: true } } } }, verifier: { select: { user: { select: { name: true } } } }, charge: true, period: true } },
+    } });
+  }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400) notFound(); redirect("/"); } throw error;
   });
   if (!receipt) notFound();

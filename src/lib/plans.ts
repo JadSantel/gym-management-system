@@ -2,6 +2,7 @@ import { db } from "./db";
 import { inGym } from "./tenant";
 import { getActor, IdentityError, ownerInTransaction } from "./identity";
 import { parsePesos } from "./money";
+import type { PlanChange } from "./finance-schema";
 
 // O-07 user approval, 2026-10-24. No extra plans or discount variants.
 const approved = [
@@ -13,7 +14,6 @@ const approved = [
 export async function listPlans(headers: Headers) {
   return inGym(headers, "MEMBERS", tx => tx.plan.findMany({ orderBy: { durationDays: "asc" } }));
 }
-type PlanChange = { action: "initialize" } | { action: "update"; planId: string; price: string; version: number };
 export async function changePlans(headers: Headers, input: PlanChange) {
   const actor = await getActor(headers);
   const price = input.action === "update" ? parsePesos(input.price) : null;

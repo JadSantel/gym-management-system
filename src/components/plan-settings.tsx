@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReauthenticationForm } from "@/components/reauthentication-form";
 import { formatPhp, pesoInput } from "@/lib/money";
+import { financeFieldErrors, planChangeSchema, priceSchema } from "@/lib/finance-schema";
 
 export type PlanSummary = { id: string; name: string; durationDays: number; priceCentavos: number; version: number };
 export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
@@ -13,13 +14,20 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
   const [invalidPrice, setInvalidPrice] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState("");
   const feedback = useRef<HTMLDivElement>(null);
   async function save(body: object, planId?: string) {
-    setBusy(true); setMessage(""); setError(false); setInvalidPrice(null);
+    setBusy(true); setMessage(""); setError(false); setInvalidPrice(null); setPriceError("");
     try {
-      const response = await fetch("/api/plans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const parsed = planChangeSchema.safeParse(body);
+      if (!parsed.success) {
+        const fields = financeFieldErrors(parsed.error);
+        if (planId && fields.price) { setInvalidPrice(planId); setPriceError(fields.price); }
+        throw new Error(fields.price ?? "Use a current approved plan and price.");
+      }
+      const response = await fetch("/api/plans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(parsed.data) });
       const result = await response.json();
-      if (!response.ok) { if (response.status === 400 && planId) setInvalidPrice(planId); throw new Error(result.error); }
+      if (!response.ok) { if (result.fieldErrors?.price && planId) { setInvalidPrice(planId); setPriceError(result.fieldErrors.price); } throw new Error(result.error); }
       setPlans(result); setMessage("Catalogue saved. Existing charge previews keep their original terms.");
     } catch (failure) { setError(true); setMessage(failure instanceof Error ? failure.message : "Unable to connect. Try again."); feedback.current?.focus(); }
     finally { setBusy(false); }
@@ -30,7 +38,7 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
       <p id="pricing-verify-help" className="mb-5 mt-2 text-sm text-muted-foreground">Verify your owner password. Price changes require verification within five minutes.</p>
       <ReauthenticationForm id="pricing-password" helpId="pricing-verify-help" disabled={busy} />
     </section>
-    <div ref={feedback} tabIndex={-1} role={error ? "alert" : "status"} className={`rounded-md text-sm outline-offset-4 ${error ? "text-destructive" : "text-muted-foreground"}`}>
+    <div id="plan-feedback" ref={feedback} tabIndex={-1} role={error ? "alert" : "status"} className={`rounded-md text-sm outline-offset-4 ${error ? "text-destructive" : "text-muted-foreground"}`}>
       {message}{invalidPrice && <a href={`#price-${invalidPrice}`} className="ml-2 underline">Review this price</a>}
     </div>
     {!plans.length ? <section className="rounded-xl border border-border bg-card p-6" aria-labelledby="approved-title">
@@ -38,11 +46,17 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
       <ul className="mb-5 list-inside list-disc space-y-2"><li>Monthly: ₱800.00 · 30 days</li><li>3 Months: ₱2,100.00 · 90 days</li><li>6 Months: ₱4,000.00 · 180 days</li></ul>
       <Button disabled={busy} onClick={() => save({ action: "initialize" })}>{busy ? "Saving…" : "Apply approved catalogue"}</Button>
     </section> : <section aria-labelledby="catalogue-title"><h2 id="catalogue-title" className="mb-4 text-xl font-semibold">Current catalogue</h2>
-      <div className="grid gap-4 md:grid-cols-3">{plans.map(plan => <form key={`${plan.id}-${plan.version}`} aria-label={`${plan.name} pricing`} className="space-y-4 rounded-xl border border-border bg-card p-5" onSubmit={event => {
+      <div className="grid gap-4 md:grid-cols-3">{plans.map(plan => <form key={`${plan.id}-${plan.version}`} noValidate aria-label={`${plan.name} pricing`} className="space-y-4 rounded-xl border border-border bg-card p-5" onSubmit={event => {
         event.preventDefault(); save({ action: "update", planId: plan.id, version: plan.version, price: new FormData(event.currentTarget).get("price") }, plan.id);
       }}>
         <div><h3 className="text-lg font-semibold">{plan.name}</h3><p className="text-sm text-muted-foreground">{plan.durationDays} elapsed days · Current {formatPhp(plan.priceCentavos)}</p></div>
-        <label htmlFor={`price-${plan.id}`}>Full price (PHP)<Input id={`price-${plan.id}`} name="price" type="text" inputMode="decimal" defaultValue={pesoInput(plan.priceCentavos)} pattern="[0-9]{1,8}([.][0-9]{1,2})?" maxLength={11} required disabled={busy} aria-describedby="price-help" aria-invalid={invalidPrice === plan.id} /></label>
+        <label htmlFor={`price-${plan.id}`}>Full price (PHP)<Input id={`price-${plan.id}`} name="price" type="text" inputMode="decimal" defaultValue={pesoInput(plan.priceCentavos)} pattern="[0-9]{1,8}([.][0-9]{1,2})?" maxLength={11} required disabled={busy} aria-describedby={`price-help${invalidPrice === plan.id ? ` price-error-${plan.id}` : ""}`} aria-invalid={invalidPrice === plan.id} onChange={event => {
+          if (invalidPrice !== plan.id) return;
+          const parsed = priceSchema.safeParse(event.target.value);
+          setPriceError(parsed.success ? "" : parsed.error.issues[0].message);
+          if (parsed.success) setInvalidPrice(null);
+        }} /></label>
+        {invalidPrice === plan.id && <p id={`price-error-${plan.id}`} className="text-sm text-destructive">{priceError}</p>}
         <Button type="submit" disabled={busy} className="w-full">{busy ? "Saving…" : `Save ${plan.name} price`}</Button>
       </form>)}</div>
     </section>}

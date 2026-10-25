@@ -99,6 +99,8 @@ test("R-06/08 real identity routes: strict validation, safe errors, no writes an
         { ...valid[action], gymId: gyms[1], role: "OWNER", rawSecret: "PRIVATE_INPUT_SENTINEL" },
         missing, { ...valid[action], [firstField]: null }, { ...valid[action], [firstField]: [] },
         { ...valid[action], [firstField]: 17 }, { ...valid[action], [firstField]: "" },
+        ...(["setup", "reset-staff", "disable", "capabilities"].includes(action)
+          ? [{ ...valid[action], [firstField]: `${valid[action][firstField]}\n` }] : []),
       ];
       for (const body of invalid) {
         await admin.rateLimit.deleteMany();

@@ -2,16 +2,20 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { inGym } from "@/lib/tenant";
-import { uuid } from "@/lib/http";
+import { memberQuerySchema, recordParamsSchema } from "@/lib/route-schema";
 import { IdentityError } from "@/lib/identity";
 import { ChargePreview } from "@/components/charge-preview";
 import { assessEligibility } from "@/lib/eligibility";
 export const dynamic = "force-dynamic";
-export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string }> }) {
-  const { id } = await params;
-  const { charge: chargeId } = await searchParams;
+export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string | string[] }> }) {
+  const rawParams = await params;
+  const rawQuery = await searchParams;
   const data = await inGym(await headers(), "MEMBERS", async (tx, actor) => {
-    const member = await tx.member.findUnique({ where: { id: uuid(id) } });
+    const parsed = recordParamsSchema.safeParse({ id: rawParams.id });
+    const query = memberQuerySchema.safeParse({ charge: rawQuery.charge });
+    if (!parsed.success || !query.success) throw new IdentityError(400, "Invalid record reference.");
+    const chargeId = query.data.charge;
+    const member = await tx.member.findUnique({ where: { id: parsed.data.id } });
     if (!member) return null;
     const plans = await tx.plan.findMany({ orderBy: { durationDays: "asc" } });
     const payments = await tx.payment.findMany({ where: { memberId: member.id }, orderBy: { collectedAt: "desc" }, include: {
@@ -20,7 +24,7 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
       charge: { select: { planName: true, durationDays: true } }, period: true, receipt: true,
     } });
     const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId: member.id, isCurrentProjection: true }, orderBy: { startsAt: "asc" } });
-    const charge = chargeId ? await tx.charge.findFirst({ where: { id: uuid(chargeId), memberId: member.id }, include: { plan: { select: { version: true } }, preparer: { select: { user: { select: { name: true } } } } } }) : null;
+    const charge = chargeId ? await tx.charge.findFirst({ where: { id: chargeId, memberId: member.id }, include: { plan: { select: { version: true } }, preparer: { select: { user: { select: { name: true } } } } } }) : null;
     if (chargeId && !charge) throw new IdentityError(404, "Charge preview unavailable.");
     return { member, plans, charge, payments, intervals, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
   }).catch(error => {

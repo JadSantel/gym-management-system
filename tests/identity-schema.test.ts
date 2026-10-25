@@ -45,7 +45,7 @@ test("identity field boundaries preserve normalization, password bytes and expli
   for (const length of [0, 11, 129]) assert.equal(identitySchemas.setup.safeParse({ ...valid.setup, password: "x".repeat(length) }).success, false);
   for (const length of [1, 128]) assert.equal(identitySchemas.reauthenticate.safeParse({ password: "x".repeat(length) }).success, true);
   for (const length of [0, 129]) assert.equal(identitySchemas.reauthenticate.safeParse({ password: "x".repeat(length) }).success, false);
-  for (const token of ["a".repeat(63), "a".repeat(65), "A".repeat(64), "g".repeat(64), ` ${valid.setup.token}`]) {
+  for (const token of ["a".repeat(63), "a".repeat(65), "A".repeat(64), "g".repeat(64), ` ${valid.setup.token}`, `${valid.setup.token}\n`]) {
     assert.equal(identitySchemas.setup.safeParse({ ...valid.setup, token }).success, false);
   }
   for (const name of ["", "   ", "x".repeat(101)]) assert.equal(identitySchemas.invite.safeParse({ ...valid.invite, name }).success, false);
@@ -59,6 +59,9 @@ test("identity field boundaries preserve normalization, password bytes and expli
   for (const value of ["true", "false", 0, 1]) assert.equal(identitySchemas.capabilities.safeParse({ ...valid.capabilities, canCollectCash: value }).success, false);
   assert.equal(identitySchemas.capabilities.parse(valid.capabilities).canManageMembers, false);
   assert.equal(identitySchemas.disable.safeParse({ operatorId: "not-a-uuid" }).success, false);
+  for (const action of ["reset-staff", "disable", "capabilities"] as const) {
+    assert.equal(identitySchemas[action].safeParse({ ...valid[action], operatorId: `${valid[action].operatorId}\n` }).success, false);
+  }
 });
 
 test("setup confirmation is browser-only; mismatch gives a safe associated field error", () => {

@@ -57,12 +57,12 @@ function associatedError(id: string) {
     return field?.getAttribute('aria-invalid') === 'true' && field.getAttribute('aria-describedby')?.split(' ').some(id => !!document.getElementById(id)?.textContent);
   })()`), true);
 }
-function alterIdentityRequest(action: string, patch: object) {
+function alterRequest(path: string, patch: object) {
   // Send malformed data to the REAL server once, bypassing only the client schema.
   evalBrowser(`(() => {
     const send = window.fetch;
     window.fetch = function(input, init) {
-      if (input === '/api/identity/${action}' && init?.method === 'POST') {
+      if (input === '${path}' && init?.method === 'POST') {
         window.fetch = send;
         return send.call(this, input, {...init, body: JSON.stringify({...JSON.parse(init.body), ...${JSON.stringify(patch)}})});
       }
@@ -70,6 +70,7 @@ function alterIdentityRequest(action: string, patch: object) {
     }; return true;
   })()`);
 }
+function alterIdentityRequest(action: string, patch: object) { alterRequest(`/api/identity/${action}`, patch); }
 function assertRefreshedMembership(payment: { reference: string; receipt: { id: string } | null }, collectorName: string) {
   assert.ok(payment.receipt);
   // Read the server-rendered panels before any navigation/reload, not the client success message.
@@ -168,7 +169,18 @@ try {
   const monthly = await admin.plan.findFirstOrThrow({ where: { gymId, durationDays: 30 } });
   fill(`#price-${monthly.id}`, "800.001");
   assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').checkValidity()`), false);
-  fill(`#price-${monthly.id}`, "800.00"); audit("Plan pricing");
+  clickButton("Save Monthly price"); checkText("Enter a positive PHP price");
+  focusedFeedback("plan-feedback"); associatedError(`price-${monthly.id}`);
+  assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').value`), "800.001");
+  browser("find", "role", "link", "click", "--name", "Review this price", "--exact"); focusedFeedback(`price-${monthly.id}`);
+  audit("Plan price validation errors");
+  fill(`#price-${monthly.id}`, "800.00");
+  assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').getAttribute('aria-invalid')`), "false");
+  alterRequest("/api/plans", { price: "0" }); clickButton("Save Monthly price");
+  checkText("Only catalogue initialization and price updates are accepted."); focusedFeedback("plan-feedback"); associatedError(`price-${monthly.id}`);
+  assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').value`), "800.00");
+  assert.equal((await admin.plan.findUniqueOrThrow({ where: { id: monthly.id } })).version, monthly.version);
+  clickButton("Save Monthly price"); checkText("Catalogue saved."); audit("Plan pricing");
   browser("open", origin); checkText("Welcome, Browser Owner");
   clickButton("Verify password"); checkText("Enter your current password."); focusedFeedback("reauth-password-feedback"); associatedError("reauth-password");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
@@ -283,6 +295,10 @@ try {
   console.log("Z-02 browser: shared/client and direct server rejection, retained values, corrected resubmission, keyboard error links, duplicate review, scoped search, mobile and accessibility passed.");
   audit("Member directory");
   browser("find", "role", "link", "click", "--name", "Browser Synthetic Member", "--exact"); checkText("Not eligible"); checkText("No verified paid period is recorded.");
+  const previewsBeforeInvalid = await admin.charge.count({ where: { gymId } });
+  alterRequest("/api/charges", { planId: "invalid-reference" }); clickButton("Prepare charge preview");
+  checkText("Only member and plan references are accepted."); focusedFeedback("cash-error");
+  assert.equal(await admin.charge.count({ where: { gymId } }), previewsBeforeInvalid);
   clickButton("Prepare charge preview"); checkText("Saved charge preview");
   const firstPreviewUrl = evalBrowser("window.location.href");
   const firstPreviewId = new URL(firstPreviewUrl).searchParams.get("charge")!;
@@ -296,6 +312,9 @@ try {
   clickButton("Prepare charge preview"); browser("wait", "--fn", `new URL(location.href).searchParams.get('charge') !== '${firstPreviewId}'`);
   checkText("Saved charge preview"); checkText("₱900.25"); checkText("No verified paid period is recorded.");
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  fill("#cash-received", "900.251"); clickButton("Confirm full cash");
+  checkText("Enter the full cash amount in PHP, with no more than two decimal places."); focusedFeedback("cash-error"); associatedError("cash-received");
+  assert.equal(evalBrowser("Object.keys(sessionStorage).some(key => key.startsWith('cash-recovery:'))"), false);
   fill("#cash-received", "900"); clickButton("Confirm full cash"); checkText("No payment was recorded.");
   checkText("No verified paid period is recorded."); checkText("No confirmed payments recorded.");
   const latestPreviewId = new URL(evalBrowser("window.location.href")).searchParams.get("charge")!;
@@ -321,6 +340,10 @@ try {
   const recoveryRecord = () => evalBrowser("JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(key => key.startsWith('cash-recovery:'))))");
   const originalOperation = recoveryRecord();
   assert.equal(originalOperation.chargeId, latestPreviewId);
+  alterRequest("/api/payments", { cashReceived: "900.251" }); clickButton("Retry same confirmation");
+  checkText("Only the charge reference and cash amount are accepted."); focusedFeedback("cash-error");
+  assert.deepEqual(recoveryRecord(), originalOperation);
+  assert.equal(await admin.payment.count({ where: { memberId: browserMember.id } }), 1);
   const previewsBeforeRecovery = await admin.charge.count({ where: { gymId } });
   async function assertRecoveryGate() {
     checkText("Confirmation status unknown.");
@@ -482,6 +505,15 @@ try {
   fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("R-01 browser: real 403 after committed lost response retained the key across reload; restored permission returned the original payment without duplicates.");
+  const readStatuses = evalBrowser(`(async () => {
+    const paths = ['/members/invalid-reference', '/receipts/invalid-reference', '/members/${browserMember.id}?charge=${latestPreviewId}&charge=${latestPreviewId}', '/members/${browserMember.id}?charge=invalid-reference'];
+    return Promise.all(paths.map(path => fetch(path).then(response => response.status)));
+  })()`);
+  assert.deepEqual(readStatuses, [404, 404, 404, 404]);
+  browser("open", `${origin}/login?signedOut=true`); checkText("You are signed out.");
+  browser("open", `${origin}/login?signedOut=true&signedOut=true`); checkText("Sign in");
+  assert.equal(evalBrowser("document.body.textContent.includes('You are signed out.')"), false);
+  console.log("Task 5 browser: shared pricing/cash validation, real server bypass denials, preserved inputs/recovery key, correction, error focus/links and malformed route/query denials passed.");
   console.log("S-01f/g browser: owner/staff normal confirmation and same-key recovery refresh eligibility, attributed history and receipt links without navigation; success messages remain visible.");
   browser("open", origin); checkText("Welcome, Browser Owner");
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");

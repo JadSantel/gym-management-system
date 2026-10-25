@@ -1,18 +1,19 @@
 import { CashConfirmationRejected, confirmCash } from "@/lib/charges";
-import { apiResponse, field, onlyFields, readBody, uuid } from "@/lib/http";
+import { apiResponse, readBody } from "@/lib/http";
 import { IdentityError } from "@/lib/identity";
+import { cashConfirmationSchema, financeFieldErrors, idempotencyKeySchema } from "@/lib/finance-schema";
 
 export async function POST(request: Request) {
   let rejected = false;
   const response = await apiResponse(request, async () => {
-    const body = await readBody(request);
-    onlyFields(body, ["chargeId", "cashReceived"]);
-    const operationKey = request.headers.get("idempotency-key") ?? "";
-    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(operationKey)) {
+    const parsed = cashConfirmationSchema.safeParse(await readBody(request));
+    if (!parsed.success) throw new IdentityError(400, "Check the cash fields. Only the charge reference and cash amount are accepted.", financeFieldErrors(parsed.error));
+    const operationKey = idempotencyKeySchema.safeParse(request.headers.get("idempotency-key"));
+    if (!operationKey.success) {
       throw new IdentityError(400, "A valid Idempotency-Key is required for cash confirmation.");
     }
     try {
-      return await confirmCash(request.headers, uuid(field(body, "chargeId", 36)), field(body, "cashReceived", 32), operationKey);
+      return await confirmCash(request.headers, parsed.data.chargeId, parsed.data.cashReceived, operationKey.data);
     } catch (error) {
       rejected = error instanceof CashConfirmationRejected;
       throw error;

@@ -10,6 +10,7 @@ const name = z.string({ error: nameMessage }).max(100, nameMessage).trim().min(1
 const username = z.string({ error: usernameMessage }).max(30, usernameMessage)
   .transform(value => value.trim().toLowerCase()).refine(value => /^[a-z0-9_]{3,30}$/.test(value), usernameMessage);
 const operatorId = z.string({ error: referenceMessage })
+  .length(36, referenceMessage)
   .regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i, referenceMessage);
 const passwordMessage = "Use a password with 12–128 characters.";
 const password = z.string({ error: passwordMessage }).min(12, passwordMessage).max(128, passwordMessage);
@@ -17,6 +18,7 @@ const password = z.string({ error: passwordMessage }).min(12, passwordMessage).m
 export const identitySchemas = {
   setup: z.strictObject({
     token: z.string({ error: "Open the latest invitation or recovery link from your email." })
+      .length(64, "Open the latest invitation or recovery link from your email.")
       .regex(/^[a-f0-9]{64}$/, "Open the latest invitation or recovery link from your email."),
     password,
   }),
@@ -34,6 +36,9 @@ export const identitySchemas = {
     canCollectCash: z.boolean({ error: "Choose the cash permission explicitly." }),
   }),
 };
+
+export const identityReadActionSchema = z.enum(["session", "operators"]);
+export const identityMutationActionSchema = z.enum(["setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"]);
 
 export const setupFormSchema = identitySchemas.setup.extend({
   confirmation: password,

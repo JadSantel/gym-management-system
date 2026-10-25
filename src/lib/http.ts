@@ -27,17 +27,6 @@ export async function rateLimit(headers: Headers, action: string, max = 30, publ
   if (rows[0].count > max) throw new IdentityError(429, "Too many requests. Wait one minute and try again.");
   if (denial) throw denial;
 }
-export function field(body: Record<string, unknown>, key: string, max = 254) {
-  if (typeof body[key] !== "string" || body[key].length < 1 || body[key].length > max) throw new IdentityError(400, "Check the required fields and try again.");
-  return body[key];
-}
-export function uuid(value: string) {
-  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)) throw new IdentityError(400, "Invalid record reference.");
-  return value;
-}
-export function onlyFields(body: Record<string, unknown>, allowed: string[]) {
-  if (Object.keys(body).some(key => !allowed.includes(key))) throw new IdentityError(400, "Unsupported request fields. Prices and terms are controlled by the gym owner.");
-}
 export async function readBody(request: Request) {
   if (!request.headers.get("content-type")?.startsWith("application/json")) throw new IdentityError(415, "JSON is required.");
   const reader = request.body?.getReader();

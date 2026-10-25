@@ -1,7 +1,7 @@
 import { completeSetup, disableStaff, getActor, IdentityError, inviteStaff, reauthenticate, requestOwnerReset, requestStaffReset, setCapabilities } from "@/lib/identity";
 import { inGym } from "@/lib/tenant";
 import { apiResponse, rateLimit, readBody } from "@/lib/http";
-import { identitySchemas, identityFieldErrors } from "@/lib/identity-schema";
+import { identitySchemas, identityFieldErrors, identityReadActionSchema, identityMutationActionSchema } from "@/lib/identity-schema";
 import type { z } from "zod";
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
@@ -10,19 +10,21 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   return result.data;
 }
 
-const postActions = new Set(["setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"]);
 type Context = { params: Promise<{ action: string }> };
 async function handle(request: Request, context: Context) {
   return apiResponse(request, async () => {
-    const { action } = await context.params;
+    const { action: rawAction } = await context.params;
     if (request.method === "GET") {
-      if (action !== "session" && action !== "operators") throw new IdentityError(404, "Not available.");
+      const parsed = identityReadActionSchema.safeParse(rawAction);
+      if (!parsed.success) throw new IdentityError(404, "Not available.");
       const actor = await getActor(request.headers);
-      if (action === "session") return { name: actor.operator.user.name, role: actor.operator.role, gymName: actor.operator.gym.name };
+      if (parsed.data === "session") return { name: actor.operator.user.name, role: actor.operator.role, gymName: actor.operator.gym.name };
       return inGym(request.headers, "OWNER", tx => tx.operator.findMany({ orderBy: { createdAt: "asc" },
         select: { id: true, role: true, state: true, canManageMembers: true, canCollectCash: true, user: { select: { name: true, email: true, username: true, emailVerified: true } } } }));
     }
-    if (!postActions.has(action)) throw new IdentityError(404, "Not available.");
+    const parsed = identityMutationActionSchema.safeParse(rawAction);
+    if (!parsed.success) throw new IdentityError(404, "Not available.");
+    const action = parsed.data;
     await rateLimit(request.headers, action, action === "reauthenticate" ? 5 : 30, action === "setup" || action === "reset-owner");
     const body = await readBody(request);
     switch (action) {

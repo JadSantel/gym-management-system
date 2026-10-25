@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { formatPhp, parsePesos, pesoInput } from "@/lib/money";
+import { formatPhp, pesoInput } from "@/lib/money";
+import { cashConfirmationSchema, chargePrepareSchema, financeFieldErrors, pendingCashSchema, type PendingCash } from "@/lib/finance-schema";
 import type { PlanSummary } from "./plan-settings";
 
 type SavedPreview = {
@@ -12,8 +12,6 @@ type SavedPreview = {
   intendedStart: string; intendedEnd: string; preparedAt: string; priceChanged: boolean;
 };
 const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const pendingCashSchema = z.object({ key: z.uuid(), amount: z.string().refine(value => parsePesos(value) !== null), chargeId: z.uuid(), memberId: z.uuid() }).strict();
-type PendingCash = z.infer<typeof pendingCashSchema>;
 export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, recoveryScope }: { memberId: string; memberName: string; plans: PlanSummary[]; canPrepare: boolean; saved: SavedPreview | null; recoveryScope: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -63,7 +61,9 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
       event.preventDefault(); if (!ready || busy || pendingRef.current) return;
       setBusy(true); setError("");
       try {
-        const response = await fetch("/api/charges", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ memberId, planId: new FormData(event.currentTarget).get("planId") }) });
+        const parsed = chargePrepareSchema.safeParse({ memberId, planId: new FormData(event.currentTarget).get("planId") });
+        if (!parsed.success) throw new Error("Choose a valid member and approved plan.");
+        const response = await fetch("/api/charges", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(parsed.data) });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
         router.replace(`/members/${memberId}?charge=${result.id}`, { scroll: false }); router.refresh();
@@ -103,7 +103,10 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
         event.preventDefault(); if (!ready || busy || (!pendingRef.current && reviewRequired)) return;
         setBusy(true); setError("");
         try {
-          if (!pendingRef.current && (!saved || parsePesos(cashReceived) === null)) throw new Error("Enter the full cash amount in PHP, with no more than two decimal places.");
+          if (!pendingRef.current) {
+            const parsed = cashConfirmationSchema.safeParse({ chargeId: saved?.id, cashReceived });
+            if (!parsed.success) throw new Error(financeFieldErrors(parsed.error).cashReceived ?? "Choose a saved charge preview.");
+          }
           const operation = pendingRef.current ?? { key: crypto.randomUUID(), amount: cashReceived, chargeId: saved!.id, memberId };
           // Persist before sending. Without durable recovery, do not attempt payment.
           sessionStorage.setItem(storageKey, JSON.stringify(operation));
