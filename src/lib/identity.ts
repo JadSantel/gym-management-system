@@ -5,6 +5,7 @@ import { assertSynthetic, localEmail, type EmailSender } from "./email";
 import type { Prisma, PrismaClient, InvitePurpose } from "../generated/prisma/client";
 import { identityBinding, setGymContext } from "./binding";
 import { getRuntimeConfig } from "./config";
+import { identitySchemas, identityFieldErrors, type StaffInvitation, type StaffCapabilities } from "./identity-schema";
 
 export class IdentityError extends Error {
   constructor(public status: number, message: string, public fieldErrors?: Record<string, string | undefined>) { super(message); }
@@ -81,14 +82,10 @@ async function deliver(issued: Awaited<ReturnType<typeof issue>>, email: string,
 }
 
 export function validateIdentity(input: { email: string; name: string; username?: string }) {
-  const email = input.email.trim().toLowerCase();
-  const name = input.name.trim();
-  const username = input.username?.trim().toLowerCase();
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.test$/.test(email) || name.length < 1 || name.length > 100
-      || (username !== undefined && !/^[a-z0-9_]{3,30}$/.test(username))) {
-    throw new IdentityError(400, "Enter a name, reserved .test email, and a username with 3–30 letters, numbers, or underscores.");
-  }
-  return { email, name, username };
+  const result = identitySchemas.invite.extend({ username: identitySchemas.invite.shape.username.optional() })
+    .safeParse({ email: input.email, name: input.name, username: input.username });
+  if (!result.success) throw new IdentityError(400, "Check the account fields and try again.", identityFieldErrors(result.error));
+  return result.data;
 }
 
 // Private local fixture, called only by a CLI using migration credentials. No web bootstrap endpoint.
@@ -114,7 +111,7 @@ export async function bootstrapSyntheticOwner(input: { gymId: string; gymName: s
   return deliver(result.issued, result.email, sender);
 }
 
-export async function inviteStaff(headers: Headers, input: { email: string; name: string; username: string }, sender: EmailSender = localEmail) {
+export async function inviteStaff(headers: Headers, input: StaffInvitation, sender: EmailSender = localEmail) {
   assertSynthetic();
   const actor = await getActor(headers);
   const user = validateIdentity(input);
@@ -165,7 +162,8 @@ export async function requestOwnerReset(email: string, sender: EmailSender = loc
 
 export async function completeSetup(token: string, password: string) {
   assertSynthetic();
-  if (!/^[a-f0-9]{64}$/.test(token) || password.length < 12 || password.length > 128) throw new IdentityError(400, "Use a valid link and a password with 12–128 characters.");
+  const parsed = identitySchemas.setup.safeParse({ token, password });
+  if (!parsed.success) throw new IdentityError(400, "Check the account fields and try again.", identityFieldErrors(parsed.error));
   const passwordHash = await (await auth.$context).password.hash(password);
   await db.$transaction(async tx => {
     const [scope] = await tx.$queryRaw<{ gymId: string | null }[]>`SELECT public.setup_scope(${tokenHash(token)}) AS "gymId"`;
@@ -209,7 +207,7 @@ export async function disableStaff(headers: Headers, operatorId: string) {
   });
 }
 
-export async function setCapabilities(headers: Headers, operatorId: string, capabilities: { canManageMembers: boolean; canCollectCash: boolean }) {
+export async function setCapabilities(headers: Headers, operatorId: string, capabilities: StaffCapabilities) {
   const actor = await getActor(headers);
   await db.$transaction(async tx => {
     const owner = await ownerInTransaction(tx, actor);

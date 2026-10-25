@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { identityRequest } from "@/lib/client";
+import { ReauthenticationForm } from "@/components/reauthentication-form";
 import { formatPhp, pesoInput } from "@/lib/money";
 
 export type PlanSummary = { id: string; name: string; durationDays: number; priceCentavos: number; version: number };
@@ -28,15 +28,7 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
     <section className="rounded-xl border border-border bg-card p-6" aria-labelledby="pricing-verify-title">
       <h2 id="pricing-verify-title" className="text-xl font-semibold">Verify before changing prices</h2>
       <p id="pricing-verify-help" className="mb-5 mt-2 text-sm text-muted-foreground">Verify your owner password. Price changes require verification within five minutes.</p>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={async event => {
-        event.preventDefault(); const form = event.currentTarget; setBusy(true); setMessage(""); setError(false);
-        try { await identityRequest("reauthenticate", { password: new FormData(form).get("password") }); setMessage("Password verified for five minutes."); }
-        catch (failure) { setError(true); setMessage(failure instanceof Error ? failure.message : "Unable to connect. Try again."); feedback.current?.focus(); }
-        finally { form.reset(); setBusy(false); }
-      }}>
-        <label htmlFor="pricing-password" className="grow">Owner password<Input id="pricing-password" name="password" type="password" autoComplete="current-password" maxLength={128} aria-describedby="pricing-verify-help" required disabled={busy} /></label>
-        <Button type="submit" disabled={busy}>Verify password</Button>
-      </form>
+      <ReauthenticationForm id="pricing-password" helpId="pricing-verify-help" disabled={busy} />
     </section>
     <div ref={feedback} tabIndex={-1} role={error ? "alert" : "status"} className={`rounded-md text-sm outline-offset-4 ${error ? "text-destructive" : "text-muted-foreground"}`}>
       {message}{invalidPrice && <a href={`#price-${invalidPrice}`} className="ml-2 underline">Review this price</a>}

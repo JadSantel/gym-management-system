@@ -1,6 +1,14 @@
 import { completeSetup, disableStaff, getActor, IdentityError, inviteStaff, reauthenticate, requestOwnerReset, requestStaffReset, setCapabilities } from "@/lib/identity";
 import { inGym } from "@/lib/tenant";
-import { apiResponse, field, rateLimit, readBody, uuid } from "@/lib/http";
+import { apiResponse, rateLimit, readBody } from "@/lib/http";
+import { identitySchemas, identityFieldErrors } from "@/lib/identity-schema";
+import type { z } from "zod";
+
+function parse<T>(schema: z.ZodType<T>, body: unknown): T {
+  const result = schema.safeParse(body);
+  if (!result.success) throw new IdentityError(400, "Check the account fields and try again.", identityFieldErrors(result.error));
+  return result.data;
+}
 
 const postActions = new Set(["setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"]);
 type Context = { params: Promise<{ action: string }> };
@@ -18,15 +26,18 @@ async function handle(request: Request, context: Context) {
     await rateLimit(request.headers, action, action === "reauthenticate" ? 5 : 30, action === "setup" || action === "reset-owner");
     const body = await readBody(request);
     switch (action) {
-      case "setup": return completeSetup(field(body, "token", 64), field(body, "password", 128));
-      case "reauthenticate": return reauthenticate(request.headers, field(body, "password", 128));
-      case "invite": return inviteStaff(request.headers, { email: field(body, "email"), name: field(body, "name", 100), username: field(body, "username", 30) });
-      case "reset-owner": return requestOwnerReset(field(body, "email"));
-      case "reset-staff": return requestStaffReset(request.headers, uuid(field(body, "operatorId", 36)));
-      case "disable": return disableStaff(request.headers, uuid(field(body, "operatorId", 36)));
+      case "setup": {
+        const { token, password } = parse(identitySchemas.setup, body);
+        return completeSetup(token, password);
+      }
+      case "reauthenticate": return reauthenticate(request.headers, parse(identitySchemas.reauthenticate, body).password);
+      case "invite": return inviteStaff(request.headers, parse(identitySchemas.invite, body));
+      case "reset-owner": return requestOwnerReset(parse(identitySchemas["reset-owner"], body).email);
+      case "reset-staff": return requestStaffReset(request.headers, parse(identitySchemas["reset-staff"], body).operatorId);
+      case "disable": return disableStaff(request.headers, parse(identitySchemas.disable, body).operatorId);
       case "capabilities": {
-        if (typeof body.canManageMembers !== "boolean" || typeof body.canCollectCash !== "boolean") throw new IdentityError(400, "Choose explicit staff permissions.");
-        return setCapabilities(request.headers, uuid(field(body, "operatorId", 36)), { canManageMembers: body.canManageMembers, canCollectCash: body.canCollectCash });
+        const { operatorId, canManageMembers, canCollectCash } = parse(identitySchemas.capabilities, body);
+        return setCapabilities(request.headers, operatorId, { canManageMembers, canCollectCash });
       }
     }
   });

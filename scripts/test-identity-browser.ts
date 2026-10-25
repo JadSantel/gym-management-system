@@ -10,6 +10,10 @@ import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { db } from "../src/lib/db";
 
 assertSynthetic();
+for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
+  const url = new URL(process.env[key]!);
+  assert.equal(url.hostname, "127.0.0.1"); assert.equal(url.port, "55432"); assert.equal(url.pathname, "/gym_crm_synthetic");
+}
 const binary = process.env.AGENT_BROWSER_BIN;
 if (!binary) throw new Error("Set AGENT_BROWSER_BIN to an installed agent-browser 0.39.2 executable. Start npm run dev first.");
 const session = `gym-identity-${randomUUID().slice(0, 8)}`;
@@ -43,6 +47,28 @@ function evalBrowser(code: string) {
   const result = JSON.parse(browser("eval", code, "--json"));
   if (!result.success) throw new Error("Browser evaluation failed.");
   return result.data.result;
+}
+function focusedFeedback(id: string) {
+  browser("wait", "--fn", `document.activeElement?.id === ${JSON.stringify(id)}`);
+}
+function associatedError(id: string) {
+  assert.equal(evalBrowser(`(() => {
+    const field = document.getElementById(${JSON.stringify(id)});
+    return field?.getAttribute('aria-invalid') === 'true' && field.getAttribute('aria-describedby')?.split(' ').some(id => !!document.getElementById(id)?.textContent);
+  })()`), true);
+}
+function alterIdentityRequest(action: string, patch: object) {
+  // Send malformed data to the REAL server once, bypassing only the client schema.
+  evalBrowser(`(() => {
+    const send = window.fetch;
+    window.fetch = function(input, init) {
+      if (input === '/api/identity/${action}' && init?.method === 'POST') {
+        window.fetch = send;
+        return send.call(this, input, {...init, body: JSON.stringify({...JSON.parse(init.body), ...${JSON.stringify(patch)}})});
+      }
+      return send.call(this, input, init);
+    }; return true;
+  })()`);
 }
 function assertRefreshedMembership(payment: { reference: string; receipt: { id: string } | null }, collectorName: string) {
   assert.ok(payment.receipt);
@@ -98,15 +124,45 @@ try {
 
   browser("open", ownerUrl);
   audit("Setup");
+  fill("#password", password); fill("#confirmation", `${password} mismatch`);
+  clickButton("Save private password"); checkText("Passwords must match."); focusedFeedback("setup-feedback");
+  associatedError("confirmation");
+  assert.equal(evalBrowser("document.getElementById('password').value === '' && document.getElementById('confirmation').value === ''"), true);
+  audit("Setup mismatch errors");
+  browser("press", "Tab"); browser("press", "Enter");
+  assert.equal(evalBrowser("document.activeElement?.id"), "confirmation");
+  fill("#password", password); fill("#confirmation", password);
+  assert.equal(evalBrowser("document.getElementById('confirmation').getAttribute('aria-invalid')"), "false");
+  alterIdentityRequest("setup", { role: "OWNER" });
+  clickButton("Save private password"); checkText("Check the account fields and try again."); focusedFeedback("setup-feedback");
+  assert.equal((await admin.gym.findUniqueOrThrow({ where: { id: gymId } })).state, "PENDING");
   fill("#password", password); fill("#confirmation", password);
   clickButton("Save private password"); checkText("Your password is ready");
   browser("open", `${origin}/login`); browser("open", ownerUrl); fill("#password", password); fill("#confirmation", password);
   clickButton("Save private password"); checkText("Link expired, replaced, or already used.");
+  focusedFeedback("setup-feedback");
   browser("open", `${origin}/login`);
+  clickButton("Forgot your password?"); fill("#identifier", "owner@example.com"); clickButton("Request recovery link");
+  checkText("Enter a reserved .test email"); focusedFeedback("identity-login-feedback"); associatedError("identifier");
+  assert.equal(evalBrowser("document.getElementById('identifier').value"), "owner@example.com");
+  audit("Owner recovery validation errors");
+  browser("press", "Tab"); browser("press", "Enter");
+  assert.equal(evalBrowser("document.activeElement?.id"), "identifier");
+  fill("#identifier", `missing-${suffix}@example.test`);
+  alterIdentityRequest("reset-owner", { email: "invalid" }); clickButton("Request recovery link");
+  checkText("Check the account fields and try again."); focusedFeedback("identity-login-feedback"); associatedError("identifier");
+  clickButton("Request recovery link"); checkText("If an active owner account matches");
+  clickButton("Back to sign in");
   fill("#identifier", email); fill("#password", "incorrect password"); clickButton("Sign in"); checkText("Unable to sign in.");
+  focusedFeedback("identity-login-feedback");
+  assert.equal(evalBrowser("document.getElementById('password').value"), "");
   fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   browser("find", "role", "link", "click", "--name", "Plans and pricing", "--exact"); checkText("Set up the approved catalogue");
   clickButton("Apply approved catalogue"); checkText("Verify your password again before this action.");
+  fill("#pricing-password", "incorrect password"); clickButton("Verify password"); checkText("Unable to verify your password.");
+  focusedFeedback("pricing-password-feedback"); associatedError("pricing-password");
+  assert.equal(evalBrowser("document.getElementById('pricing-password').value"), "");
+  audit("Pricing reauthentication errors");
   fill("#pricing-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   clickButton("Apply approved catalogue"); checkText("Current catalogue");
   const monthly = await admin.plan.findFirstOrThrow({ where: { gymId, durationDays: 30 } });
@@ -114,8 +170,38 @@ try {
   assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').checkValidity()`), false);
   fill(`#price-${monthly.id}`, "800.00"); audit("Plan pricing");
   browser("open", origin); checkText("Welcome, Browser Owner");
+  clickButton("Verify password"); checkText("Enter your current password."); focusedFeedback("reauth-password-feedback"); associatedError("reauth-password");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  fill("#staff-name", "   "); fill("#staff-username", "ab"); fill("#staff-email", "staff@example.com");
+  clickButton("Send invitation"); checkText("Check the account fields below."); focusedFeedback("operator-feedback");
+  for (const id of ["staff-name", "staff-username", "staff-email"]) associatedError(id);
+  assert.equal(evalBrowser("document.getElementById('staff-name').value"), "   ");
+  assert.equal(await admin.operator.count({ where: { gymId, role: "STAFF" } }), 0);
+  audit("Invitation validation errors");
+  browser("set", "viewport", "375", "812");
+  assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  browser("screenshot", resolve(".local/identity-validation-mobile.png"));
+  browser("set", "viewport", "1280", "900");
+  browser("press", "Tab"); browser("press", "Enter");
+  assert.equal(evalBrowser("document.activeElement?.id"), "staff-email");
   fill("#staff-name", "Browser Staff"); fill("#staff-username", username); fill("#staff-email", staffEmail);
+  assert.equal(evalBrowser("document.getElementById('staff-username').getAttribute('aria-invalid')"), "false");
+  alterIdentityRequest("invite", { username: "invalid username" }); clickButton("Send invitation");
+  checkText("Check the account fields and try again."); focusedFeedback("operator-feedback"); associatedError("staff-username");
+  assert.equal(evalBrowser("document.getElementById('staff-name').value"), "Browser Staff");
+  assert.equal(evalBrowser("document.getElementById('staff-email').value"), staffEmail);
+  evalBrowser(`(() => {
+    const send = window.fetch;
+    window.fetch = function(input, init) {
+      if (input === '/api/identity/invite' && init?.method === 'POST') {
+        window.fetch = send; return Promise.reject(new TypeError('Synthetic connection interrupted. Try again.'));
+      }
+      return send.call(this, input, init);
+    }; return true;
+  })()`);
+  clickButton("Send invitation"); checkText("Synthetic connection interrupted."); focusedFeedback("operator-feedback");
+  assert.equal(evalBrowser("document.getElementById('staff-email').value"), staffEmail);
+  assert.equal(await admin.operator.count({ where: { gymId, role: "STAFF" } }), 0);
   clickButton("Send invitation"); checkText("Link captured for the recipient."); checkText("Pending setup");
   audit("Owner settings");
   browser("set", "viewport", "375", "812");
@@ -139,7 +225,18 @@ try {
   clickButton("Sign out"); checkText("You are signed out.");
   fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
-  browser("check", "input[name=members]"); browser("check", "input[name=cash]"); clickButton("Save permissions"); checkText("Staff permissions saved.");
+  browser("check", "input[name=members]"); browser("check", "input[name=cash]");
+  alterIdentityRequest("capabilities", { canCollectCash: "true" }); clickButton("Save permissions");
+  checkText("Check the account fields and try again."); focusedFeedback("operator-feedback"); associatedError(`cash-${staff.id}`);
+  assert.equal(evalBrowser("document.querySelector('input[name=cash]').checked && document.querySelector('input[name=members]').checked"), true);
+  audit("Capability validation errors");
+  const browserOwner = await admin.operator.findFirstOrThrow({ where: { gymId, role: "OWNER" } });
+  await admin.session.updateMany({ where: { userId: browserOwner.userId }, data: { reauthenticatedAt: new Date(Date.now() - 300_000) } });
+  clickButton("Save permissions"); checkText("Verify your password again before this action."); focusedFeedback("operator-feedback");
+  assert.equal(evalBrowser("document.querySelector('input[name=cash]').checked && document.querySelector('input[name=members]').checked"), true);
+  await admin.rateLimit.deleteMany({ where: { key: { startsWith: "identity:reauthenticate:" } } });
+  fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  clickButton("Save permissions"); checkText("Staff permissions saved.");
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, true);
   browser("uncheck", "input[name=cash]"); clickButton("Save permissions"); checkText("Staff permissions saved.");
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, false);
@@ -387,12 +484,22 @@ try {
   console.log("R-01 browser: real 403 after committed lost response retained the key across reload; restored permission returned the original payment without duplicates.");
   console.log("S-01f/g browser: owner/staff normal confirmation and same-key recovery refresh eligibility, attributed history and receipt links without navigation; success messages remain visible.");
   browser("open", origin); checkText("Welcome, Browser Owner");
+  alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");
+  checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
+  assert.equal(evalBrowser(`document.getElementById('reset-staff-${staff.id}').getAttribute('aria-describedby')`), `operator-error-${staff.id}`);
+  audit("Staff reset validation errors");
   clickButton("Send reset link"); checkText("Link captured for the recipient.");
   const resetUrl = await capturedUrl(staff.id);
-  clickButton("Disable staff"); clickButton("Confirm disable"); checkText("Staff disabled.");
+  clickButton("Disable staff"); alterIdentityRequest("disable", { operatorId: "invalid-reference" }); clickButton("Confirm disable");
+  checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
+  assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).state, "ACTIVE");
+  audit("Disable validation errors");
+  clickButton("Confirm disable"); checkText("Staff disabled.");
   browser("open", resetUrl); fill("#password", password); fill("#confirmation", password); clickButton("Save private password"); checkText("Link expired, replaced, or already used.");
   browser("find", "role", "link", "click", "--name", "Back to sign in", "--exact");
   console.log("Browser flow: owner setup, replay denial, wrong-password denial, owner/staff login, invite, reauth, reset initiation, disable, and disabled-link denial passed.");
+  assert.equal(evalBrowser(`JSON.stringify([localStorage, sessionStorage]).includes(${JSON.stringify(password)})`), false);
+  console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
 } finally {
   try { browser("close"); } finally { await db.$disconnect(); await admin.$disconnect(); }
 }
