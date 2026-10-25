@@ -5,6 +5,7 @@ import { inGym } from "@/lib/tenant";
 import { memberQuerySchema, recordParamsSchema } from "@/lib/route-schema";
 import { IdentityError } from "@/lib/identity";
 import { ChargePreview } from "@/components/charge-preview";
+import { DigitalClaimForm } from "@/components/digital-payments";
 import { assessEligibility, remainingActiveTime } from "@/lib/eligibility";
 export const dynamic = "force-dynamic";
 export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string | string[] }> }) {
@@ -26,7 +27,12 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
     const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId: member.id, isCurrentProjection: true }, orderBy: { startsAt: "asc" } });
     const charge = chargeId ? await tx.charge.findFirst({ where: { id: chargeId, memberId: member.id }, include: { plan: { select: { version: true } }, preparer: { select: { user: { select: { name: true } } } } } }) : null;
     if (chargeId && !charge) throw new IdentityError(404, "Charge preview unavailable.");
-    return { member, plans, charge, payments, intervals, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
+    const accounts = await tx.receivingAccount.findMany({ orderBy: { label: "asc" } });
+    const memberCharges = await tx.charge.findMany({ where: { memberId: member.id }, select: { id: true } });
+    const claims = await tx.digitalClaim.findMany({ where: { chargeId: { in: memberCharges.map(row => row.id) } } });
+    const settlements = await tx.digitalSettlement.findMany({ where: { claimId: { in: claims.map(claim => claim.id) } } });
+    const flags = await tx.paymentFlag.findMany({ where: { paymentId: { in: payments.map(payment => payment.id) } } });
+    return { member, plans, charge, payments, intervals, accounts, claims, settlements, flags, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
   }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400 || error.status === 404) notFound(); redirect("/"); } throw error;
   });
@@ -46,10 +52,12 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
       {intervals.filter(interval => interval.startsAt > checkedAt).map(interval => <p key={interval.id} className="mt-4 text-sm">Scheduled paid period: {pht.format(interval.startsAt)} PHT inclusive to {pht.format(interval.endsAt)} PHT exclusive. Fully paid; access from this period begins at its start.</p>)}
       <p className="mt-3 text-sm text-muted-foreground">Checked <time dateTime={checkedAt.toISOString()}>{pht.format(checkedAt)} PHT</time>. Payment previews and unverified payments do not grant normal access.</p></section>
     <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="payment-history-title"><h2 id="payment-history-title" className="text-xl font-semibold">Payment history</h2>
+      {data.claims.filter(claim => !data.settlements.some(settlement => settlement.claimId === claim.id)).map(claim => <p key={claim.id} className="mt-3 text-sm">Pending digital transfer: <span className="break-all">{claim.transactionReference}</span>. No new access granted. <Link href="/digital" className="underline">Review transfer claim</Link></p>)}
       {payments.length ? <ol className="mt-4 divide-y divide-border">{payments.map(payment => <li key={payment.id} className="py-5 first:pt-0 last:pb-0">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"><h3 className="font-semibold">{payment.charge.planName} · {payment.charge.durationDays} days · {payment.method}</h3><strong className="tabular-nums">₱{(payment.amountCentavos / 100).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Collected by</dt><dd>{payment.collector.user.name} · {pht.format(payment.collectedAt)} PHT</dd></div><div><dt className="text-muted-foreground">Entry recorded</dt><dd>{pht.format(payment.enteredAt)} PHT</dd></div><div><dt className="text-muted-foreground">Verified by</dt><dd>{payment.verifier.user.name} · {pht.format(payment.verifiedAt)} PHT</dd></div><div><dt className="text-muted-foreground">Paid period</dt><dd>{payment.period ? `${pht.format(payment.period.startsAt)} PHT inclusive to ${pht.format(payment.period.endsAt)} PHT exclusive` : "Unavailable"}</dd></div></dl>
         {payment.receipt && <p className="mt-3 text-sm">Payment reference: <span className="break-all font-medium">{payment.reference}</span> · <Link className="font-semibold underline" href={`/receipts/${payment.receipt.id}`}>View receipt {payment.receipt.reference}</Link></p>}
+        {data.flags.filter(flag => flag.paymentId === payment.id).map(flag => <p key={flag.id} className="mt-3 font-semibold">Owner review required: {flag.reason}. No automatic refund or access change.</p>)}
       </li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">No confirmed payments recorded.</p>}
     </section>
     <ChargePreview key={`${member.id}:${charge?.id ?? "no-preview"}`} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare} recoveryScope={data.recoveryScope}
@@ -57,5 +65,6 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
       saved={charge ? { id: charge.id, planName: charge.planName, durationDays: charge.durationDays, priceCentavos: charge.priceCentavos,
         intendedStart: charge.intendedStart.toISOString(), intendedEnd: charge.intendedEnd.toISOString(), preparedAt: charge.preparedAt.toISOString(),
         preparerName: charge.preparer.user.name, priceChanged: charge.planVersion !== charge.plan.version } : null} />
+    {charge && data.canPrepare && !data.claims.some(claim => claim.chargeId === charge.id) && !payments.some(payment => payment.chargeId === charge.id) && <DigitalClaimForm chargeId={charge.id} amountCentavos={charge.priceCentavos} accounts={data.accounts} />}
   </>;
 }

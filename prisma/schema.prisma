@@ -310,3 +310,61 @@ model PaymentReceipt {
   @@unique([paymentId, gymId])
   @@map("payment_receipts")
 }
+
+model ReceivingAccount {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  label String
+  method String
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@unique([gymId, label])
+  @@map("receiving_accounts")
+}
+
+model DigitalVerifier {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  operatorId String @map("operator_id") @db.Uuid
+  active Boolean @default(true)
+  @@unique([accountId, operatorId])
+  @@map("digital_verifiers")
+}
+
+model DigitalClaim {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  chargeId String @unique @map("charge_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  amountCentavos Int @map("amount_centavos")
+  transactionReference String @map("transaction_reference")
+  reportedReceivedAt DateTime @map("reported_received_at") @db.Timestamptz(3)
+  collectedBy String @map("collected_by") @db.Uuid
+  enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@unique([accountId, transactionReference])
+  @@map("digital_claims")
+}
+
+model DigitalSettlement {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  claimId String @unique @map("claim_id") @db.Uuid
+  paymentId String @unique @map("payment_id") @db.Uuid
+  evidenceReference String @map("evidence_reference")
+  accountMatched Boolean @default(true) @map("account_matched")
+  @@map("digital_settlements")
+}
+
+model PaymentFlag {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  paymentId String @map("payment_id") @db.Uuid
+  reason String
+  reportedBy String @map("reported_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([paymentId, reason])
+  @@map("payment_flags")
+}

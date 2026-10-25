@@ -10,6 +10,7 @@ export default async function Home() {
   return <><div className="flex flex-wrap items-start justify-between gap-5"><div><p className="mb-2 text-sm font-semibold text-primary">{actor.operator.gym.name}</p><h1 className="text-3xl font-semibold tracking-tight">Welcome, {actor.operator.user.name}</h1><p className="mt-3 text-muted-foreground">Signed in as {actor.operator.role === "OWNER" ? "Owner" : "Staff"}. Your individual account is active.</p></div><SignOut /></div>
     {(actor.operator.role === "OWNER" || actor.operator.canManageMembers) && <Link href="/members" className="mt-6 inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground">Find or create a member</Link>}
     {actor.operator.role === "OWNER" && <Link href="/plans" className="ml-4 mt-6 inline-flex min-h-11 items-center underline">Plans and pricing</Link>}
+    {(actor.operator.role === "OWNER" || actor.operator.canManageMembers) && <Link href="/digital" className="ml-4 mt-6 inline-flex min-h-11 items-center underline">Digital collections</Link>}
     {actor.operator.role === "OWNER" ? <OperatorSettings /> : <p className="mt-8 rounded-xl border border-border bg-card p-6">Your gym account is ready. Ask your owner for the permissions needed for your work.</p>}
   </>;
 }

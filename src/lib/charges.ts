@@ -94,7 +94,7 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
   });
 }
 
-async function readPayment(tx: Prisma.TransactionClient, id: string) {
+export async function readPayment(tx: Prisma.TransactionClient, id: string) {
   const payment = await tx.payment.findUnique({ where: { id }, include: { period: true, receipt: true } });
   if (!payment?.period || !payment.receipt) throw new IdentityError(409, "This confirmation is incomplete. Retry with the same key.");
   return { payment, period: payment.period, receipt: payment.receipt };

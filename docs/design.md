@@ -235,6 +235,8 @@ Flow: select member → server loads active approved plan and amount → enter/v
 
 ### UX-08 — Pending digital collection and verification (**S-03**)
 
+**Local synthetic decisions approved 2026-10-25:** record claims from a saved member charge, then use the digital collections queue. Owners designate synthetic account labels and explicitly assign/revoke verifiers after password reauthentication; owner status alone cannot reveal a confirmation action. Confirmation requires independently entered actual amount/reference/time, activity-evidence reference and account-match attestation. Unknown responses preserve the original operation across reloads; retry it before confirming another transfer. Cross-date transfers remain pending for owner review. Show pending claims separately from confirmed history and existing eligibility. Confirmed receipts show method, matched account and evidence reference; dispute flags show owner review with no automatic money/access change. This does not approve live receiving accounts or evidence custody.
+
 - Separate **Record transfer claim** from **Confirm received funds**. Claim UI stores only necessary reference and evidence link; it clearly remains pending.
 - Designated verifier reviews actual designated receiving-account funds **outside this app** and records matched account, full amount, reference, time and identity; never ask for or store bank/GCash credentials.
 - If no authorized verifier is available: leave transfer pending, show next authorized action, grant no new normal access. Screenshot alone cannot reveal a confirm/activate flow.

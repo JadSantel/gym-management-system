@@ -37,6 +37,12 @@ function browser(...args: string[]) {
 function checkText(value: string) { browser("wait", "--text", value); }
 function clickButton(name: string) { browser("find", "role", "button", "click", "--name", name, "--exact"); }
 function fill(selector: string, value: string) { browser("fill", selector, value); }
+function fillDateTime(selector: string, value: string) {
+  // This CLI's fill leaves Chromium datetime-local inputs empty. Set the native
+  // control value; retain form validation and the real submit/API path.
+  const actual = evalBrowser(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); field.value = ${JSON.stringify(value)}; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new Event('change', {bubbles:true})); return field.value; })()`);
+  assert.equal(new Date(`${actual}+08:00`).getTime(), new Date(`${value}+08:00`).getTime());
+}
 function audit(page: string) {
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json"));
   if (result.data.counts.incomplete) console.log(JSON.stringify(result.data.incomplete.map((item: { id: string; nodes: { target: string[]; failureSummary: string }[] }) => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, summary: node.failureSummary })) }))));
@@ -650,6 +656,113 @@ try {
   console.log("Task 5 browser: shared pricing/cash validation, real server bypass denials, preserved inputs/recovery key, correction, error focus/links and malformed route/query denials passed.");
   console.log("S-01f/g browser: owner/staff normal confirmation and same-key recovery refresh eligibility, attributed history and receipt links without navigation; success messages remain visible.");
   browser("open", origin); checkText("Welcome, Browser Owner");
+  // S-03: real forms -> real API -> restricted database -> refreshed history/receipt.
+  await admin.rateLimit.deleteMany();
+  browser("open", `${origin}/digital`); checkText("Digital collections");
+  fill("#digital-owner-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  const accountForm = 'form:has(input[name="action"][value="account"])';
+  const grantForm = 'form:has(input[name="action"][value="verifier"])';
+  for (const method of ["GCASH", "BANK"]) {
+    browser("wait", "--fn", `!document.querySelector('${accountForm} button').disabled`);
+    fill(`${accountForm} input[name=label]`, `Browser ${method}`); browser("select", `${accountForm} select[name=method]`, method);
+    clickButton("Designate receiving account"); checkText("Saved.");
+    browser("wait", "--fn", `document.querySelector('${grantForm}')?.textContent.includes('Browser ${method}')`);
+  }
+  const digitalAccounts = await admin.receivingAccount.findMany({ where: { gymId } });
+  const accountFor = (method: string) => digitalAccounts.find(account => account.method === method)!;
+  async function grantDigital(method: string, operatorId: string, active = true) {
+    browser("select", `${grantForm} select[name=accountId]`, accountFor(method).id);
+    browser("select", `${grantForm} select[name=operatorId]`, operatorId);
+    browser("select", `${grantForm} select[name=active]`, String(active)); clickButton("Save verifier authority"); checkText("Saved.");
+    browser("wait", "--fn", `!document.querySelector('${grantForm} button').disabled`);
+  }
+  async function recordDigitalClaim(method: string, memberName: string) {
+    browser("open", `${origin}/members`); fill("#member-name", memberName); clickButton("Create member"); checkText("Member created.");
+    browser("find", "role", "link", "click", "--name", memberName, "--exact"); checkText("No verified paid period is recorded.");
+    browser("wait", "--fn", "document.querySelector('#charge-plan')?.disabled === false");
+    clickButton("Prepare charge preview"); checkText("Saved charge preview");
+    const memberId = new URL(evalBrowser("location.href")).pathname.split("/").at(-1)!;
+    const at = new Date(Date.now() - 2000); const localTime = new Date(at.getTime() + 8 * 3600_000).toISOString().slice(0, 19);
+    browser("select", '#digital-claim-title ~ form select[name=accountId]', accountFor(method).id);
+    fill('#digital-claim-title ~ form input[name=transactionReference]', `BROWSER-${method}-${suffix}`);
+    fillDateTime('#digital-claim-title ~ form input[name=reportedReceivedAt]', localTime);
+    const charge = await admin.charge.findFirstOrThrow({ where: { memberId }, orderBy: { preparedAt: "desc" } });
+    fill('#digital-claim-title ~ form input[name=amount]', (charge.priceCentavos / 100).toFixed(2));
+    audit(`${method} pending claim form`); clickButton("Record pending transfer"); checkText("Pending digital transfer:");
+    assert.equal(await admin.payment.count({ where: { memberId } }), 0);
+    checkText("No verified paid period is recorded.");
+    const claim = await admin.digitalClaim.findUniqueOrThrow({ where: { chargeId: charge.id } });
+    return { memberId, charge, claim, localTime };
+  }
+  const digitalOwner = await recordDigitalClaim("GCASH", "Owner Digital Synthetic Member");
+  browser("open", `${origin}/digital`); checkText("Awaiting an explicitly designated account verifier.");
+  assert.equal(evalBrowser("Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Confirm full digital funds')"), false);
+  await grantDigital("GCASH", owner.id);
+  const ownerClaimSelector = `[data-claim="${digitalOwner.claim.id}"]`;
+  browser("wait", "--fn", `!!document.querySelector('${ownerClaimSelector} input[name=amount]')`);
+  fill(`${ownerClaimSelector} input[name=amount]`, "0.01");
+  fill(`${ownerClaimSelector} input[name=transactionReference]`, digitalOwner.claim.transactionReference);
+  fillDateTime(`${ownerClaimSelector} input[name=receivedAt]`, digitalOwner.localTime);
+  fill(`${ownerClaimSelector} input[name=evidenceReference]`, `ACTIVITY-GCASH-${suffix}`);
+  browser("check", `${ownerClaimSelector} input[name=accountMatched]`);
+  clickButton("Confirm full digital funds"); checkText("Match the designated account"); focusedFeedback("digital-feedback");
+  assert.equal(await admin.payment.count({ where: { memberId: digitalOwner.memberId } }), 0);
+  assert.equal(evalBrowser(`document.querySelector('${ownerClaimSelector} input[name=transactionReference]').value`), digitalOwner.claim.transactionReference);
+  assert.equal(evalBrowser(`document.querySelector('${ownerClaimSelector} input[name=evidenceReference]').value`), `ACTIVITY-GCASH-${suffix}`);
+  assert.equal(evalBrowser(`document.querySelector('${ownerClaimSelector} input[name=accountMatched]').checked`), true);
+  fill(`${ownerClaimSelector} input[name=amount]`, (digitalOwner.charge.priceCentavos / 100).toFixed(2));
+  audit("Digital verifier confirmation form");
+  evalBrowser(`(() => { const send = window.fetch; window.fetch = async function (...args) { const response = await send.apply(this, args); if (args[0] === '/api/digital' && JSON.parse(args[1].body).action === 'confirm' && response.ok) { window.fetch = send; throw new TypeError('Synthetic digital lost response after commit.'); } return response; }; return true; })()`);
+  clickButton("Confirm full digital funds"); checkText("Synthetic digital lost response after commit.");
+  const digitalKey = `digital-recovery:${gymId}:${owner.id}`;
+  const recovery = evalBrowser(`JSON.parse(sessionStorage.getItem('${digitalKey}'))`); assert.ok(recovery.key);
+  const digitalPayment = await admin.payment.findFirstOrThrow({ where: { memberId: digitalOwner.memberId }, include: { receipt: true } });
+  await admin.digitalVerifier.update({ where: { accountId_operatorId: { accountId: accountFor("GCASH").id, operatorId: owner.id } }, data: { active: false } });
+  clickButton("Retry original digital confirmation"); checkText("Only a designated receiving-account verifier");
+  assert.deepEqual(evalBrowser(`JSON.parse(sessionStorage.getItem('${digitalKey}'))`), recovery);
+  browser("reload"); checkText("Confirmation status unknown.");
+  assert.deepEqual(evalBrowser(`JSON.parse(sessionStorage.getItem('${digitalKey}'))`), recovery);
+  await admin.digitalVerifier.update({ where: { accountId_operatorId: { accountId: accountFor("GCASH").id, operatorId: owner.id } }, data: { active: true } });
+  clickButton("Retry original digital confirmation"); checkText("Digital funds confirmed.");
+  assert.equal(evalBrowser(`sessionStorage.getItem('${digitalKey}')`), null);
+  assert.equal(await admin.payment.count({ where: { memberId: digitalOwner.memberId } }), 1);
+  checkText("View digital receipt");
+  browser("click", `${ownerClaimSelector} button`); checkText("Flagged for owner review."); checkText("Owner review required: DISPUTED");
+  browser("open", `${origin}/receipts/${digitalPayment.receipt!.id}`); browser("reload");
+  checkText("Digital payment receipt"); checkText("GCASH"); checkText(digitalOwner.claim.transactionReference); checkText("Owner review required: DISPUTED");
+  audit("Confirmed digital receipt and review flag");
+  browser("open", `${origin}/members/${digitalOwner.memberId}`); checkText("A verified paid period is in effect."); checkText(digitalPayment.reference);
+  browser("open", `${origin}/digital`); browser("screenshot", resolve(".local/s03-digital-desktop.png"));
+  browser("set", "viewport", "375", "812"); assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  audit("Digital queue and owner controls mobile"); browser("screenshot", resolve(".local/s03-digital-mobile.png")); browser("set", "viewport", "1280", "900");
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); fill("#identifier", username); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Staff");
+  const digitalStaff = await recordDigitalClaim("BANK", "Staff Digital Synthetic Member");
+  browser("open", `${origin}/digital`); checkText("Awaiting an explicitly designated account verifier.");
+  assert.equal(evalBrowser("Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Confirm full digital funds')"), false);
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  browser("open", `${origin}/digital`); fill("#digital-owner-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  await grantDigital("BANK", staff.id); await grantDigital("BANK", staff.id, false); await grantDigital("BANK", staff.id);
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); fill("#identifier", username); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Staff");
+  browser("open", `${origin}/digital`);
+  const staffClaimSelector = `[data-claim="${digitalStaff.claim.id}"]`;
+  browser("wait", "--fn", `!!document.querySelector('${staffClaimSelector} input[name=amount]')`);
+  fill(`${staffClaimSelector} input[name=amount]`, (digitalStaff.charge.priceCentavos / 100).toFixed(2));
+  fill(`${staffClaimSelector} input[name=transactionReference]`, digitalStaff.claim.transactionReference);
+  fillDateTime(`${staffClaimSelector} input[name=receivedAt]`, digitalStaff.localTime);
+  fill(`${staffClaimSelector} input[name=evidenceReference]`, `ACTIVITY-BANK-${suffix}`); browser("check", `${staffClaimSelector} input[name=accountMatched]`);
+  clickButton("Confirm full digital funds"); checkText("Digital funds confirmed.");
+  const bankPayment = await admin.payment.findFirstOrThrow({ where: { memberId: digitalStaff.memberId }, include: { receipt: true } });
+  assert.equal(bankPayment.method, "BANK"); assert.equal(bankPayment.collectedBy, staff.id); assert.equal(bankPayment.verifiedBy, staff.id);
+  browser("open", `${origin}/receipts/${bankPayment.receipt!.id}`); browser("reload"); checkText("Digital payment receipt"); checkText("BANK"); checkText(digitalStaff.claim.transactionReference);
+  browser("open", `${origin}/members/${digitalStaff.memberId}`); checkText("A verified paid period is in effect."); checkText(bankPayment.reference);
+  browser("set", "viewport", "375", "812"); assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true); audit("Digital member history mobile"); browser("set", "viewport", "1280", "900");
+  browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
+  console.log("S-03 browser: owner GCash/staff bank claims, explicit authority/revoke, full-funds confirmation, mismatch denial, committed lost-response/revoked-permission recovery, receipts, flags, history, mobile overflow and axe passed.");
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");
   checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
   assert.equal(evalBrowser(`document.getElementById('reset-staff-${staff.id}').getAttribute('aria-describedby')`), `operator-error-${staff.id}`);
@@ -667,6 +780,10 @@ try {
   assert.equal(evalBrowser(`JSON.stringify([localStorage, sessionStorage]).includes(${JSON.stringify(password)})`), false);
   console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
 } catch (error) {
+  try {
+    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
+    browser("screenshot", resolve(".local/browser-failure.png"));
+  } catch { /* Preserve the original failure if the browser is unavailable. */ }
   primaryFailure = error;
   throw error;
 } finally {

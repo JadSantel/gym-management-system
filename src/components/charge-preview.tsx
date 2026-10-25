@@ -84,7 +84,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
       <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
         <div><dt className="text-muted-foreground">Member</dt><dd className="font-semibold">{memberName}</dd></div>
         <div><dt className="text-muted-foreground">Plan and duration</dt><dd>{saved.planName} · {saved.durationDays} elapsed days</dd></div>
-        <div><dt className="text-muted-foreground">Proposed method</dt><dd>Full cash</dd></div><div><dt className="text-muted-foreground">Prepared by</dt><dd>{saved.preparerName}</dd></div>
+        <div><dt className="text-muted-foreground">Payment options</dt><dd>Full cash or receiving-account verified digital funds</dd></div><div><dt className="text-muted-foreground">Prepared by</dt><dd>{saved.preparerName}</dd></div>
         <div><dt className="text-muted-foreground">Proposed start (inclusive)</dt><dd>{pht.format(new Date(saved.intendedStart))} PHT</dd></div>
         <div><dt className="text-muted-foreground">Proposed end (exclusive)</dt><dd>{pht.format(new Date(saved.intendedEnd))} PHT</dd></div>
         <div><dt className="text-muted-foreground">Prepared at</dt><dd>{pht.format(new Date(saved.preparedAt))} PHT</dd></div>
