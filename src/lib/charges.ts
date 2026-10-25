@@ -57,7 +57,9 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
 
     const charge = await tx.charge.findUnique({ where: { id: chargeId } });
     if (!charge) throw new CashConfirmationRejected(404, "Charge preview unavailable.");
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${gymId}:${charge.memberId}`}, 0))`;
+    const members = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM members
+      WHERE id = ${charge.memberId}::uuid AND gym_id = ${gymId}::uuid FOR UPDATE`;
+    if (!members.length) throw new CashConfirmationRejected(404, "Member unavailable.");
     await tx.$queryRaw`SELECT id FROM plans WHERE id = ${charge.planId}::uuid AND gym_id = ${gymId}::uuid FOR SHARE`;
     const currentPlan = await tx.plan.findUnique({ where: { id: charge.planId } });
     if (!currentPlan || currentPlan.version !== charge.planVersion || currentPlan.priceCentavos !== charge.priceCentavos || currentPlan.durationDays !== charge.durationDays) {

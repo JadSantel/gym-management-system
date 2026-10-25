@@ -8,6 +8,7 @@ import { auth } from "../src/lib/auth";
 import { bootstrapSyntheticOwner, completeSetup, inviteStaff, reauthenticate, setCapabilities } from "../src/lib/identity";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { inGym } from "../src/lib/tenant";
+import { setGymContext } from "../src/lib/binding";
 import { createMember, findMembers } from "../src/lib/members";
 import { memberCreateSchema, memberSearchSchema } from "../src/lib/member-schema";
 import { GET as memberGet, POST as memberPost } from "../src/app/api/members/route";
@@ -120,6 +121,63 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const matches = await (await memberGet(req("/api/members?q=Synthetic%20Member", owners[0]))).json();
     assert.equal(matches.length, 2);
     assert.notEqual(matches[0].id, matches[1].id);
+  });
+  await t.test("R-09 runtime can lock members with only UPDATE(id); IDs and all member edits stay protected", async () => {
+    const member = await createMember(owners[0], { fullName: "Immutable Lock Member" });
+    const [privileges] = await db.$queryRaw<{ update: boolean; delete: boolean; truncate: boolean; rolsuper: boolean; rolbypassrls: boolean; owns: boolean }[]>`SELECT
+      has_table_privilege(current_user, 'members', 'UPDATE') AS update,
+      has_table_privilege(current_user, 'members', 'DELETE') AS delete,
+      has_table_privilege(current_user, 'members', 'TRUNCATE') AS truncate,
+      rolsuper, rolbypassrls, pg_get_userbyid(c.relowner) = current_user AS owns
+      FROM pg_roles r CROSS JOIN pg_class c WHERE r.rolname = current_user AND c.oid = 'members'::regclass`;
+    assert.deepEqual(privileges, { update: false, delete: false, truncate: false, rolsuper: false, rolbypassrls: false, owns: false });
+    const columns = await db.$queryRaw<{ attname: string }[]>`SELECT attname FROM pg_attribute
+      WHERE attrelid = 'members'::regclass AND attnum > 0 AND NOT attisdropped
+      AND has_column_privilege(current_user, 'members', attname, 'UPDATE') ORDER BY attname`;
+    assert.deepEqual(columns.map(column => column.attname), ["id"]);
+    assert.deepEqual(await inGym(owners[0], "CASH", tx => tx.$queryRaw`SELECT id FROM members
+      WHERE id = ${member.id}::uuid AND gym_id = ${gyms[0]}::uuid FOR UPDATE`), [{ id: member.id }]);
+    for (const id of [randomUUID(), member.id]) {
+      await assert.rejects(inGym(owners[0], "MEMBERS", tx => tx.$executeRaw`UPDATE members SET id = ${id}::uuid
+        WHERE id = ${member.id}::uuid`), /Member IDs are immutable/);
+    }
+    for (const data of [{ fullName: "Changed" }, { nameKey: "changed" }, { gymId: gyms[1] },
+      { createdBy: staff.id }, { createdAt: new Date(0) }]) {
+      await assert.rejects(inGym(owners[0], "MEMBERS", tx => tx.member.update({ where: { id: member.id }, data })), /permission denied for table members/);
+    }
+    await assert.rejects(inGym(owners[0], "MEMBERS", tx => tx.member.delete({ where: { id: member.id } })), /permission denied for table members/);
+    await assert.rejects(inGym(owners[0], "OWNER", tx => tx.$executeRawUnsafe("ALTER TABLE members DISABLE TRIGGER immutable_member_id")), /must be owner of table members/);
+    assert.deepEqual(await admin.member.findUniqueOrThrow({ where: { id: member.id } }), member);
+  });
+  await t.test("R-09 row locks fail closed without tenant context and pooled context expires after commit and rollback", async () => {
+    const members = await Promise.all(owners.map((owner, index) => createMember(owner, { fullName: `Pooled Lock Member ${index}` })));
+    const pooled = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 1, options: "-c timezone=UTC" }) });
+    try {
+      assert.deepEqual(await pooled.$queryRaw`SELECT id FROM members WHERE id = ${members[0].id}::uuid FOR UPDATE`, []);
+      const pids: number[] = [];
+      for (const index of [0, 1, 0, 1]) {
+        await pooled.$transaction(async tx => {
+          await setGymContext(tx, gyms[index]);
+          const [connection] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+          pids.push(connection.pid);
+          // RLS must protect the row even if the caller omits an explicit gym predicate.
+          assert.deepEqual(await tx.$queryRaw`SELECT id FROM members WHERE id = ${members[index].id}::uuid FOR UPDATE`, [{ id: members[index].id }]);
+          assert.deepEqual(await tx.$queryRaw`SELECT id FROM members WHERE id = ${members[1 - index].id}::uuid FOR UPDATE`, []);
+          assert.deepEqual(await tx.$queryRaw`SELECT id FROM members WHERE id = ${randomUUID()}::uuid FOR UPDATE`, []);
+          assert.equal(await tx.$executeRaw`UPDATE members SET id = ${randomUUID()}::uuid WHERE id = ${members[1 - index].id}::uuid`, 0);
+        });
+        assert.deepEqual(await pooled.$queryRaw`SELECT id FROM members FOR UPDATE`, []);
+        await assert.rejects(pooled.$transaction(async tx => {
+          await setGymContext(tx, gyms[index]);
+          await tx.$queryRaw`SELECT id FROM members WHERE id = ${members[index].id}::uuid FOR UPDATE`;
+          throw new Error("Synthetic lock rollback");
+        }), /Synthetic lock rollback/);
+        assert.deepEqual(await pooled.$queryRaw`SELECT id FROM members FOR UPDATE`, []);
+        assert.equal(await pooled.$executeRaw`UPDATE members SET id = ${randomUUID()}::uuid WHERE id = ${members[index].id}::uuid`, 0);
+        await inGym(owners[index], "CASH", tx => tx.$queryRaw`SELECT id FROM members WHERE id = ${members[index].id}::uuid FOR UPDATE NOWAIT`);
+      }
+      assert.equal(new Set(pids).size, 1, "Both tenants must reuse one physical runtime connection");
+    } finally { await pooled.$disconnect(); }
   });
   await t.test("Z-02 direct member input failures reject protected fields without writes or raw-input disclosure", async () => {
     const beforeMembers = await admin.member.count();
@@ -472,11 +530,13 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal((await replay.json()).payment.id, paid.payment.id);
     assert.equal(await admin.payment.count({ where: { memberId: rolloverMember.id } }), 2);
   });
-  await t.test("R-02 distinct-key competing joins and early renewals serialize and cannot charge stale dates", async () => {
+  await t.test("R-09/R-02 distinct-key joins and renewals wait on member row locks, then recheck dates after commit/rollback", async () => {
     const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 90 } });
     const cash = (plan.priceCentavos / 100).toFixed(2);
     const member = await createMember(owners[0], { fullName: "Competing Review Member" });
     for (const sale of ["join", "early renewal"]) {
+      const independent = await createMember(owners[0], { fullName: `Independent ${sale} Member` });
+      const independentCharge = await (await chargePost(req("/api/charges", owners[0], { memberId: independent.id, planId: plan.id }))).json();
       const previews = await Promise.all([0, 1].map(async () => {
         const response = await chargePost(req("/api/charges", owners[0], { memberId: member.id, planId: plan.id }));
         assert.equal(response.status, 200);
@@ -485,23 +545,31 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
       assert.notEqual(previews[0].id, previews[1].id);
       assert.equal(previews[0].intendedStart, previews[1].intendedStart);
       const keys = [randomUUID(), randomUUID()];
-      // Hold the existing member advisory lock until BOTH real runtime requests wait.
-      // This verifies serialization, without claiming AD-016 row-lock compliance (R-09).
+      // Hold a real restricted-runtime member row lock until BOTH confirmations wait.
       let pending!: Promise<Response[]>;
-      await admin.$transaction(async tx => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${gyms[0]}:${member.id}`}, 0))`;
+      const release = inGym(owners[0], "CASH", async tx => {
+        await tx.$queryRaw`SELECT id FROM members WHERE id = ${member.id}::uuid AND gym_id = ${gyms[0]}::uuid FOR UPDATE`;
+        const [holder] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
         pending = Promise.all(previews.map((charge, index) => paymentPost(paymentReq(owners[0], charge.id, cash, keys[index]))));
         let waiting = 0;
         for (let attempt = 0; attempt < 100 && waiting < 2; attempt++) {
-          const rows = await tx.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM pg_locks held JOIN pg_locks waiter
-            ON waiter.locktype = held.locktype AND waiter.database = held.database AND waiter.classid = held.classid
-            AND waiter.objid = held.objid AND waiter.objsubid = held.objsubid
-            WHERE held.pid = pg_backend_pid() AND held.locktype = 'advisory' AND held.granted AND NOT waiter.granted`;
+          // The second row waiter may queue behind the first waiter rather than directly behind the holder.
+          const rows = await admin.$queryRaw<{ count: bigint }[]>`WITH RECURSIVE blocked(pid) AS (
+            SELECT pid FROM pg_stat_activity WHERE ${holder.pid} = ANY(pg_blocking_pids(pid))
+            UNION SELECT a.pid FROM pg_stat_activity a JOIN blocked b ON b.pid = ANY(pg_blocking_pids(a.pid))
+          ) SELECT count(*) FROM pg_stat_activity a JOIN blocked b USING (pid)
+            WHERE a.usename = 'gym_runtime' AND a.wait_event_type = 'Lock' AND a.query LIKE 'SELECT id FROM members%FOR UPDATE'`;
           waiting = Number(rows[0].count);
           if (waiting < 2) await new Promise(resolve => setTimeout(resolve, 10));
         }
-        assert.equal(waiting, 2, "Both confirmations must contend on the existing member lock");
+        assert.equal(waiting, 2, "Both runtime confirmations must wait on the member row lock");
+        assert.equal(await admin.payment.count({ where: { memberId: member.id } }), sale === "join" ? 0 : 1);
+        const independentResult = await paymentPost(paymentReq(owners[0], independentCharge.id, cash, randomUUID()));
+        assert.equal(independentResult.status, 200, "A different member in the same gym must proceed while this member is locked");
+        if (sale === "early renewal") throw new Error("Synthetic lock-holder rollback");
       });
+      if (sale === "join") await release;
+      else await assert.rejects(release, /Synthetic lock-holder rollback/);
       const responses = await pending;
       assert.deepEqual(responses.map(response => response.status).sort(), [200, 409], sale);
       const winner = responses.findIndex(response => response.status === 200);
@@ -538,8 +606,5 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
         startsAt: projection.startsAt, endsAt: projection.endsAt } });
     }), /effective_entitlement_no_overlap/);
     assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 2);
-    const [privileges] = await db.$queryRaw<{ update: boolean; rolsuper: boolean; rolbypassrls: boolean }[]>`SELECT
-      has_table_privilege(current_user, 'members', 'UPDATE') AS update, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
-    assert.deepEqual(privileges, { update: false, rolsuper: false, rolbypassrls: false });
   });
 });
