@@ -121,7 +121,7 @@ test("S-04 append-only investigations, owner reviews and enforced policy gates o
       assert.equal(detail.record.originalCollectedAt, "2026-01-01T02:00:00.000Z"); assert.equal(detail.record.openedBy, operator.id);
       for (const action of ["recover", "execute"]) {
         const response = await POST(req(action === "execute" ? owners[0] : staff, { action, caseId: created.caseId }));
-        assert.equal(response.status, 409); assert.match((await response.json()).error, /blocked/);
+        assert.equal(response.status, action === "recover" ? 400 : 409);
       }
     }
     assert.equal(await admin.payment.count({ where: { memberId: unpaid.id } }), 0);
@@ -151,7 +151,7 @@ test("S-04 append-only investigations, owner reviews and enforced policy gates o
     assert.equal((await POST(req(staff, { action: "execute", caseId: created.caseId }))).status, 403);
     assert.equal((await POST(req(owners[0], { action: "execute", caseId: created.caseId }))).status, 409);
   });
-  await t.test("one collection with duplicate records cannot propose refund of nonexistent funds; two collections remain O-03 gated", async () => {
+  await t.test("one collection with duplicate records cannot propose refund of nonexistent funds; unproven excess requests remain gated", async () => {
     const created = await ok(staff, open({ reason: "DUPLICATE_RECORD" }));
     const duplicate = await proposal(created.caseId, { reason: "DUPLICATE_RECORD", collectionCount: "ONE", relatedPaymentId: second.payment.id, retainedPeriodId: second.period.id, accessOutcome: "ENDS" });
     for (const patch of [{ amount: "800", moneyOutcome: "REFUND_PROPOSED" }, { collectionCount: "TWO" }, { relatedPaymentId: first.payment.id }]) assert.equal((await POST(req(staff, { ...duplicate, ...patch }))).status, 400);
@@ -161,7 +161,7 @@ test("S-04 append-only investigations, owner reviews and enforced policy gates o
     const review = await event(created.caseId, { action: "review", requestEventId: excessEvent.id, decision: "APPROVE" }); const key = randomUUID();
     const approval = await ok(owners[0], review, key); assert.equal(approval.outcome, "APPROVED_BLOCKED");
     assert.equal((await ok(owners[0], review, key)).id, approval.id);
-    const execute = await POST(req(owners[0], { action: "execute", caseId: created.caseId })); assert.equal(execute.status, 409); assert.match((await execute.json()).error, /O-03/);
+    const execute = await POST(req(owners[0], { action: "execute", caseId: created.caseId })); assert.equal(execute.status, 409); assert.match((await execute.json()).error, /cancellation/);
     const repeated = await POST(req(owners[0], await event(created.caseId, { action: "review", requestEventId: excessEvent.id, decision: "APPROVE" })));
     assert.equal(repeated.status, 409); assert.equal(repeated.headers.get("case-command-outcome"), "not-recorded");
     assert.deepEqual(await originals(), initial);
@@ -220,6 +220,177 @@ test("S-04 append-only investigations, owner reviews and enforced policy gates o
       assert.deepEqual([await admin.investigationCase.count({ where: { gymId: gyms[0] } }), await admin.investigationEvent.count({ where: { gymId: gyms[0] } })], before);
     } finally { await admin.$executeRawUnsafe("DROP TRIGGER IF EXISTS synthetic_case_failure ON identity_audit"); await admin.$executeRawUnsafe("DROP FUNCTION public.synthetic_case_failure()"); }
     await ok(staff, command, key);
+  });
+  await t.test("owner-only independent cash recovery preserves original dates, receipts and retry safety", async () => {
+    const unpaid = await createMember(staff, { fullName: `Recovery ${suffix}` });
+    const created = await ok(staff, open({ memberId: unpaid.id, method: "CASH", claimedAmount: "800", originalCollectedAt: "2024-02-29T12:00:00+08:00" }));
+    const approval = await event(created.caseId, { action: "approveRecovery", planId: plan.id, collectorId: operator.id,
+      independentEvidenceReference: "CASH-BOOK-02", independentlyVerified: true, originalDateVerified: true, omittedPaymentVerified: true });
+    assert.equal((await POST(req(staff, approval))).status, 403);
+    for (const patch of [{ independentlyVerified: false }, { originalDateVerified: false }, { independentEvidenceReference: "CASE-EVIDENCE-001" }]) {
+      assert.equal((await POST(req(owners[0], { ...approval, ...patch }))).status, 400);
+    }
+    const accepted = await ok(owners[0], approval); assert.equal(accepted.outcome, "APPROVED");
+    assert.equal(await admin.payment.count({ where: { memberId: unpaid.id } }), 0, "Approval creates no payment");
+    const command = await event(created.caseId, { action: "recover", approvalEventId: accepted.id }); const key = randomUUID();
+    assert.equal((await POST(req(staff, command))).status, 403);
+    assert.equal((await POST(req(owners[1], command))).status, 404);
+    const results = await Promise.all([ok(owners[0], command, key), ok(owners[0], command, key)]);
+    assert.equal(results[0].id, results[1].id); assert.equal(results[0].outcome, "RECOVERED");
+    assert.equal((await ok(owners[0], command, key)).id, results[0].id);
+    const recovered = await admin.payment.findUniqueOrThrow({ where: { id: results[0].paymentId }, include: { period: true, receipt: true } });
+    assert.equal(recovered.collectedAt.toISOString(), "2024-02-29T04:00:00.000Z");
+    assert.equal(recovered.period!.startsAt.toISOString(), "2024-02-28T16:00:00.000Z");
+    assert.equal(recovered.period!.endsAt.toISOString(), "2024-03-29T16:00:00.000Z");
+    assert.ok(recovered.enteredAt > recovered.collectedAt); assert.ok(recovered.verifiedAt > recovered.collectedAt); assert.ok(recovered.receipt);
+    assert.equal(await admin.payment.count({ where: { memberId: unpaid.id } }), 1);
+    assert.equal((await POST(req(owners[0], await event(created.caseId, { action: "recover", approvalEventId: accepted.id })))).status, 409);
+    const duplicateMember = await createMember(staff, { fullName: `Duplicate source ${suffix}` });
+    const duplicateCase = await ok(staff, open({ memberId: duplicateMember.id, method: "CASH", claimedAmount: "800", originalCollectedAt: "2024-02-29T12:00:00+08:00" }));
+    const duplicateApproval = await ok(owners[0], { ...approval, caseId: duplicateCase.caseId, expectedRevision: 1 });
+    assert.equal((await POST(req(owners[0], await event(duplicateCase.caseId, { action: "recover", approvalEventId: duplicateApproval.id })))).status, 409);
+    assert.equal(await admin.payment.count({ where: { memberId: duplicateMember.id } }), 0, "Same original collection reference cannot be recovered in another case");
+  });
+  await t.test("uncertain, digital, matched and conflicting recovered dates reject without financial writes", async () => {
+    for (const patch of [{ method: "UNKNOWN" }, { method: "GCASH" }, { originalCollectedAt: undefined }]) {
+      const created = await ok(staff, open({ ...patch, claimedAmount: "800", originalCollectedAt: "2026-01-01T10:00:00+08:00", ...patch }));
+      const response = await POST(req(owners[0], await event(created.caseId, { action: "approveRecovery", planId: plan.id, collectorId: operator.id,
+        independentEvidenceReference: "OTHER-BOOK-01", independentlyVerified: true, originalDateVerified: true, omittedPaymentVerified: true })));
+      assert.equal(response.status, 409);
+    }
+    const created = await ok(staff, open({ method: "CASH", claimedAmount: "800", originalCollectedAt: first.payment.collectedAt.toISOString() }));
+    assert.equal((await POST(req(owners[0], await event(created.caseId, { action: "approveRecovery", planId: plan.id, collectorId: operator.id,
+      independentEvidenceReference: "OTHER-BOOK-02", independentlyVerified: true, originalDateVerified: true, omittedPaymentVerified: true })))).status, 409);
+    assert.deepEqual(await originals(), initial);
+  });
+  async function adjustmentFixture(reason: string, accessOutcome = "ENDS") {
+    const m = await createMember(staff, { fullName: `Adjustment ${reason} ${accessOutcome} ${suffix}` });
+    const retained = await confirmCash(staff, (await prepareCharge(staff, m.id, plan.id)).id, "800", randomUUID());
+    const affected = await confirmCash(staff, (await prepareCharge(staff, m.id, plan.id)).id, "800", randomUUID());
+    const c = await ok(staff, open({ memberId: m.id, reason }));
+    const request = await ok(staff, await event(c.caseId, { action: "request", reason, paymentId: affected.payment.id, relatedPaymentId: retained.payment.id,
+      periodId: affected.period.id, retainedPeriodId: retained.period.id, collectionCount: reason === "DUPLICATE_RECORD" ? "ONE" : "TWO",
+      amount: reason === "DUPLICATE_RECORD" ? "0" : "800", method: "CASH", moneyOutcome: reason === "DUPLICATE_RECORD" ? "NO_MOVEMENT" : "REFUND_PROPOSED",
+      accessOutcome, effectiveAt: new Date().toISOString(), independentEvidenceReference: "INDEPENDENT-RECEIPT-02", sameObligation: true, unintendedCollection: true,
+      ...(accessOutcome === "ADJUSTS" ? { adjustedStartsAt: affected.period.startsAt.toISOString(), adjustedEndsAt: new Date(affected.period.endsAt.getTime() - 86400_000).toISOString() } : {}) }));
+    const approval = await ok(owners[0], await event(c.caseId, { action: "review", requestEventId: request.id, decision: "APPROVE" }));
+    return { m, retained, affected, c, request, approval };
+  }
+  await t.test("duplicate-record zero-movement correction executes once, preserves originals and explicit retained access", async () => {
+    const f = await adjustmentFixture("DUPLICATE_RECORD"); assert.equal(f.approval.outcome, "APPROVED");
+    const command = await event(f.c.caseId, { action: "executeApproved", requestEventId: f.request.id, independentlyVerified: true, independentEvidenceReference: "EXEC-CORROBORATION-01" });
+    assert.equal((await POST(req(staff, command))).status, 403); assert.equal((await POST(req(owners[1], command))).status, 404);
+    const key = randomUUID(); const results = await Promise.all([ok(owners[0], command, key), ok(owners[0], command, key)]);
+    assert.equal(results[0].id, results[1].id); assert.equal(results[0].outcome, "COMPLETED"); assert.equal(results[0].amountCentavos, 0);
+    assert.equal((await ok(owners[0], command, key)).id, results[0].id);
+    assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: f.affected.period.id } })).isCurrentProjection, false);
+    assert.deepEqual(await admin.membershipPeriod.findUnique({ where: { id: f.affected.period.id } }), f.affected.period);
+    assert.deepEqual(await admin.payment.findUnique({ where: { id: f.affected.payment.id } }), f.affected.payment);
+    assert.deepEqual(await admin.paymentReceipt.findUnique({ where: { id: f.affected.receipt.id } }), f.affected.receipt);
+    assert.equal(assessEligibility(await admin.effectiveEntitlement.findMany({ where: { memberId: f.m.id, isCurrentProjection: true } }), new Date()).status, "ELIGIBLE");
+    assert.equal((await POST(req(owners[0], await event(f.c.caseId, { ...command, expectedRevision: undefined })))).status, 400);
+    assert.equal(await admin.investigationEvent.count({ where: { caseId: f.c.caseId, kind: "SETTLE" } }), 0);
+  });
+  await t.test("full evidenced excess refund awaits separate exact external settlement; concurrent completion is idempotent", async () => {
+    const f = await adjustmentFixture("TWO_COLLECTIONS", "STAYS"); assert.equal(f.approval.outcome, "APPROVED");
+    const command = await event(f.c.caseId, { action: "executeApproved", requestEventId: f.request.id, independentlyVerified: true, independentEvidenceReference: "EXEC-EXCESS-01" });
+    const key = randomUUID(); const results = await Promise.all([ok(owners[0], command, key), ok(owners[0], command, key)]);
+    assert.equal(results[0].id, results[1].id); assert.equal(results[0].outcome, "AWAITING_SETTLEMENT");
+    const settle = await event(f.c.caseId, { action: "settle", executionEventId: results[0].id, independentlyVerified: true,
+      independentEvidenceReference: "REFUND-ACTIVITY-02", settlementReference: `REFUND-${suffix}`, amount: "800", method: "CASH", settledAt: new Date().toISOString() });
+    for (const patch of [{ amount: "799.99" }, { method: "BANK" }, { settledAt: "2000-01-01T00:00:00Z" }]) assert.ok((await POST(req(owners[0], { ...settle, ...patch }))).status >= 400);
+    assert.equal((await POST(req(staff, settle))).status, 403);
+    const settlementKey = randomUUID(); const settled = await Promise.all([ok(owners[0], settle, settlementKey), ok(owners[0], settle, settlementKey)]);
+    assert.equal(settled[0].id, settled[1].id); assert.equal(settled[0].outcome, "COMPLETED");
+    assert.equal(await admin.investigationEvent.count({ where: { executionEventId: results[0].id, kind: "SETTLE" } }), 1);
+    assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: f.affected.period.id } })).isCurrentProjection, true, "Explicit STAYS preserved");
+    assert.deepEqual(await admin.payment.findUnique({ where: { id: f.affected.payment.id } }), f.affected.payment);
+    const repeat = { ...settle, expectedRevision: settled[0].revision };
+    assert.equal((await POST(req(owners[0], repeat))).status, 409);
+  });
+  await t.test("explicit adjusted interval is applied; failed execution audit rolls back event and access", async () => {
+    const f = await adjustmentFixture("DUPLICATE_RECORD", "ADJUSTS");
+    const command = await event(f.c.caseId, { action: "executeApproved", requestEventId: f.request.id, independentlyVerified: true, independentEvidenceReference: "EXEC-ADJUST-02" });
+    const before = await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: f.affected.period.id } });
+    await admin.$executeRawUnsafe(`CREATE FUNCTION public.synthetic_execution_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.gym_id = '${gyms[0]}'::uuid AND NEW.action = 'INVESTIGATION_EXECUTE_APPROVED' THEN RAISE EXCEPTION 'synthetic execution rollback'; END IF; RETURN NEW; END $$`);
+    const key = randomUUID();
+    try {
+      await admin.$executeRawUnsafe("CREATE TRIGGER synthetic_execution_failure BEFORE INSERT ON identity_audit FOR EACH ROW EXECUTE FUNCTION public.synthetic_execution_failure()");
+      assert.equal((await POST(req(owners[0], command, key))).status, 500);
+      assert.deepEqual(await admin.effectiveEntitlement.findUnique({ where: { id: before.id } }), before);
+      assert.equal(await admin.investigationEvent.count({ where: { kind: "EXECUTE_APPROVED", caseId: f.c.caseId } }), 0);
+    } finally { await admin.$executeRawUnsafe("DROP TRIGGER IF EXISTS synthetic_execution_failure ON identity_audit"); await admin.$executeRawUnsafe("DROP FUNCTION public.synthetic_execution_failure()"); }
+    await ok(owners[0], command, key);
+    assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { id: before.id } })).endsAt.toISOString(), f.request.adjustedEndsAt);
+    await assert.rejects(inGym(staff, "MEMBERS", tx => tx.effectiveEntitlement.update({ where: { periodId: f.retained.period.id }, data: { isCurrentProjection: false } })));
+  });
+  await t.test("discretionary cancellation and legitimate second purchase remain unexecutable", async () => {
+    const legitimate = await ok(staff, open({ reason: "TWO_COLLECTIONS" }));
+    const unproven = await ok(staff, await proposal(legitimate.caseId, { reason: "TWO_COLLECTIONS", collectionCount: "TWO", relatedPaymentId: second.payment.id,
+      amount: "800", moneyOutcome: "REFUND_PROPOSED", independentEvidenceReference: "TWO-LEGITIMATE-PURCHASES" }));
+    const unprovenApproval = await ok(owners[0], await event(legitimate.caseId, { action: "review", requestEventId: unproven.id, decision: "APPROVE" }));
+    assert.equal(unprovenApproval.outcome, "APPROVED_BLOCKED", "Two collections alone do not establish duplicate excess");
+    for (const reason of ["CANCEL_BEFORE_USE", "CANCEL_AFTER_USE", "INCORRECT_ENTRY", "FUNDS_ABSENT"]) {
+      const c = await ok(staff, open({ reason })); const requested = await ok(staff, await proposal(c.caseId, { reason }));
+      const approval = await ok(owners[0], await event(c.caseId, { action: "review", requestEventId: requested.id, decision: "APPROVE" }));
+      assert.equal(approval.outcome, "APPROVED_BLOCKED");
+      assert.equal((await POST(req(owners[0], await event(c.caseId, { action: "executeApproved", requestEventId: requested.id, independentlyVerified: true, independentEvidenceReference: "UNSUPPORTED-02" })))).status, 409);
+    }
+    assert.deepEqual(await originals(), initial);
+  });
+  await t.test("independently evidenced zero-movement corrections require explicit owner access outcomes and preserve original history", async () => {
+    for (const reason of ["INCORRECT_ENTRY", "FUNDS_ABSENT"]) {
+      const m = await createMember(staff, { fullName: `Zero movement ${reason} ${suffix}` });
+      const original = await confirmCash(staff, (await prepareCharge(staff, m.id, plan.id)).id, "800", randomUUID());
+      const c = await ok(staff, open({ memberId: m.id, reason }));
+      if (reason === "INCORRECT_ENTRY") {
+        const futureRequest = await ok(staff, await event(c.caseId, { action: "request", reason, paymentId: original.payment.id, periodId: original.period.id,
+          collectionCount: "UNKNOWN", amount: "0", method: "CASH", moneyOutcome: "NO_MOVEMENT", accessOutcome: "ADJUSTS",
+          effectiveAt: new Date(Date.now() + 2 * 86400_000).toISOString(), adjustedStartsAt: new Date(Date.now() + 86400_000).toISOString(),
+          adjustedEndsAt: original.period.endsAt.toISOString(), independentEvidenceReference: "FUTURE-CORRECTION-02" }));
+        await ok(owners[0], await event(c.caseId, { action: "review", requestEventId: futureRequest.id, decision: "APPROVE" }));
+        const rejected = await POST(req(owners[0], await event(c.caseId, { action: "executeApproved", requestEventId: futureRequest.id,
+          independentlyVerified: true, independentEvidenceReference: "FUTURE-EXECUTION-02" })));
+        assert.equal(rejected.status, 409, "Cannot remove access before the approved future effective time");
+        assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: original.period.id } })).endsAt.toISOString(), original.period.endsAt.toISOString());
+      }
+      const effectiveAt = new Date().toISOString();
+      const request = await ok(staff, await event(c.caseId, { action: "request", reason, paymentId: original.payment.id, periodId: original.period.id,
+        collectionCount: "UNKNOWN", amount: "0", method: "CASH", moneyOutcome: "NO_MOVEMENT", accessOutcome: "ENDS", effectiveAt,
+        independentEvidenceReference: `CORRECTION-${reason}-02` }));
+      const approval = await ok(owners[0], await event(c.caseId, { action: "review", requestEventId: request.id, decision: "APPROVE" }));
+      assert.equal(approval.outcome, "APPROVED");
+      const result = await ok(owners[0], await event(c.caseId, { action: "executeApproved", requestEventId: request.id,
+        independentlyVerified: true, independentEvidenceReference: `EXECUTION-${reason}-02` }));
+      assert.equal(result.outcome, "COMPLETED"); assert.equal(result.amountCentavos, 0);
+      const projection = await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: original.period.id } });
+      assert.equal(projection.endsAt.toISOString(), effectiveAt);
+      assert.equal(assessEligibility([projection], new Date(effectiveAt)).status, "EXPIRED", "Exact approved end excludes access");
+      assert.deepEqual(await admin.payment.findUnique({ where: { id: original.payment.id } }), original.payment);
+      assert.deepEqual(await admin.membershipPeriod.findUnique({ where: { id: original.period.id } }), original.period);
+      assert.deepEqual(await admin.paymentReceipt.findUnique({ where: { id: original.receipt.id } }), original.receipt);
+      assert.equal(await admin.investigationEvent.count({ where: { caseId: c.caseId, kind: "SETTLE" } }), 0);
+    }
+  });
+  await t.test("revoked owner freshness, wrong full excess and repeated distinct-key executions produce no extra adjustments", async () => {
+    const f = await adjustmentFixture("TWO_COLLECTIONS", "ENDS");
+    const command = await event(f.c.caseId, { action: "executeApproved", requestEventId: f.request.id, independentlyVerified: true, independentEvidenceReference: "OWNER-EXECUTION-02" });
+    const session = await auth.api.getSession({ headers: owners[0] });
+    await admin.session.update({ where: { id: session!.session.id }, data: { reauthenticatedAt: new Date(0) } });
+    assert.equal((await POST(req(owners[0], command))).status, 403);
+    assert.equal(await admin.investigationEvent.count({ where: { caseId: f.c.caseId, kind: "EXECUTE_APPROVED" } }), 0);
+    await reauthenticate(owners[0], password);
+    const competing = await Promise.all([POST(req(owners[0], command)), POST(req(owners[0], command))]);
+    assert.deepEqual(competing.map(row => row.status).sort(), [200, 409]);
+    assert.equal(await admin.investigationEvent.count({ where: { caseId: f.c.caseId, kind: "EXECUTE_APPROVED" } }), 1);
+    assert.equal((await POST(req(owners[0], { ...command, expectedRevision: command.expectedRevision + 1 }))).status, 409);
+    const c = await ok(staff, open({ memberId: f.m.id, reason: "TWO_COLLECTIONS" }));
+    const request = await ok(staff, await event(c.caseId, { action: "request", reason: "TWO_COLLECTIONS", paymentId: f.retained.payment.id, relatedPaymentId: f.affected.payment.id,
+      periodId: f.retained.period.id, collectionCount: "TWO", amount: "799", method: "CASH", moneyOutcome: "REFUND_PROPOSED", accessOutcome: "STAYS", effectiveAt: new Date().toISOString(),
+      independentEvidenceReference: "WRONG-EXCESS-02", sameObligation: true, unintendedCollection: true }));
+    await ok(owners[0], await event(c.caseId, { action: "review", requestEventId: request.id, decision: "APPROVE" }));
+    assert.equal((await POST(req(owners[0], await event(c.caseId, { action: "executeApproved", requestEventId: request.id,
+      independentlyVerified: true, independentEvidenceReference: "WRONG-EXCESS-EXEC" })))).status, 409, "Cannot refund retained collection through a different case");
   });
   await t.test("restricted runtime RLS, tenant-consistent references, pool cleanup and immutable originals remain enforced", async () => {
     assert.equal(await db.investigationCase.count(), 0); assert.equal(await db.investigationEvent.count(), 0);

@@ -245,10 +245,12 @@ Flow: select member → server loads active approved plan and amount → enter/v
 ### UX-09 — Investigations and controlled adjustments (**S-04**)
 
 - Case list/detail: case type, member, linked receipt/payment, evidence references, claim/report time, investigating actor, current case state, decisions and resolution trail.
-- An authorized owner/staff investigator can recover an omitted **full** payment only with approved independently corroborated evidence and correct date rules. Unverified claims remain open/escalated; recovery of historical non-outage claims whose effective date is unsettled is blocked.
+- Staff investigate/document/escalate; only the owner may approve and execute independently corroborated omitted **full cash** recovery (approved October 25, 2026). Show original collection time separately from later entry/verification. New/late terms use original-date Manila midnight; conflicts stay unresolved. Digital cross-date claims remain blocked.
 - Staff may submit a proposed existing-transaction correction/refund; only owner may approve/execute it. Owner review requires explicit **reason, evidence, financial outcome, access outcome (stays/ends/adjusts), and effective date**. Reauthentication as required.
 - Treat **duplicate ledger record with one collection** differently from **two actual collections**. Never show a refund as completed until actual money movement is recorded and verified.
 - If gym-specific refund eligibility/amount (O-03) is unresolved, case can be documented but discretionary execution remains disabled.
+
+- **October 25, 2026 execution:** separate owner approval, execution and independently verified external settlement controls. Show exact approved amount/method, affected/retained periods and explicit access disposition before execution. Adjusted intervals require explicit dates; never infer from prose. No money-transferred claim. Duplicate-record correction moves zero money; full evidenced unintended duplicate excess alone supports refunds. Discretionary cancellation remains documentable but execution disabled pending written pilot terms. Maintain labelled fields, inline errors/focusable summary, saved retry payloads, keyboard access and mobile layout.
 
 ### UX-10 — Paper outage receipts, one visit, and recovery (**S-05**)
 
@@ -333,7 +335,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | UX-D05 | Remaining-day rounding / expiry copy | **Always show exact expiry; omit rounded remaining-day claims until signed off** | `PROJECT.md` §9 O-01 residual decision. |
 | UX-D06 | Member identity fields and evidence access | Prototype with synthetic minimal labels; don't store real unapproved PII | Data-stewardship gate. |
 | UX-D07 | Extra queued advance renewals | Disable further advance sales pending policy | Product/pilot owner decision. |
-| UX-D08 | Cross-date digital confirmation / historical recovery effective date | Hold for review; never infer start date | Product/pilot owner decision. |
+| UX-D08 | Cross-date digital confirmation / uncertain cash dates | Keep pending/escalated; verified recovered cash dates approved October 25, 2026 | Product/pilot owner decision. |
 | UX-D09 | Refund rules, outage repeats, receipt custody and closing cutoff | Show case/evidence scaffolding; disable affected final decisions | O-02, O-03, O-06, closing details. |
 | UX-D10 | Launch plan catalog/prices | Approved Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; live readiness remains gated | O-07 resolved 2026-10-24. |
 | UX-D11 | First-owner identity proof, owner manual recovery, real email sender | Private synthetic admin fixture only for build | Before real onboarding: admin SOP, domain, authenticated Brevo sender and verified delivery. |

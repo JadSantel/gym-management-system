@@ -12,9 +12,10 @@ const recoverySchema = z.strictObject({ key: z.uuid(), command: investigationCom
 type Recovery = z.infer<typeof recoverySchema>;
 const selectStyle = "min-h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 type Props = { recoveryScope: string; memberId?: string; caseId?: string; revision?: number; owner?: boolean;
-  payments?: { id: string; reference: string; amountCentavos: number; periodId: string }[]; requests?: { id: string; reason: string }[] };
+  payments?: { id: string; reference: string; amountCentavos: number; periodId: string }[]; requests?: { id: string; reason: string }[];
+  plans?: [string, string][]; collectors?: [string, string][]; approvals?: [string, string][]; approvedRequests?: [string, string][]; executions?: [string, string][] };
 
-export function InvestigationActions({ recoveryScope, memberId, caseId, revision, owner, payments = [], requests = [] }: Props) {
+export function InvestigationActions({ recoveryScope, memberId, caseId, revision, owner, payments = [], requests = [], plans = [], collectors = [], approvals = [], approvedRequests = [], executions = [] }: Props) {
   const router = useRouter(); const [action, setAction] = useState("note");
   const [busy, setBusy] = useState(false); const busyRef = useRef(false); const [ready, setReady] = useState(false);
   const [message, setMessage] = useState(""); const [errors, setErrors] = useState<Record<string, string>>({});
@@ -44,7 +45,7 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
         setErrors(body.fieldErrors ?? {}); throw new Error(body.error);
       }
       sessionStorage.removeItem(storageKey); pendingRef.current = null; setPending(null);
-      setMessage(body.outcome === "APPROVED_BLOCKED" ? "Owner approval recorded. Execution remains blocked; no money or access changed." : "Case record saved. Payments and membership access are preserved.");
+      setMessage(body.outcome === "APPROVED_BLOCKED" ? "Owner approval recorded. Execution remains blocked; no money or access changed." : body.outcome === "AWAITING_SETTLEMENT" ? "Approved access outcome executed. Refund awaits independently verified external settlement. The CRM has not transferred money." : body.outcome === "RECOVERED" ? "Verified omitted cash payment recovered with original collection dates. Receipt and membership period recorded." : body.outcome === "COMPLETED" ? "Approved operation completed and recorded in the preserved history." : "Case record saved. Review its outcome and next required action below.");
       if (command.action === "open") router.push(`/investigations/${body.caseId}`);
       else router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Connection unavailable. Retry the saved case operation to retrieve its result."); }
@@ -54,6 +55,7 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
   const field = (name: string, label: string, input: React.ReactNode) => <div className="min-w-0"><label htmlFor={`case-${name}`} className="block text-sm font-medium">{label}</label>{input}{errors[name] && <p id={`case-error-${name}`} className="mt-1 text-sm text-destructive">{errors[name]}</p>}</div>;
   const attributes = (name: string) => ({ id: `case-${name}`, name, "aria-invalid": !!errors[name], "aria-describedby": errors[name] ? `case-error-${name}` : undefined });
   const input = (name: string, label: string, options: React.ComponentProps<typeof Input> = {}) => field(name, label, <Input {...attributes(name)} required {...options} />);
+  const attest = (name: string, label: string) => <label className="flex min-h-11 items-center gap-3 sm:col-span-2" htmlFor={`case-${name}`}><input {...attributes(name)} type="checkbox" value="true" required />{label}</label>;
   const select = (name: string, label: string, options: [string, string][], optional = false) => field(name, label, <select {...attributes(name)} required={!optional} className={selectStyle}>{optional && <option value="">Not specified</option>}{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>);
   const paymentOptions = payments.map(payment => [payment.id, `${payment.reference} · ${formatPhp(payment.amountCentavos)}`] as [string, string]);
   const periodOptions = payments.map(payment => [payment.periodId, `Period for ${payment.reference}`] as [string, string]);
@@ -70,10 +72,11 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
       const values: Record<string, unknown> = Object.fromEntries(new FormData(event.currentTarget));
       values.action = mode;
       if (caseId) { values.caseId = caseId; values.expectedRevision = revision; }
-      for (const name of ["originalCollectedAt", "effectiveAt"]) if (typeof values[name] === "string" && values[name]) {
+      for (const name of ["originalCollectedAt", "effectiveAt", "adjustedStartsAt", "adjustedEndsAt", "settledAt"]) if (typeof values[name] === "string" && values[name]) {
         const date = new Date(`${values[name]}+08:00`); values[name] = Number.isNaN(date.getTime()) ? "" : date.toISOString();
       }
-      for (const name of ["evidenceReference", "originalCollectedAt", "claimedAmount", "relatedPaymentId", "retainedPeriodId"]) if (values[name] === "") delete values[name];
+      for (const name of ["evidenceReference", "originalCollectedAt", "claimedAmount", "relatedPaymentId", "retainedPeriodId", "independentEvidenceReference", "adjustedStartsAt", "adjustedEndsAt"]) if (values[name] === "") delete values[name];
+      for (const name of ["independentlyVerified", "originalDateVerified", "omittedPaymentVerified", "sameObligation", "unintendedCollection"]) if (values[name] === "true") values[name] = true;
       const parsed = investigationCommandSchema.safeParse(values);
       if (!parsed.success) { setErrors(investigationFieldErrors(parsed.error)); setMessage("Check the case fields below."); feedback.current?.focus(); return; }
       void send(parsed.data);
@@ -81,8 +84,9 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
       <fieldset disabled={!ready || busy || !!pending} className="grid min-w-0 gap-4 sm:grid-cols-2"><legend className="sr-only">Investigation details</legend>
         {caseId && <div className="sm:col-span-2"><label htmlFor="case-action" className="block text-sm font-medium">Record type</label><select id="case-action" className={selectStyle} value={action} onChange={event => { setAction(event.target.value); setErrors({}); }}>
           <option value="note">Investigation note</option><option value="escalate">Escalate to owner</option><option value="link" disabled={!payments.length}>Match an existing payment</option><option value="request" disabled={!payments.length}>Request correction or refund review</option>{owner && <option value="review" disabled={!requests.length}>Owner decision on a request</option>}
+          {owner && <><option value="approveRecovery">Approve verified omitted cash recovery</option><option value="recover" disabled={!approvals.length}>Execute approved cash recovery</option><option value="executeApproved" disabled={!approvedRequests.length}>Execute approved correction or refund</option><option value="settle" disabled={!executions.length}>Verify external refund settlement</option></>}
         </select></div>}
-        {caseId && !payments.length && <p className="text-sm sm:col-span-2">No confirmed payment is recorded for this member. Add evidence or escalate; recovery remains blocked.</p>}
+        {caseId && !payments.length && <p className="text-sm sm:col-span-2">No confirmed payment is recorded for this member. Investigate and escalate; the owner may approve independently verified omitted full cash recovery.</p>}
         {mode === "open" && <>
           {input("memberId", "Member reference", { defaultValue: memberId, maxLength: 36 })}
           {select("reason", "Case classification", Object.entries(caseReasons))}
@@ -93,6 +97,23 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
         </>}
         {mode !== "open" && input("reasoning", "Reviewer reasoning / investigation outcome", { maxLength: 500 })}
         {input("evidenceReference", mode === "open" ? "Evidence reference (optional for uncorroborated claims)" : "Evidence reference", { maxLength: 100, required: mode !== "open" })}
+        {["approveRecovery", "executeApproved", "settle", "request"].includes(mode) && input("independentEvidenceReference", "Distinct independent corroboration reference", { maxLength: 100, required: mode !== "request" })}
+        {["approveRecovery", "executeApproved", "settle"].includes(mode) && attest("independentlyVerified", "I independently verified actual collection or external settlement; verbal claims and screenshots alone are insufficient.")}
+        {mode === "approveRecovery" && <>
+          {select("planId", "Verified original full-price plan", plans)}{select("collectorId", "Original actual collector", collectors)}
+          {attest("originalDateVerified", "Original collection date/time is independently verified and unambiguous.")}
+          {attest("omittedPaymentVerified", "I checked payment and receipt history: this collection was genuinely omitted. Approve creation of one linked cash payment and its displayed original-date membership period.")}
+        </>}
+        {mode === "recover" && select("approvalEventId", "Approved recovery (review exact plan, amount and period below)", approvals)}
+        {mode === "executeApproved" && select("requestEventId", "Exact approved proposal to execute", approvedRequests)}
+        {mode === "settle" && <>
+          {select("executionEventId", "Refund awaiting settlement", executions)}
+          {input("amount", "Actual full refund amount (PHP)", { inputMode: "decimal" })}
+          {select("method", "Actual settlement method", [["CASH", "Cash"], ["GCASH", "GCash"], ["BANK", "Bank"]])}
+          {input("settlementReference", "Unique external settlement reference", { maxLength: 100 })}
+          {input("settledAt", "Actual independently verified settlement time (PHT)", { type: "datetime-local", step: "1" })}
+          <p className="text-sm sm:col-span-2">Record verified external money movement only. Owner approval alone is insufficient. The CRM does not transfer funds.</p>
+        </>}
         {(mode === "link" || mode === "request") && select("paymentId", "Existing confirmed payment", paymentOptions)}
         {mode === "request" && <>
           {select("reason", "Correction / refund classification", Object.entries(caseReasons).filter(([key]) => key !== "MISSING_PAYMENT"))}
@@ -105,12 +126,16 @@ export function InvestigationActions({ recoveryScope, memberId, caseId, revision
           {select("retainedPeriodId", "Retained period from other payment (duplicate record)", periodOptions, true)}
           {select("accessOutcome", "Explicit proposed access outcome", [["STAYS", "Access stays"], ["ENDS", "Access ends"], ["ADJUSTS", "Access adjusts; details in reasoning"]])}
           {input("effectiveAt", "Proposed access effective date and time (PHT)", { type: "datetime-local", step: "1" })}
-          <p className="text-sm sm:col-span-2">Identify affected and retained periods explicitly. One collection with duplicate records cannot refund nonexistent funds. Two collections require approved excess-payment terms. All execution remains blocked.</p>
+          {input("adjustedStartsAt", "Explicit adjusted start (PHT; required for ADJUSTS)", { type: "datetime-local", step: "1", required: false })}
+          {input("adjustedEndsAt", "Explicit adjusted end (PHT; required for ADJUSTS)", { type: "datetime-local", step: "1", required: false })}
+          <label className="flex min-h-11 items-center gap-3"><input {...attributes("sameObligation")} type="checkbox" value="true" />Evidence proves both collections relate to the same obligation</label>
+          <label className="flex min-h-11 items-center gap-3"><input {...attributes("unintendedCollection")} type="checkbox" value="true" />Evidence proves the full additional collection was unintended</label>
+          <p className="text-sm sm:col-span-2">Identify affected and retained periods explicitly. One collection with duplicate records moves zero money. Refund execution supports only the exact full evidenced unintended duplicate excess. Discretionary cancellations remain blocked.</p>
         </>}
         {mode === "review" && <>
           {select("requestEventId", "Request to review (read its full proposal below)", requests.map(request => [request.id, `${request.id} · ${request.reason}`]))}
-          {select("decision", "Owner decision on this exact proposal", [["REJECT", "Reject request"], ["APPROVE", "Approve proposal; execution remains blocked"]])}
-          <p className="text-sm sm:col-span-2">Approval records agreement with the selected request&apos;s money, periods, access outcome and effective date. It does not prove a completed refund or authorize execution through unresolved policy gates.</p>
+          {select("decision", "Owner decision on this exact proposal", [["REJECT", "Reject request"], ["APPROVE", "Approve exact proposal"]])}
+          <p className="text-sm sm:col-span-2">Approval records agreement with the selected request&apos;s money, periods, access outcome and effective date. Supported proposals require separate execution; refunds then await verified external settlement. Unsupported procedures remain blocked.</p>
         </>}
         <Button type="submit" className="sm:col-span-2">{busy ? "Saving…" : mode === "open" ? "Open case without granting access" : "Save case record"}</Button>
       </fieldset>

@@ -13,6 +13,7 @@ const reference = z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9][A-Za-z0-
 const instant = z.iso.datetime({ offset: true });
 const revision = z.number().int().min(1).max(2_147_483_646);
 const event = { caseId: recordIdSchema, expectedRevision: revision, reasoning: text, evidenceReference: reference };
+const corroboration = { independentEvidenceReference: reference, independentlyVerified: z.literal(true) };
 export const investigationCommandSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("open"), memberId: recordIdSchema, reason, summary: text,
     evidenceReference: reference.optional(), originalCollectedAt: instant.optional(), claimedAmount: priceSchema.optional(), method: z.enum(["CASH", "GCASH", "BANK", "UNKNOWN"]) }),
@@ -22,10 +23,17 @@ export const investigationCommandSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("request"), ...event, reason, paymentId: recordIdSchema, relatedPaymentId: recordIdSchema.optional(),
     collectionCount: z.enum(["ONE", "TWO", "UNKNOWN"]), amount: z.union([z.literal("0"), z.literal("0.00"), priceSchema]),
     method: z.enum(["CASH", "GCASH", "BANK"]), moneyOutcome: z.enum(["NO_MOVEMENT", "REFUND_PROPOSED", "CORRECTION_PROPOSED"]),
-    accessOutcome: z.enum(["STAYS", "ENDS", "ADJUSTS"]), effectiveAt: instant, periodId: recordIdSchema, retainedPeriodId: recordIdSchema.optional() }),
+    accessOutcome: z.enum(["STAYS", "ENDS", "ADJUSTS"]), effectiveAt: instant, periodId: recordIdSchema, retainedPeriodId: recordIdSchema.optional(),
+    independentEvidenceReference: reference.optional(), sameObligation: z.literal(true).optional(), unintendedCollection: z.literal(true).optional(),
+    adjustedStartsAt: instant.optional(), adjustedEndsAt: instant.optional() }),
   z.strictObject({ action: z.literal("review"), ...event, requestEventId: recordIdSchema, decision: z.enum(["APPROVE", "REJECT"]) }),
-  z.strictObject({ action: z.literal("recover"), caseId: recordIdSchema }),
+  z.strictObject({ action: z.literal("approveRecovery"), ...event, ...corroboration, planId: recordIdSchema, collectorId: recordIdSchema,
+    originalDateVerified: z.literal(true), omittedPaymentVerified: z.literal(true) }),
+  z.strictObject({ action: z.literal("recover"), ...event, approvalEventId: recordIdSchema }),
   z.strictObject({ action: z.literal("execute"), caseId: recordIdSchema }),
+  z.strictObject({ action: z.literal("executeApproved"), ...event, requestEventId: recordIdSchema, ...corroboration }),
+  z.strictObject({ action: z.literal("settle"), ...event, executionEventId: recordIdSchema, ...corroboration,
+    settlementReference: reference, settledAt: instant, amount: priceSchema, method: z.enum(["CASH", "GCASH", "BANK"]) }),
 ]);
 export type InvestigationCommand = z.infer<typeof investigationCommandSchema>;
 export const investigationKeySchema = z.uuid();
@@ -44,6 +52,6 @@ export function investigationFieldErrors(error: z.ZodError) {
 }
 
 export const investigationGates = {
-  recovery: "Recovery blocked: O-05 investigator authority and corroborating-evidence standards, plus recovered-payment effective dates, are unresolved. Digital recovery also requires designated-account verification. Preserve evidence and escalate to the owner.",
-  execution: "Execution blocked: approved reason-specific case procedures/evidence are missing; O-03 also blocks discretionary refunds and excess-payment dispositions. Owner approval is a review record, not completed money movement or an access change.",
+  recovery: "Only the owner may recover independently verified omitted full cash payments. Original verified collection dates determine membership dates; conflicts stay unresolved. Digital cross-date recovery remains blocked; use the designated-account confirmation flow for supported same-date claims.",
+  execution: "Owner approval and execution are separate. Duplicate-record, incorrect-entry and funds-absent corrections support explicit access outcomes with zero money movement. Full evidenced duplicate excess refunds await independently verified external settlement. Discretionary cancellation refunds remain blocked pending written pilot terms. The CRM does not transfer funds.",
 } as const;

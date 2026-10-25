@@ -19,7 +19,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     const claim = settlement ? await tx.digitalClaim.findUnique({ where: { id: settlement.claimId } }) : null;
     const account = claim ? await tx.receivingAccount.findUnique({ where: { id: claim.accountId } }) : null;
     const flags = await tx.paymentFlag.findMany({ where: { paymentId: receipt.paymentId } });
-    return { ...receipt, settlement, claim, account, flags };
+    const adjustments = await tx.investigationEvent.findMany({ where: { paymentId: receipt.paymentId, kind: { in: ["RECOVER", "EXECUTE_APPROVED"] } } });
+    const refunds = await tx.investigationEvent.findMany({ where: { kind: "SETTLE", executionEventId: { in: adjustments.map(event => event.id) } } });
+    return { ...receipt, settlement, claim, account, flags, adjustments, refunds };
   }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400) notFound(); redirect("/"); } throw error;
   });
@@ -47,5 +49,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <p className="mt-3 text-sm"><Link className="underline" href={`/investigations?memberId=${payment.memberId}`}>View investigation and owner-review history</Link>. This original receipt remains unchanged by pending requests or approval records.</p>
       {receipt.claim && <p className="mt-3 break-all text-sm">Transfer reference: {receipt.claim.transactionReference}. Matched receiving account: {receipt.account?.label}. Account activity evidence: {receipt.settlement?.evidenceReference}.</p>}
       {receipt.flags.map(flag => <p key={flag.id} className="mt-3 font-semibold">Owner review required: {flag.reason}. Original confirmation preserved; no automatic refund or access change.</p>)}
+      {receipt.adjustments.map(event => <p key={event.id} className="mt-3 break-words text-sm"><Link className="font-semibold underline" href={`/investigations/${event.caseId}#event-${event.id}`}>{event.kind === "RECOVER" ? "Recovered original collection" : "Linked owner adjustment"}</Link>: {receipt.refunds.some(refund => refund.executionEventId === event.id) ? "External refund settlement verified" : event.outcome}.
+        {event.accessOutcome && <> Approved access outcome: {event.accessOutcome}, effective {pht.format(event.effectiveAt!)} PHT.</>} This is the immutable original receipt and period; review the linked case and current membership access.</p>)}
     </article></>;
 }

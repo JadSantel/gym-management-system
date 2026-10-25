@@ -804,7 +804,7 @@ try {
   fill("#case-reasoning", "Reviewed the exact proposal; policy still blocks settlement"); fill("#case-evidenceReference", "OWNER-REVIEW-01"); browser("select", "#case-decision", "APPROVE");
   clickButton("Save case record"); checkText("Owner approval recorded. Execution remains blocked"); checkText("APPROVED_BLOCKED");
   const execution = evalBrowser(`fetch('/api/investigations', {method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({action:'execute',caseId:'${createdCase.caseId}'})}).then(async response=>({status:response.status,body:await response.json()}))`);
-  assert.equal(execution.status, 409); assert.match(execution.body.error, /O-03/);
+  assert.equal(execution.status, 409); assert.match(execution.body.error, /cancellation/);
   assert.deepEqual(await admin.payment.findUniqueOrThrow({ where: { id: digitalPayment.id }, include: { period: true, receipt: true } }), originalCasePayment);
   browser("screenshot", resolve(".local/s04-case-desktop.png")); audit("Investigation owner review desktop");
   browser("set", "viewport", "375", "812"); assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true);
@@ -822,6 +822,84 @@ try {
   fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("S-04 browser: history search, retained validation and rejected proposal fields, lost-response/reload case recovery, existing-payment match, explicit request/owner approval, blocked execution, preserved payment/receipt/access, staff escalation/denial, mobile overflow and axe passed.");
+  // S-04 approved execution: use real browser forms/API and verify committed DB effects.
+  const postSynthetic = (path: string, body: object) => {
+    const result = evalBrowser(`fetch(${JSON.stringify(path)}, {method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify(${JSON.stringify(body)})}).then(async response=>({status:response.status,body:await response.json()}))`);
+    assert.equal(result.status, 200, JSON.stringify(result.body)); return result.body;
+  };
+  const recoveryMember = postSynthetic('/api/members', { fullName: `Omitted browser ${suffix}` });
+  const recoveryPlan = await admin.plan.findFirstOrThrow({ where: { gymId, durationDays: 30 } });
+  const recoveryPrice = (recoveryPlan.priceCentavos / 100).toFixed(2);
+  const recoveredCase = postSynthetic('/api/investigations', { action: 'open', memberId: recoveryMember.id, reason: 'MISSING_PAYMENT', summary: 'Independently corroborated omitted synthetic cash',
+    method: 'CASH', claimedAmount: recoveryPrice, originalCollectedAt: '2024-02-29T12:00:00+08:00' });
+  browser('open', `${origin}/investigations/${recoveredCase.caseId}`); checkText('Preserved investigation and decision trail');
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false");
+  fill('#case-owner-password', password); clickButton('Verify password'); checkText('Password verified for five minutes.');
+  browser('select', '#case-action', 'approveRecovery'); fill('#case-reasoning', 'Matched original issued receipt with independently kept cash book');
+  fill('#case-evidenceReference', 'ORIGINAL-RECEIPT-01'); fill('#case-independentEvidenceReference', 'CASH-BOOK-02');
+  browser('select', '#case-planId', recoveryPlan.id); browser('select', '#case-collectorId', staff.id);
+  for (const name of ['independentlyVerified', 'originalDateVerified', 'omittedPaymentVerified']) browser('check', `#case-${name}`);
+  clickButton('Save case record'); checkText('Awaiting separate execution; no payment recorded by this approval.');
+  assert.equal(await admin.payment.count({ where: { memberId: recoveryMember.id } }), 0);
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false");
+  browser('select', '#case-action', 'recover'); fill('#case-reasoning', 'Execute the exact approved original-date recovery'); fill('#case-evidenceReference', 'RECOVERY-EXEC-01');
+  // Lost response must retain the exact operation through reload/retry.
+  evalBrowser(`(() => { const send = window.fetch; window.fetch = async function (...args) { const response = await send.apply(this, args); if (args[0] === '/api/investigations' && response.ok) { window.fetch = send; throw new TypeError('Synthetic recovered-payment response loss'); } return response; }; return true; })()`);
+  clickButton('Save case record'); checkText('Case status unknown.'); browser('reload'); checkText('Retry original case operation'); clickButton('Retry original case operation'); checkText('Verified omitted cash payment recovered');
+  const recoveredPayment = await admin.payment.findFirstOrThrow({ where: { memberId: recoveryMember.id }, include: { period: true, receipt: true } });
+  assert.equal(await admin.payment.count({ where: { memberId: recoveryMember.id } }), 1);
+  assert.equal(recoveredPayment.period!.startsAt.toISOString(), '2024-02-28T16:00:00.000Z');
+  browser('open', `${origin}/receipts/${recoveredPayment.receipt!.id}`); checkText(recoveredPayment.reference); checkText('Recorded at');
+  const excessMember = postSynthetic('/api/members', { fullName: `Excess browser ${suffix}` });
+  const purchase = (memberId = excessMember.id) => { const charge = postSynthetic('/api/charges', { memberId, planId: recoveryPlan.id }); return postSynthetic('/api/payments', { chargeId: charge.id, cashReceived: recoveryPrice }); };
+  const retainedPurchase = purchase(); const excessPurchase = purchase();
+  const refundCase = postSynthetic('/api/investigations', { action: 'open', memberId: excessMember.id, reason: 'TWO_COLLECTIONS', summary: 'Two evidenced synthetic collections for one obligation', method: 'CASH' });
+  browser('open', `${origin}/investigations/${refundCase.caseId}`); checkText('Preserved investigation and decision trail');
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false"); browser('select', '#case-action', 'request');
+  browser('select', '#case-reason', 'TWO_COLLECTIONS'); browser('select', '#case-paymentId', excessPurchase.payment.id); browser('select', '#case-relatedPaymentId', retainedPurchase.payment.id);
+  browser('select', '#case-periodId', excessPurchase.period.id); browser('select', '#case-retainedPeriodId', retainedPurchase.period.id);
+  browser('select', '#case-collectionCount', 'TWO'); browser('select', '#case-moneyOutcome', 'REFUND_PROPOSED'); browser('select', '#case-accessOutcome', 'ENDS');
+  fill('#case-amount', recoveryPrice); fill('#case-reasoning', 'Independent records prove an unintended second collection for the same obligation');
+  fill('#case-evidenceReference', 'COLLECTION-ONE-01'); fill('#case-independentEvidenceReference', 'COLLECTION-TWO-02');
+  browser('check', '#case-sameObligation'); browser('check', '#case-unintendedCollection'); fillDateTime('#case-effectiveAt', new Date(Date.now() + 8 * 3600_000).toISOString().slice(0,19));
+  clickButton('Save case record'); checkText('OWNER_REVIEW');
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false"); browser('select', '#case-action', 'review');
+  fill('#case-owner-password', password); clickButton('Verify password'); checkText('Password verified for five minutes.');
+  fill('#case-reasoning', 'Approve full duplicate excess refund and end only the extra future term'); fill('#case-evidenceReference', 'APPROVAL-EXCESS-01'); browser('select', '#case-decision', 'APPROVE');
+  clickButton('Save case record'); checkText('REVIEW \u00b7 APPROVED');
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false"); browser('select', '#case-action', 'executeApproved');
+  fill('#case-reasoning', 'Execute exact approved full excess disposition'); fill('#case-evidenceReference', 'EXEC-REFUND-01'); fill('#case-independentEvidenceReference', 'EXEC-REFUND-02'); browser('check', '#case-independentlyVerified');
+  clickButton('Save case record'); checkText('AWAITING_SETTLEMENT');
+  assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: excessPurchase.period.id } })).isCurrentProjection, false);
+  assert.equal(await admin.investigationEvent.count({ where: { caseId: refundCase.caseId, kind: 'SETTLE' } }), 0);
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false"); browser('select', '#case-action', 'settle');
+  fill('#case-reasoning', 'Actual external synthetic cash return independently verified'); fill('#case-evidenceReference', 'REFUND-RECEIPT-01'); fill('#case-independentEvidenceReference', 'REFUND-CASH-BOOK-02'); browser('check', '#case-independentlyVerified');
+  browser('wait', '--fn', `Date.now() >= ${Date.now() + 1000}`);
+  fill('#case-amount', recoveryPrice); fill('#case-settlementReference', `EXTERNAL-REFUND-${suffix}`); fillDateTime('#case-settledAt', new Date(Date.now() + 8 * 3600_000).toISOString().slice(0,19));
+  clickButton('Save case record'); checkText('External settlement independently verified:');
+  assert.equal(await admin.investigationEvent.count({ where: { caseId: refundCase.caseId, kind: 'SETTLE' } }), 1);
+  audit('S-04 verified refund settlement'); browser('set', 'viewport', '375', '812');
+  assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'), true); audit('S-04 execution mobile');
+  browser('screenshot', resolve('.local/s04-execution-mobile.png')); browser('set', 'viewport', '1280', '900');
+  browser('open', `${origin}/receipts/${excessPurchase.receipt.id}`); checkText(excessPurchase.payment.reference); checkText('External refund settlement verified');
+  const correctionMember = postSynthetic('/api/members', { fullName: `Correction browser ${suffix}` });
+  const correctionPurchase = purchase(correctionMember.id);
+  const correctionCase = postSynthetic('/api/investigations', { action: 'open', memberId: correctionMember.id, reason: 'INCORRECT_ENTRY', summary: 'Independently verified synthetic entry correction', method: 'CASH' });
+  const correctionEnd = new Date().toISOString();
+  const correctionRequest = postSynthetic('/api/investigations', { action: 'request', caseId: correctionCase.caseId, expectedRevision: 1,
+    reasoning: 'Correct entry with no money movement and explicit end of access', evidenceReference: 'CORRECTION-01', independentEvidenceReference: 'CORRECTION-02',
+    reason: 'INCORRECT_ENTRY', paymentId: correctionPurchase.payment.id, periodId: correctionPurchase.period.id, collectionCount: 'UNKNOWN', amount: '0', method: 'CASH',
+    moneyOutcome: 'NO_MOVEMENT', accessOutcome: 'ENDS', effectiveAt: correctionEnd });
+  postSynthetic('/api/investigations', { action: 'review', caseId: correctionCase.caseId, expectedRevision: 2, requestEventId: correctionRequest.id,
+    reasoning: 'Approve exact zero-money correction and access end', evidenceReference: 'CORRECTION-APPROVAL', decision: 'APPROVE' });
+  browser('open', `${origin}/investigations/${correctionCase.caseId}`); checkText('Preserved investigation and decision trail');
+  browser('wait', '--fn', "document.getElementById('case-action')?.disabled === false"); browser('select', '#case-action', 'executeApproved');
+  fill('#case-reasoning', 'Execute approved zero-money correction'); fill('#case-evidenceReference', 'CORRECTION-EXEC-01'); fill('#case-independentEvidenceReference', 'CORRECTION-EXEC-02'); browser('check', '#case-independentlyVerified');
+  clickButton('Save case record'); checkText('Zero money movement; correction completed.');
+  assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: correctionPurchase.period.id } })).endsAt.toISOString(), correctionEnd);
+  browser('open', `${origin}/members/${correctionMember.id}`); checkText('The most recent verified paid period has expired.');
+  console.log('S-04 approved execution browser: owner recovery approval, original-date recovery, committed lost-response retry, immutable receipt, exact excess refund approval/execution, explicit access end, separate verified external settlement, mobile and axe passed.');
+  browser('open', origin); checkText('Welcome, Browser Owner');
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");
   checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
   assert.equal(evalBrowser(`document.getElementById('reset-staff-${staff.id}').getAttribute('aria-describedby')`), `operator-error-${staff.id}`);
@@ -840,7 +918,7 @@ try {
   console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
 } catch (error) {
   try {
-    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
+    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback','case-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
     browser("screenshot", resolve(".local/browser-failure.png"));
   } catch { /* Preserve the original failure if the browser is unavailable. */ }
   primaryFailure = error;

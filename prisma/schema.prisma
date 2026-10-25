@@ -411,6 +411,18 @@ model InvestigationEvent {
   retainedPeriodId String? @map("retained_period_id") @db.Uuid
   requestEventId String? @map("request_event_id") @db.Uuid
   decision String?
+  recoveryPlanId String? @map("recovery_plan_id") @db.Uuid
+  recoveryChargeId String? @map("recovery_charge_id") @db.Uuid
+  recoveryCollectorId String? @map("recovery_collector_id") @db.Uuid
+  independentEvidenceReference String? @map("independent_evidence_reference")
+  sameObligation Boolean? @map("same_obligation")
+  unintendedCollection Boolean? @map("unintended_collection")
+  adjustedStartsAt DateTime? @map("adjusted_starts_at") @db.Timestamptz(3)
+  adjustedEndsAt DateTime? @map("adjusted_ends_at") @db.Timestamptz(3)
+  approvalEventId String? @map("approval_event_id") @db.Uuid
+  executionEventId String? @map("execution_event_id") @db.Uuid
+  settlementReference String? @map("settlement_reference")
+  settledAt DateTime? @map("settled_at") @db.Timestamptz(3)
   @@unique([id, gymId])
   @@unique([gymId, operationKey])
   @@unique([caseId, revision])

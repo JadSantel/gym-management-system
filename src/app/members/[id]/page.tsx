@@ -32,7 +32,9 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
     const claims = await tx.digitalClaim.findMany({ where: { chargeId: { in: memberCharges.map(row => row.id) } } });
     const settlements = await tx.digitalSettlement.findMany({ where: { claimId: { in: claims.map(claim => claim.id) } } });
     const flags = await tx.paymentFlag.findMany({ where: { paymentId: { in: payments.map(payment => payment.id) } } });
-    return { member, plans, charge, payments, intervals, accounts, claims, settlements, flags, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
+    const adjustments = await tx.investigationEvent.findMany({ where: { paymentId: { in: payments.map(payment => payment.id) }, kind: { in: ["RECOVER", "EXECUTE_APPROVED"] } } });
+    const refunds = await tx.investigationEvent.findMany({ where: { kind: "SETTLE", executionEventId: { in: adjustments.map(event => event.id) } } });
+    return { member, plans, charge, payments, intervals, accounts, claims, settlements, flags, adjustments, refunds, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
   }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400 || error.status === 404) notFound(); redirect("/"); } throw error;
   });
@@ -59,6 +61,8 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Collected by</dt><dd>{payment.collector.user.name} · {pht.format(payment.collectedAt)} PHT</dd></div><div><dt className="text-muted-foreground">Entry recorded</dt><dd>{pht.format(payment.enteredAt)} PHT</dd></div><div><dt className="text-muted-foreground">Verified by</dt><dd>{payment.verifier.user.name} · {pht.format(payment.verifiedAt)} PHT</dd></div><div><dt className="text-muted-foreground">Paid period</dt><dd>{payment.period ? `${pht.format(payment.period.startsAt)} PHT inclusive to ${pht.format(payment.period.endsAt)} PHT exclusive` : "Unavailable"}</dd></div></dl>
         {payment.receipt && <p className="mt-3 text-sm">Payment reference: <span className="break-all font-medium">{payment.reference}</span> · <Link className="font-semibold underline" href={`/receipts/${payment.receipt.id}`}>View receipt {payment.receipt.reference}</Link></p>}
         {data.flags.filter(flag => flag.paymentId === payment.id).map(flag => <p key={flag.id} className="mt-3 font-semibold">Owner review required: {flag.reason}. No automatic refund or access change.</p>)}
+        {data.adjustments.filter(event => event.paymentId === payment.id).map(event => <p key={event.id} className="mt-3 break-words text-sm"><Link className="font-semibold underline" href={`/investigations/${event.caseId}#event-${event.id}`}>{event.kind === "RECOVER" ? "Recovered original collection" : "Linked owner adjustment"}</Link>: {data.refunds.some(refund => refund.executionEventId === event.id) ? "External refund settlement verified" : event.outcome}.
+          {event.accessOutcome && <> Approved access outcome: {event.accessOutcome}, effective {pht.format(event.effectiveAt!)} PHT.</>} Original payment and paid period above are preserved; current access is shown separately.</p>)}
       </li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">No confirmed payments recorded.</p>}
     </section>
     <ChargePreview key={`${member.id}:${charge?.id ?? "no-preview"}`} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare} recoveryScope={data.recoveryScope}
