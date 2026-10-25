@@ -899,7 +899,107 @@ try {
   assert.equal((await admin.effectiveEntitlement.findUniqueOrThrow({ where: { periodId: correctionPurchase.period.id } })).endsAt.toISOString(), correctionEnd);
   browser('open', `${origin}/members/${correctionMember.id}`); checkText('The most recent verified paid period has expired.');
   console.log('S-04 approved execution browser: owner recovery approval, original-date recovery, committed lost-response retry, immutable receipt, exact excess refund approval/execution, explicit access end, separate verified external settlement, mobile and axe passed.');
+  // S-05: pre-existing historical registry is synthetic setup; all recovery uses the real UI/API.
+  await admin.rateLimit.deleteMany();
+  const outageAt = new Date(Date.now() - 2 * 86400_000);
+  const outageIssue = new Date(outageAt.getTime() + 1000);
+  const outageH1 = new Date(outageAt.getTime() + 3600_000);
+  const outageH2 = new Date(outageAt.getTime() + 7200_000);
+  const outageBook = await admin.outageBook.create({ data: { gymId, code: `HIST${suffix.toUpperCase()}`, firstNumber: 1, lastNumber: 4,
+    custodianId: staff.id, createdBy: owner.id, createdAt: new Date(outageAt.getTime() - 86400_000) } });
+  const outagePrice = await admin.outagePrice.create({ data: { gymId, bookId: outageBook.id, planId: recoveryPlan.id, planName: recoveryPlan.name,
+    durationDays: recoveryPlan.durationDays, priceCentavos: recoveryPlan.priceCentavos, planVersion: recoveryPlan.version } });
+  const outageMember = postSynthetic('/api/members', { fullName: `Outage D plus Two ${suffix}` });
+  const ownerOutageMember = postSynthetic('/api/members', { fullName: `Owner Outage ${suffix}` });
+  const phtValue = (date: Date) => new Date(date.getTime() + 8 * 3600_000).toISOString().slice(0,19);
+  const outageReady = () => browser('wait', '--fn', "document.getElementById('outage-action')?.disabled === false");
+  browser('open', `${origin}/outage-receipts`); checkText('Outage receipts and custody'); outageReady();
+  fill('#outage-owner-password', password); clickButton('Verify password'); checkText('Password verified for five minutes.');
+  browser('select', '#outage-action', 'register'); fill('#outage-code', `OWN${suffix.toUpperCase()}`); fill('#outage-first', '1'); fill('#outage-last', '3');
+  browser('select', '#outage-custodianId', owner.id); clickButton('Save outage record'); checkText('Outage record saved.'); outageReady();
+  const ownerBook = await admin.outageBook.findUniqueOrThrow({ where: { gymId_code: { gymId, code: `OWN${suffix.toUpperCase()}` } } });
+  const ownerPrice = await admin.outagePrice.findFirstOrThrow({ where: { bookId: ownerBook.id, durationDays: 30 } });
+  for (const operatorId of [owner.id, staff.id]) {
+    browser('select', '#outage-action', 'verifier'); browser('select', '#outage-operatorId', operatorId); browser('select', '#outage-active', 'true');
+    clickButton('Save outage record'); checkText('Outage record saved.'); outageReady();
+  }
+  // Owner collector/entrant; staff independently verifies later.
+  browser('select', '#outage-action', 'enter'); browser('select', '#outage-bookId', ownerBook.id);
+  clickButton('Save outage record'); checkText('Check the outage fields below.'); focusedFeedback('outage-feedback');
+  associatedError('outage-number'); associatedError('outage-memberId'); audit('S-05 entry validation');
+  browser('find', 'role', 'link', 'click', '--name', 'Check this field. Use the recorded full amount, identity, reference or actual PHT time. (number)', '--exact');
+  assert.equal(evalBrowser('document.activeElement.id'), 'outage-number');
+  fill('#outage-number','1'); fill('#outage-memberId',ownerOutageMember.id); browser('select','#outage-priceId',ownerPrice.id); fill('#outage-amount',recoveryPrice);
+  browser('select','#outage-collectorId',owner.id);
+  // datetime-local records whole seconds; leave enough margin after millisecond registry creation.
+  browser('wait','--fn',`Date.now() >= ${ownerBook.createdAt.getTime()+2100}`);
+  const ownerCollectedAt = new Date();
+  fillDateTime('#outage-collectedAt',phtValue(ownerCollectedAt)); fillDateTime('#outage-issuedAt',phtValue(ownerCollectedAt));
+  fill('#outage-receiptReference',`OWNER-PAPER-${suffix}`); fill('#outage-cashReference',`OWNER-CASH-${suffix}`); browser('check','#outage-historyCertain');
+  clickButton('Save outage record'); checkText('Paper receipt entered pending verification.'); outageReady();
+  const ownerEntry = await admin.outageEntry.findUniqueOrThrow({ where: { bookId_number: { bookId:ownerBook.id, number:1 } } });
+  assert.equal(await admin.payment.count({where:{memberId:ownerOutageMember.id}}),0);
+  browser('select','#outage-action','handover'); browser('select','#outage-toId',staff.id);
+  fillDateTime('#outage-actualAt',phtValue(new Date())); fill('#outage-used','1'); fill('#outage-unused','2,3'); fill('#outage-cashHeld',recoveryPrice); fill('#outage-cashTransferred','0');
+  fill('#outage-transferReference',`OWNER-NO-TRANSFER-${suffix}`); fill('#outage-evidenceReference',`OWNER-SIGNED-${suffix}`); fill('#outage-outstanding','One pending paper receipt; no difference cleared'); browser('check','#outage-bothSigned');
+  clickButton('Save outage record'); checkText('Outage record saved.'); outageReady(); audit('S-05 owner registry and pending recovery');
+  browser('screenshot',resolve('.local/s05-owner-desktop.png'));
+  browser('open',origin); clickButton('Sign out'); checkText('You are signed out.'); browser('find','role','radio','click','--name','Staff','--exact');
+  fill('#identifier',username); fill('#password',password); clickButton('Sign in'); checkText('Welcome, Browser Staff');
+  browser('open',`${origin}/outage-receipts`); outageReady(); browser('select','#outage-action','verify'); browser('select','#outage-bookId',ownerBook.id); browser('select','#outage-entryId',ownerEntry.id);
+  fill('#outage-receiptEvidence',`OWNER-RETAINED-${suffix}`); fill('#outage-cashEvidence',`OWNER-COUNT-${suffix}`); fill('#outage-custodyEvidence',`OWNER-HANDOVER-${suffix}`); browser('check','#outage-independentlyMatched');
+  clickButton('Save outage record'); checkText('Outage receipt independently verified.'); outageReady();
+  // Simulated paper operation and shift handovers continue while the application is disconnected.
+  browser('set','offline','on');
+  try { assert.equal(evalBrowser("fetch('/api/outage').then(()=>false).catch(()=>true)"),true); }
+  finally { browser('set','offline','off'); }
+  browser('select','#outage-action','enter'); browser('select','#outage-bookId',outageBook.id);
+  fill('#outage-number','1'); fill('#outage-memberId',outageMember.id); browser('select','#outage-priceId',outagePrice.id); fill('#outage-amount','0.01');
+  browser('select','#outage-collectorId',staff.id); fillDateTime('#outage-collectedAt',phtValue(outageAt)); fillDateTime('#outage-issuedAt',phtValue(outageIssue));
+  fill('#outage-receiptReference',`PAPER-${suffix}`); fill('#outage-cashReference',`CASH-${suffix}`); browser('check','#outage-historyCertain'); browser('check','#outage-hasVisit');
+  fillDateTime('#outage-visitAt',phtValue(outageIssue)); browser('select','#outage-visitAuthorizerId',staff.id); fill('#outage-visitReference',`ORIGINAL-VISIT-${suffix}`);
+  clickButton('Save outage record'); checkText('Full cash must match'); outageReady();
+  assert.equal(await admin.outageEntry.count({where:{bookId:outageBook.id}}),0); assert.equal(evalBrowser('document.getElementById("outage-memberId").value'),outageMember.id);
+  fill('#outage-amount',recoveryPrice); clickButton('Save outage record'); checkText('Paper receipt entered pending verification.'); outageReady();
+  const outageEntry = await admin.outageEntry.findUniqueOrThrow({where:{bookId_number:{bookId:outageBook.id,number:1}}});
+  assert.equal(await admin.payment.count({where:{memberId:outageMember.id}}),0);
+  for (const [actualAt,toId] of [[outageH1,owner.id],[outageH2,staff.id]] as const) {
+    browser('select','#outage-action','handover'); browser('select','#outage-toId',toId); fillDateTime('#outage-actualAt',phtValue(actualAt));
+    fill('#outage-used','1'); fill('#outage-unused','2'); fill('#outage-void','3'); fill('#outage-missing','4'); fill('#outage-cashHeld',recoveryPrice); fill('#outage-cashTransferred','0');
+    fill('#outage-transferReference',`NO-TRANSFER-${actualAt.getTime()}`); fill('#outage-evidenceReference',`SIGNED-${actualAt.getTime()}`); fill('#outage-outstanding','Void 3 retained; missing 4 escalated to owner; payment still pending'); browser('check','#outage-bothSigned');
+    clickButton('Save outage record'); checkText('Evidence preserved for owner review.'); outageReady();
+  }
+  browser('select','#outage-action','exception'); fill('#outage-number','1'); browser('select','#outage-kind','LOST_COPY'); fillDateTime('#outage-actualAt',phtValue(outageH2));
+  fill('#outage-memberId',outageMember.id); fill('#outage-evidenceReference',`LOST-MEMBER-COPY-${suffix}`); fill('#outage-reasoning','Retained booklet copy and independent cash and custody evidence preserved');
+  clickButton('Save outage record'); checkText('Evidence preserved for owner review.'); outageReady();
+  browser('select','#outage-action','verify'); browser('select','#outage-entryId',outageEntry.id);
+  fill('#outage-receiptEvidence','SELF-RECEIPT'); fill('#outage-cashEvidence','SELF-CASH'); fill('#outage-custodyEvidence','SELF-CUSTODY'); browser('check','#outage-independentlyMatched');
+  clickButton('Save outage record'); checkText('A designated verifier independent of both collector and entrant is required.'); outageReady();
+  assert.equal(await admin.payment.count({where:{memberId:outageMember.id}}),0);
+  browser('set','viewport','375','812'); assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'),true); audit('S-05 staff pending mobile');
+  browser('screenshot',resolve('.local/s05-staff-mobile.png')); browser('set','viewport','1280','900');
+  browser('open',`${origin}/members/${outageMember.id}`); checkText('Pending verification; no new normal entitlement'); checkText('No second visit authorized by this receipt.');
+  browser('open',origin); clickButton('Sign out'); checkText('You are signed out.'); fill('#identifier',email); fill('#password',password); clickButton('Sign in'); checkText('Welcome, Browser Owner');
+  browser('open',`${origin}/outage-receipts`); outageReady(); browser('select','#outage-action','verify'); browser('select','#outage-bookId',outageBook.id); browser('select','#outage-entryId',outageEntry.id);
+  fill('#outage-receiptEvidence',`RETAINED-${suffix}`); fill('#outage-cashEvidence',`COUNT-${suffix}`); fill('#outage-custodyEvidence',`HANDOVER-${suffix}`); browser('check','#outage-independentlyMatched');
+  evalBrowser(`(() => { const send=window.fetch; window.fetch=async function(input,init) { if(input==='/api/outage' && init?.method==='POST') { window.fetch=send; await send.call(this,input,init); throw new Error('Synthetic lost outage response'); } return send.call(this,input,init); }; return true; })()`);
+  clickButton('Save outage record'); checkText('A saved verify operation may have committed.');
+  const outageSaved = JSON.parse(evalBrowser(`sessionStorage.getItem('outage-recovery:${gymId}:${owner.id}')`));
+  const outageCommitted = await admin.outageEvent.findUniqueOrThrow({where:{gymId_operationKey:{gymId,operationKey:outageSaved.key}}});
+  browser('reload'); checkText('Retrieve saved outage operation'); clickButton('Retrieve saved outage operation'); checkText('Outage receipt independently verified.'); outageReady();
+  assert.equal(await admin.payment.count({where:{memberId:outageMember.id}}),1); assert.equal(await admin.outageEntry.count({where:{bookId:outageBook.id}}),1);
+  const outageResult = outageCommitted.result as {paymentId:string;receiptId:string};
+  const outagePayment = await admin.payment.findUniqueOrThrow({where:{id:outageResult.paymentId},include:{period:true}});
+  const outageDate = new Date(outageAt.getTime()+8*3600_000).toISOString().slice(0,10);
+  assert.equal(outagePayment.period!.startsAt.toISOString(),new Date(`${outageDate}T00:00:00+08:00`).toISOString());
+  assert.equal(outagePayment.enteredAt.getTime(),outageEntry.enteredAt.getTime());
+  browser('set','viewport','375','812'); assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'),true); audit('S-05 verified owner mobile');
+  browser('screenshot',resolve('.local/s05-verified-mobile.png')); browser('set','viewport','1280','900');
+  browser('open',`${origin}/receipts/${outageResult.receiptId}`); checkText(`Original controlled paper receipt ${outageBook.code}-1`); checkText('Separate original provisional visit'); audit('S-05 linked receipt');
+  browser('open',`${origin}/members/${outageMember.id}`); checkText('Independently verified; see linked payment history'); checkText('A verified paid period is in effect.');
+  console.log('S-05 browser PASS: owner registry/designation/entry, independent staff verification, offline paper fixture recovery across two shifts, staff validation/partial/self-verification denial, lost-copy investigation, pending visit separation, original-date owner verification, lost-response/reload replay, linked history/receipt, keyboard, 375px and axe.');
   browser('open', origin); checkText('Welcome, Browser Owner');
+  fill('#reauth-password',password); clickButton('Verify password'); checkText('Password verified for five minutes.');
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");
   checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
   assert.equal(evalBrowser(`document.getElementById('reset-staff-${staff.id}').getAttribute('aria-describedby')`), `operator-error-${staff.id}`);
@@ -918,7 +1018,7 @@ try {
   console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
 } catch (error) {
   try {
-    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback','case-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
+    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback','case-feedback','outage-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
     browser("screenshot", resolve(".local/browser-failure.png"));
   } catch { /* Preserve the original failure if the browser is unavailable. */ }
   primaryFailure = error;

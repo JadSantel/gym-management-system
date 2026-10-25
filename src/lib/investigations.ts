@@ -108,6 +108,7 @@ export async function investigationCommand(headers: Headers, input: unknown, key
         if (await tx.investigationEvent.findFirst({ where: { caseId: record!.id, kind: { in: ["RECOVER", "LINK"] } } })) throw new CaseRecordRejected(409, "Case already recovered or matched. Do not create another payment.");
         const intervals = await tx.effectiveEntitlement.findMany({ where: { memberId, isCurrentProjection: true } });
         if (command.action === "approveRecovery") {
+          if (await tx.outageEntry.findFirst({ where: { OR: [{ cashReference: command.independentEvidenceReference }, { receiptReference: command.independentEvidenceReference }] } })) throw new CaseRecordRejected(409, "This collection has a controlled paper receipt entry. Use its independent outage verification or match its existing payment.");
           const plan = await tx.plan.findUnique({ where: { id: command.planId } });
           const collector = await tx.operator.findUnique({ where: { id: command.collectorId } });
           if (!plan || !collector || plan.priceCentavos !== record!.claimedCentavos) throw new CaseRecordRejected(400, "Verified full amount, approved plan and original collector must match this gym.");
@@ -122,6 +123,7 @@ export async function investigationCommand(headers: Headers, input: unknown, key
         } else {
           const approval = await tx.investigationEvent.findFirst({ where: { id: command.approvalEventId, caseId: record!.id, kind: "APPROVE_RECOVERY", outcome: "APPROVED" } });
           if (!approval?.recoveryChargeId || !approval.recoveryCollectorId) throw new CaseRecordRejected(409, "Owner recovery approval is required.");
+          if (await tx.outageEntry.findFirst({ where: { OR: [{ cashReference: approval.independentEvidenceReference! }, { receiptReference: approval.independentEvidenceReference! }] } })) throw new CaseRecordRejected(409, "This collection has a controlled paper receipt entry. Use its independent outage verification or match its existing payment.");
           if (await tx.investigationEvent.findFirst({ where: { kind: "RECOVER", independentEvidenceReference: approval.independentEvidenceReference } })) {
             throw new CaseRecordRejected(409, "This independently verified collection reference was already recovered. Match the existing payment instead.");
           }

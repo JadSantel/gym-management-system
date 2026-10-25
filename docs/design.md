@@ -4,7 +4,7 @@
 **Prepared:** 2026-10-24 (Asia/Manila)  
 **Reviewed:** 2026-10-25; approved S-02-S-04 behavior reconciled, remaining UX proposals and live gates retained.
 **Project:** Independent Gym Management System (multi-tenant SaaS for independent Philippine gyms)  
-**Scope:** S-01 through S-07 interaction guidance. S-01-S-03 and supported S-04 paths have recorded local verification; S-05-S-07 remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
+**Scope:** S-01 through S-07 interaction guidance. S-01-S-03, supported S-04 and S-05 paths have recorded local synthetic verification; S-06/S-07 and live operations remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
 **Source of truth:** `PROJECT.md` for product requirements, acceptance criteria, and operational decision gates; `product.md` for aligned customer problem and policy intent; `architecture.md` for approved technology, identity, isolation, security, and integrity rules. The conversation handoff provides historical context only.  
 **Decision rule:** The layouts, navigation, labels, colors, and responsive behavior in this file are **design proposals** until reviewed. They may be changed without changing a product rule. Where this file and an authoritative document differ, do **not** silently implement the difference; record and resolve it before the affected feature ships.
 
@@ -63,7 +63,7 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 
 - Public/account: `/login`, `/setup/invitation`, `/reset-password`, `/account/reconfirm-password`.
 - Authenticated app: `/app`, `/app/members`, `/app/members/[memberId]`, `/app/collections`, `/app/collections/[reference]`, `/app/settings/operators`, `/app/settings/plans`.
-- Later: `/app/cases`, `/app/outage-receipts`, `/app/closing`, `/app/pilot-review`.
+- Proposed route labels above are conceptual. Local investigation and outage routes are `/investigations` and `/outage-receipts`; closing and pilot review remain later scope.
 - Private platform operations **must not** be implemented as an unprotected variant of an `/app` route. Actual path and access architecture must be decided in the relevant implementation slice.
 
 Route names above are proposals. A route ID must never be trusted as authorization; all member/payment resources are checked within the active authenticated gym.
@@ -259,7 +259,7 @@ Flow: select member → server loads active approved plan and amount → enter/v
 
 **After reconnection:** receipt registry/entry UI captures booklet/number scope, actual collector, member/plan, full amount, original collection + issuance times, later entrant + entry time, custody references and recorded one-visit event. Back-entry is **pending verification**, not paid activation. Verify against real cash/booklet/handover evidence; preserve original local collection date for approved late-cash-outage renewal after confirmation.
 
-Flag duplicate receipt number, missing/void/invalid number, mismatched cash, or uncertainty to owner review without deleting original facts. Repeat outage visits/lost receipt procedure and booklet custody rules are gates O-02/O-06 and not silently set by screen copy.
+Flag duplicate receipt number, missing/void/invalid number, mismatched cash, or uncertainty to owner review without deleting original facts. O-02/O-06 local design was approved by the user October 25, 2026 in [the outage SOP](S05_OUTAGE_POLICY_PROPOSAL.md). Show independent-verifier availability, assigned custody, full number accountability, exceptions and distinct actual/entry times. Automatic repeat admission remains unavailable; live operational coverage remains gated.
 
 ### UX-11 — Daily closing and review (**S-06**)
 
@@ -337,7 +337,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | UX-D06 | Member identity fields and evidence access | Prototype with synthetic minimal labels; don't store real unapproved PII | Data-stewardship gate. |
 | UX-D07 | Queued advance renewals | Approved 2026-10-25: one queued paid term; block another sale until that term starts, preserve committed same-key recovery | PROJECT FR-05 / AC-05e; locally verified in S-02. |
 | UX-D08 | Cross-date digital confirmation / uncertain cash dates | Verified recovered full-cash original-date rule approved 2026-10-25; uncertain/conflicting cash dates and cross-date digital confirmation remain pending/escalated | PROJECT FR-04/07 and Section 9; no digital backdating exception. |
-| UX-D09 | Conditional refunds, outage procedures and closing | Approved S-04 owner recovery/zero-movement corrections/full evidenced excess-refund settlement are available locally; block discretionary cancellations and unresolved outage/closing decisions | PROJECT FR-08; O-02, remaining O-03, O-06 and closing gates. |
+| UX-D09 | Conditional refunds, outage procedures and closing | Approved S-04 paths and approved local S-05 registry/custody/independent verification are available; block discretionary cancellations, automatic repeat admission, live outage operations and unresolved closing decisions | PROJECT FR-08/09; approved local outage SOP; remaining O-03, live O-02/O-06 and closing gates. |
 | UX-D10 | Launch plan catalog/prices | Approved Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; live readiness remains gated | O-07 resolved 2026-10-24. |
 | UX-D11 | First-owner identity proof, owner manual recovery, real email sender | Private synthetic admin fixture only for build | Before real onboarding: admin SOP, domain, authenticated Brevo sender and verified delivery. |
 

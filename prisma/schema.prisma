@@ -232,6 +232,7 @@ model Payment {
   amountCentavos Int @map("amount_centavos")
   currencyCode String @default("PHP") @map("currency_code")
   method String @default("CASH")
+  outageEntryId String? @unique @map("outage_entry_id") @db.Uuid
   collectedBy String @map("collected_by") @db.Uuid
   collectedAt DateTime @map("collected_at") @db.Timestamptz(3)
   enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
@@ -367,6 +368,114 @@ model PaymentFlag {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   @@unique([paymentId, reason])
   @@map("payment_flags")
+}
+
+model OutageBook {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  code String
+  firstNumber Int @map("first_number")
+  lastNumber Int @map("last_number")
+  custodianId String @map("custodian_id") @db.Uuid
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([gymId, code])
+  @@unique([id, gymId])
+  @@map("outage_books")
+}
+model OutagePrice {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  bookId String @map("book_id") @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  planName String @map("plan_name")
+  durationDays Int @map("duration_days")
+  priceCentavos Int @map("price_centavos")
+  planVersion Int @map("plan_version")
+  @@unique([bookId, planId])
+  @@unique([id, gymId])
+  @@map("outage_prices")
+}
+model OutageVerifier {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  operatorId String @map("operator_id") @db.Uuid
+  active Boolean
+  @@unique([gymId, operatorId])
+  @@map("outage_verifiers")
+}
+model OutageEntry {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  bookId String @map("book_id") @db.Uuid
+  number Int
+  memberId String @map("member_id") @db.Uuid
+  priceId String @map("price_id") @db.Uuid
+  amountCentavos Int @map("amount_centavos")
+  collectorId String @map("collector_id") @db.Uuid
+  collectedAt DateTime @map("collected_at") @db.Timestamptz(3)
+  issuedAt DateTime @map("issued_at") @db.Timestamptz(3)
+  receiptReference String @map("receipt_reference")
+  cashReference String @map("cash_reference")
+  enteredBy String @map("entered_by") @db.Uuid
+  enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
+  visitAt DateTime? @map("visit_at") @db.Timestamptz(3)
+  visitAuthorizerId String? @map("visit_authorizer_id") @db.Uuid
+  visitReference String? @map("visit_reference")
+  @@unique([bookId, number])
+  @@unique([gymId, receiptReference])
+  @@unique([gymId, cashReference])
+  @@unique([id, gymId])
+  @@map("outage_entries")
+}
+model OutageHandover {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  bookId String @map("book_id") @db.Uuid
+  fromId String @map("from_id") @db.Uuid
+  toId String @map("to_id") @db.Uuid
+  actualAt DateTime @map("actual_at") @db.Timestamptz(3)
+  enteredBy String @map("entered_by") @db.Uuid
+  enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
+  counts Json
+  cashHeld Int @map("cash_held")
+  cashTransferred Int @map("cash_transferred")
+  transferReference String @map("transfer_reference")
+  evidenceReference String @map("evidence_reference")
+  outstanding String
+  @@unique([bookId, actualAt])
+  @@unique([id, gymId])
+  @@map("outage_handovers")
+}
+model OutageConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  entryId String @unique @map("entry_id") @db.Uuid
+  paymentId String @unique @map("payment_id") @db.Uuid
+  handoverId String @map("handover_id") @db.Uuid
+  receiptEvidence String @map("receipt_evidence")
+  cashEvidence String @map("cash_evidence")
+  custodyEvidence String @map("custody_evidence")
+  @@map("outage_confirmations")
+}
+model OutageEvent {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  bookId String? @map("book_id") @db.Uuid
+  number Int?
+  memberId String? @map("member_id") @db.Uuid
+  caseId String? @map("case_id") @db.Uuid
+  kind String
+  outcome String
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  command Json
+  result Json
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([gymId, operationKey])
+  @@index([gymId, bookId, createdAt])
+  @@map("outage_events")
 }
 
 model InvestigationCase {
