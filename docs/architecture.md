@@ -11,7 +11,7 @@
 |---|---|---|---|
 | AD-001 | Customer tenancy | One shared application serving multiple independent gyms (multi-tenant SaaS) | **APPROVED** |
 | AD-002 | Primary stack | Next.js + TypeScript + PostgreSQL | **APPROVED** |
-| AD-003 | Hosting model | Managed cloud; vendors now selected (see AD-020), exact region/plan unresolved | **APPROVED** |
+| AD-003 | Hosting model | Managed cloud; vendors selected in AD-020; Singapore regions approved in AD-024; plan/account provisioning remains open | **APPROVED** |
 | AD-004 | Logins | Owner: email/password. Staff: username/password, with a genuine verified email for recovery | **APPROVED** |
 | AD-005 | Staff provisioning | Gym primary owner exclusively invites/creates staff for that gym; no public staff self-signup | **APPROVED** |
 | AD-006 | Staff reset | Owner initiates controlled reset delivered to verified staff email; owner never sees permanent password | **APPROVED** |
@@ -377,7 +377,7 @@ Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until
 5. **Operational readiness:** independent backup cadence/retention, named primary/backup incident responders, actual restore rehearsal evidence against **RPO ≤1h / RTO ≤4h**, monitoring/alerts, secret management, and manual owner-recovery proof/approval SOP. Independent backups and restore rehearsals are approved directions, not yet configured or demonstrated.
 6. **Physical migration:** implement the approved separate entitlement projection from S-01, enforce exclusion constraint, and test Prisma 7 + Neon pooled RLS on real transactions before accepting Slice 1.
 
-**Product/pilot gates still owned by `PROJECT.md` §9 (do not answer them in architecture):** remaining-time UI rounding; repeated queued advance renewals; delayed digital confirmation crossing dates; effective date for recovered non-outage historical claims; lost receipts and repeat visits during prolonged outage; refund case eligibility and amounts; designated account verifiers/evidence standards; daily cash cutoff/float and late closing; launch plan prices/durations; verified migration criteria; pilot protocol; evidence retention and personal-data stewardship.
+**Product/pilot gates still owned by `PROJECT.md` §9 (do not answer them in architecture):** remaining-time UI rounding; repeated queued advance renewals; delayed digital confirmation crossing dates; effective date for recovered non-outage historical claims; lost receipts and repeat visits during prolonged outage; refund case eligibility and amounts; designated account verifiers/evidence standards; daily cash cutoff/float and late closing; verified migration criteria; pilot protocol; evidence retention and personal-data stewardship. O-07 launch plans were approved on 2026-10-24: PHP 800/30 days, PHP 2,100/90 days and PHP 4,000/180 days, each day exactly 24 hours. Region/plan approval does not establish hosted provisioning or operational readiness.
 
 ## 15. S-01a engineering kickoff: prerequisites, acceptance, and handoff
 

@@ -37,7 +37,7 @@ async function login(identifier: string, mode = "email") {
   assert.equal(response.status, 200);
   return new Headers({ cookie: response.headers.getSetCookie().map(cookie => cookie.split(";")[0]).join("; ") });
 }
-async function snapshot() {
+async function snapshot(includeDenials = true) {
   const operators = await admin.operator.findMany({ where: { gymId: { in: gyms } }, orderBy: { id: "asc" } });
   const userIds = operators.map(row => row.userId);
   const data = await Promise.all([
@@ -46,7 +46,7 @@ async function snapshot() {
     admin.account.findMany({ where: { userId: { in: userIds } }, orderBy: { id: "asc" } }),
     admin.invitation.findMany({ where: { gymId: { in: gyms } }, orderBy: { id: "asc" } }),
     admin.session.findMany({ where: { userId: { in: userIds } }, orderBy: { id: "asc" } }),
-    admin.identityAudit.findMany({ where: { gymId: { in: gyms } }, orderBy: { id: "asc" } }),
+    admin.identityAudit.findMany({ where: { gymId: { in: gyms }, ...(includeDenials ? {} : { action: { not: { startsWith: "ACCESS_DENIED " } } }) }, orderBy: { id: "asc" } }),
   ]);
   // Assertion output may contain this digest, never password hashes/session tokens.
   return createHash("sha256").update(JSON.stringify([operators, data])).digest("hex");
@@ -160,25 +160,37 @@ test("R-06/08 real identity routes: strict validation, safe errors, no writes an
     assert.ok(!audit.includes("PRIVATE_TRANSPORT_SENTINEL"));
   });
   await t.test("valid schemas cannot bypass staff, stale-owner, cross-gym or anonymous denials", async () => {
+    const beforeDenials = await admin.identityAudit.count({ where: { gymId: gyms[0], action: { startsWith: "ACCESS_DENIED " } } });
+    async function assertDenial(response: Response, headers: Headers, status = 403) {
+      assert.equal(response.status, status);
+      const body = await response.json();
+      const actor = await getActor(headers);
+      const audit = await admin.identityAudit.findFirstOrThrow({ where: { action: { endsWith: body.errorReference } } });
+      assert.equal(audit.gymId, gyms[0]); assert.equal(audit.initiatorId, actor.operator.userId); assert.equal(audit.subjectId, actor.operator.userId);
+      assert.match(audit.action, new RegExp(`^ACCESS_DENIED POST /api/identity/[a-z-]+ ${status} [0-9a-f-]{36}$`));
+      assert.ok(!JSON.stringify(body).includes(foreignStaff.id));
+    }
+    await assertDenial(await request("reauthenticate", { password: "Wrong synthetic password 2026!" }, owner), owner, 401);
     for (const action of ["reauthenticate", "invite", "reset-staff", "disable", "capabilities"] as const) {
       await admin.rateLimit.deleteMany();
-      const before = await snapshot();
-      assert.equal((await request(action, valid[action], staffHeaders)).status, 403, action);
+      const before = await snapshot(false);
+      await assertDenial(await request(action, valid[action], staffHeaders), staffHeaders);
       assert.equal((await request(action, valid[action])).status, 401, action);
-      assert.equal(await snapshot(), before);
+      assert.equal(await snapshot(false), before);
     }
     for (const action of ["reset-staff", "disable", "capabilities"] as const) {
-      const before = await snapshot();
-      assert.equal((await request(action, { ...valid[action], operatorId: foreignStaff.id }, owner)).status, 403);
-      assert.equal(await snapshot(), before);
+      const before = await snapshot(false);
+      await assertDenial(await request(action, { ...valid[action], operatorId: foreignStaff.id }, owner), owner);
+      assert.equal(await snapshot(false), before);
     }
     const actor = await getActor(owner);
     await admin.session.update({ where: { id: actor.sessionId }, data: { reauthenticatedAt: new Date(Date.now() - 300_000) } });
-    const before = await snapshot();
+    const before = await snapshot(false);
     for (const action of ["invite", "reset-staff", "disable", "capabilities"] as const) {
-      assert.equal((await request(action, valid[action], owner)).status, 403, `${action} stale password check`);
+      await assertDenial(await request(action, valid[action], owner), owner);
     }
-    assert.equal(await snapshot(), before);
+    assert.equal(await snapshot(false), before);
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: { startsWith: "ACCESS_DENIED " } } }), beforeDenials + 13);
     await reauthenticate(owner, password);
   });
   await t.test("owner recovery remains generic; staff reset and disable preserve link/session revocation", async () => {

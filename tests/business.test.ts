@@ -5,7 +5,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { db } from "../src/lib/db";
 import { auth } from "../src/lib/auth";
-import { bootstrapSyntheticOwner, completeSetup, inviteStaff, reauthenticate, setCapabilities } from "../src/lib/identity";
+import { bootstrapSyntheticOwner, completeSetup, inviteStaff, reauthenticate, setCapabilities, IdentityError } from "../src/lib/identity";
+import { apiResponse } from "../src/lib/http";
+import { POST as identityPost } from "../src/app/api/identity/[action]/route";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { inGym } from "../src/lib/tenant";
 import { setGymContext } from "../src/lib/binding";
@@ -95,6 +97,72 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
   await completeSetup(link, password);
   const staffHeaders = await login(`business_${suffix}`, "username");
   const staff = await admin.operator.findFirstOrThrow({ where: { gymId: gyms[0], role: "STAFF" } });
+  await t.test("R-10 authenticated endpoint denials survive rollback with tenant-safe attribution and no domain writes", async () => {
+    const counts = async () => Promise.all([admin.member.count(), admin.plan.count(), admin.charge.count(), admin.payment.count(),
+      admin.membershipPeriod.count(), admin.paymentReceipt.count(), admin.idempotencyOperation.count(), admin.invitation.count()]);
+    const before = await counts();
+    const requests = [
+      () => identityPost(req("/api/identity/invite", staffHeaders, { name: "Denied Invitation", email: `denied-${suffix}@example.test`, username: `denied_${suffix}` }), { params: Promise.resolve({ action: "invite" }) }),
+      () => plansPost(req("/api/plans", staffHeaders, { action: "initialize" })),
+      () => memberPost(req("/api/members", staffHeaders, { fullName: "Denied Member" })),
+      () => chargePost(req("/api/charges", staffHeaders, { memberId: randomUUID(), planId: randomUUID() })),
+      () => paymentPost(paymentReq(staffHeaders, randomUUID(), "800", randomUUID())),
+    ];
+    for (const denied of requests) {
+      const response = await denied();
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      assert.equal(response.headers.get("cash-confirmation-outcome"), null, "Authorization cannot settle a prior collection");
+      const body = await response.json();
+      assert.match(body.errorReference, /^[0-9a-f-]{36}$/);
+      assert.ok(body.error.includes(body.errorReference));
+      const row = await admin.identityAudit.findFirstOrThrow({ where: { action: { endsWith: body.errorReference } } });
+      assert.equal(row.gymId, gyms[0]); assert.equal(row.initiatorId, staff.userId); assert.equal(row.subjectId, staff.userId);
+      assert.match(row.action, /^ACCESS_DENIED POST \/api\/(identity\/invite|plans|members|charges|payments) 403 /);
+      assert.equal(await inGym(owners[1], "OWNER", tx => tx.identityAudit.count({ where: { id: row.id } })), 0);
+      await assert.rejects(inGym(owners[0], "OWNER", tx => tx.identityAudit.update({ where: { id: row.id }, data: { action: "rewritten" } })));
+      await assert.rejects(inGym(owners[0], "OWNER", tx => tx.identityAudit.delete({ where: { id: row.id } })));
+    }
+    assert.deepEqual(await counts(), before);
+    const auditCount = await admin.identityAudit.count();
+    assert.equal((await memberGet(req("/api/members", new Headers()))).status, 401);
+    assert.equal((await memberPost(req("/api/members", staffHeaders, { fullName: null }))).status, 400);
+    assert.equal(await admin.identityAudit.count(), auditCount, "No fabricated actor for anonymous/input denials");
+  });
+  await t.test("R-10 unexpected failures redact payloads/errors and retain rollback; audit failure preserves denial", async t => {
+    const sentinel = "SENSITIVE-password-token-cookie-db-url-member";
+    const logs: string[] = [];
+    t.mock.method(console, "error", (value: string) => logs.push(value));
+    const before = await admin.member.count();
+    const response = await apiResponse(req(`/api/${sentinel}?token=${sentinel}`, owners[0], { password: sentinel }), () =>
+      inGym(owners[0], "MEMBERS", async (tx, actor) => {
+        await tx.member.create({ data: { gymId: gyms[0], fullName: "Rolled Back Diagnostic Member", nameKey: "rolled back diagnostic member", createdBy: actor.operator.id } });
+        throw Object.assign(new Error(sentinel, { cause: new Error(sentinel) }), { code: sentinel });
+      }));
+    assert.equal(response.status, 500); assert.equal(response.headers.get("cache-control"), "no-store");
+    const body = await response.json();
+    assert.equal(body.error, `Request could not be completed. Try again. Reference: ${body.errorReference}.`);
+    assert.deepEqual(JSON.parse(logs[0]), { event: "REQUEST_FAILED", reference: body.errorReference, method: "POST", route: "/api/other", status: 500 });
+    assert.equal(await admin.member.count(), before);
+    const next = await apiResponse(req("/api/members", new Headers()), async () => { throw new Error(sentinel); });
+    assert.notEqual((await next.json()).errorReference, body.errorReference);
+    await admin.$executeRawUnsafe(`CREATE FUNCTION public.synthetic_denial_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.gym_id = '${gyms[0]}'::uuid AND NEW.action LIKE 'ACCESS_DENIED %' THEN RAISE EXCEPTION 'SENSITIVE-password-token-cookie-db-url-member'; END IF;
+      RETURN NEW; END $$`);
+    try {
+      await admin.$executeRawUnsafe("CREATE TRIGGER synthetic_denial_failure BEFORE INSERT ON identity_audit FOR EACH ROW EXECUTE FUNCTION public.synthetic_denial_failure()");
+      const failedAudit = await apiResponse(req("/api/payments", staffHeaders, {}), async () => { throw new IdentityError(403, "Your account does not have permission for this action."); });
+      assert.equal(failedAudit.status, 403); assert.equal(failedAudit.headers.get("cash-confirmation-outcome"), null);
+      const denial = await failedAudit.json();
+      assert.deepEqual(JSON.parse(logs[2]), { event: "DENIAL_AUDIT_FAILED", reference: denial.errorReference, method: "POST", route: "/api/payments", status: 403 });
+      assert.ok(!JSON.stringify([body, denial, logs]).includes(sentinel));
+      assert.ok(!logs.join("").includes(staff.userId)); assert.ok(!logs.join("").includes(gyms[0]));
+      for (const secret of [password, process.env.DATABASE_URL!, owners[0].get("cookie")!]) assert.ok(!logs.join("").includes(secret));
+    } finally {
+      await admin.$executeRawUnsafe("DROP TRIGGER IF EXISTS synthetic_denial_failure ON identity_audit");
+      await admin.$executeRawUnsafe("DROP FUNCTION public.synthetic_denial_failure()");
+    }
+  });
   await t.test("S-01c member create/search validate inputs and deny anonymous/ungranted staff endpoints", async () => {
     await createMember(owners[0], { fullName: "Direct service check" });
     assert.equal((await memberGet(req("/api/members", new Headers()))).status, 401);

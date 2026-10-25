@@ -4,6 +4,39 @@ import { auth } from "./auth";
 import { db } from "./db";
 import { getActor, IdentityError } from "./identity";
 import { assertSynthetic } from "./email";
+import { setGymContext } from "./binding";
+
+// Never copy URLs, query values, headers, payloads or caught errors into diagnostics.
+function diagnosticOperation(request: Request) {
+  const path = new URL(request.url).pathname;
+  const routes = ["/api/members", "/api/plans", "/api/charges", "/api/payments",
+    ...["session", "operators", "setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"].map(action => `/api/identity/${action}`)];
+  return { method: ["GET", "POST"].includes(request.method) ? request.method : "OTHER", route: routes.includes(path) ? path : "/api/other" };
+}
+function diagnostic(request: Request, event: "REQUEST_FAILED" | "DENIAL_AUDIT_FAILED", reference: string, status: number) {
+  console.error(JSON.stringify({ event, reference, ...diagnosticOperation(request), status }));
+}
+
+async function recordDenial(request: Request, status: number) {
+  const reference = randomUUID();
+  try {
+    const actor = await getActor(request.headers);
+    const { method, route } = diagnosticOperation(request);
+    // Business transactions have already rolled back. Preserve denial evidence separately,
+    // under the verified actor's tenant, without client-supplied target IDs or contents.
+    await db.$transaction(async tx => {
+      await setGymContext(tx, actor.operator.gymId);
+      await tx.identityAudit.create({ data: { gymId: actor.operator.gymId, initiatorId: actor.operator.userId,
+        subjectId: actor.operator.userId, action: `ACCESS_DENIED ${method} ${route} ${status} ${reference}` } });
+    });
+    return reference;
+  } catch (error) {
+    // Anonymous, revoked or inactive identities cannot supply trustworthy attribution.
+    if (error instanceof IdentityError && (error.status === 401 || error.status === 403)) return;
+    diagnostic(request, "DENIAL_AUDIT_FAILED", reference, status);
+    return reference;
+  }
+}
 
 export async function rateLimit(headers: Headers, action: string, max = 30, publicAction = false) {
   let subject = "anonymous";
@@ -58,7 +91,11 @@ export async function apiResponse(request: Request, work: () => Promise<unknown>
   } catch (error) {
     const known = error instanceof IdentityError;
     const status = known ? error.status : error instanceof APIError ? 401 : typeof error === "object" && error && "code" in error && error.code === "P2002" ? 409 : 500;
-    output = Response.json({ error: known ? error.message : status === 409 ? "Those record details are unavailable." : status === 401 ? "Unable to verify your password." : "Request could not be completed. Try again.",
+    const reference = status === 500 ? randomUUID() : [401, 403].includes(status) ? await recordDenial(request, status) : undefined;
+    if (status === 500) diagnostic(request, "REQUEST_FAILED", reference!, status);
+    const message = status === 500 ? "Request could not be completed. Try again." : known ? error.message : status === 409 ? "Those record details are unavailable." : "Unable to verify your password.";
+    output = Response.json({ error: reference ? `${message} Reference: ${reference}.` : message,
+      ...(reference ? { errorReference: reference } : {}),
       ...(known && error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}) }, { status });
   }
   output.headers.set("cache-control", "no-store");

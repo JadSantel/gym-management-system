@@ -8,6 +8,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { bootstrapSyntheticOwner } from "../src/lib/identity";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { db } from "../src/lib/db";
+import { assessEligibility } from "../src/lib/eligibility";
 
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
@@ -84,24 +85,52 @@ function assertRefreshedMembership(payment: { reference: string; receipt: { id: 
   assert.equal(evalBrowser(`document.getElementById('payment-history-title').parentElement.textContent.includes(${JSON.stringify(collectorName)})`), true);
   checkText("Full cash payment confirmed");
 }
-async function confirmNewMembership(memberName: string, collector: { id: string; name: string }) {
-  const member = evalBrowser(`fetch('/api/members', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fullName:${JSON.stringify(memberName)}})}).then(r=>r.json())`);
-  assert.ok(member.id);
-  browser("open", `${origin}/members/${member.id}`); checkText("No verified paid period is recorded.");
+async function confirmNewMembership(memberName: string, collector: { id: string; name: string }, durationDays: number) {
+  const operator = await admin.operator.findUniqueOrThrow({ where: { id: collector.id } });
+  const plan = await admin.plan.findFirstOrThrow({ where: { gymId: operator.gymId, durationDays } });
+  browser("open", `${origin}/members`); fill("#member-name", memberName); clickButton("Create member"); checkText("Member created.");
+  browser("find", "role", "link", "click", "--name", memberName, "--exact"); checkText("No verified paid period is recorded.");
+  const memberId = new URL(evalBrowser("location.href")).pathname.split("/").at(-1)!;
+  browser("select", "#charge-plan", plan.id);
   clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  checkText(`${durationDays} elapsed days`);
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  fill("#cash-received", ((plan.priceCentavos - 1) / 100).toFixed(2)); clickButton("Confirm full cash"); checkText("No payment was recorded.");
+  assert.equal(await admin.payment.count({ where: { memberId } }), 0);
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId } }), 0);
+  checkText("No verified paid period is recorded.");
+  fill("#cash-received", (plan.priceCentavos / 100).toFixed(2));
   clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
-  const payment = await admin.payment.findFirstOrThrow({ where: { memberId: member.id }, include: { receipt: true } });
-  assert.equal(payment.collectedBy, collector.id);
+  const payment = await admin.payment.findFirstOrThrow({ where: { memberId }, include: { receipt: true, period: true } });
+  assert.equal(payment.collectedBy, collector.id); assert.equal(payment.verifiedBy, collector.id);
+  assert.equal(payment.amountCentavos, plan.priceCentavos);
+  assert.equal(payment.period!.endsAt.getTime() - payment.period!.startsAt.getTime(), durationDays * 86_400_000);
+  const collectedDatePht = new Date(payment.collectedAt.getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
+  assert.equal(payment.period!.startsAt.toISOString(), new Date(`${collectedDatePht}T00:00:00+08:00`).toISOString());
   assertRefreshedMembership(payment, collector.name);
-  assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1);
-  assert.equal(await admin.membershipPeriod.count({ where: { memberId: member.id } }), 1);
+  const operation = await admin.idempotencyOperation.findFirstOrThrow({ where: { paymentId: payment.id } });
+  const replay = evalBrowser(`fetch('/api/payments', {method:'POST',headers:{'content-type':'application/json','idempotency-key':'${operation.operationKey}'},body:JSON.stringify({chargeId:'${payment.chargeId}',cashReceived:'${(plan.priceCentavos / 100).toFixed(2)}'})}).then(async r=>({status:r.status,body:await r.json()}))`);
+  assert.equal(replay.status, 200); assert.equal(replay.body.payment.id, payment.id);
+  assert.equal(replay.body.receipt.id, payment.receipt!.id);
+  assert.equal(await admin.payment.count({ where: { memberId } }), 1);
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId } }), 1);
+  const intervals = await admin.effectiveEntitlement.findMany({ where: { memberId, isCurrentProjection: true } });
+  assert.equal(intervals.length, 1);
+  assert.equal(assessEligibility(intervals, payment.period!.startsAt).status, "ELIGIBLE");
+  assert.equal(assessEligibility(intervals, new Date(payment.period!.endsAt.getTime() - 1)).status, "ELIGIBLE");
+  assert.equal(assessEligibility(intervals, payment.period!.endsAt).status, "EXPIRED");
+  browser("open", `${origin}/receipts/${payment.receipt!.id}`); browser("reload");
+  checkText("Cash payment receipt"); checkText(payment.reference); checkText(payment.receipt!.reference); checkText(collector.name); checkText(plan.name);
+  browser("open", `${origin}/members/${memberId}`); checkText("A verified paid period is in effect.");
+  checkText(payment.reference); checkText(collector.name);
+  console.log(`S-01 acceptance: ${operator.role} ${durationDays} days UI join, short/full cash, attributed history, durable receipt, same-key replay and stored eligibility boundaries passed.`);
 }
 async function capturedUrl(operatorId: string) {
   const invitation = await admin.invitation.findFirstOrThrow({ where: { operatorId, consumedAt: null, sentAt: { not: null } }, orderBy: { createdAt: "desc" } });
   return JSON.parse(readFileSync(resolve(".local/mailbox", `${invitation.id}.json`), "utf8")).url as string;
 }
 
+let primaryFailure: unknown;
 try {
   await admin.rateLimit.deleteMany();
   const gymId = randomUUID();
@@ -408,7 +437,7 @@ try {
   browser("screenshot", resolve(".local/cash-confirmed-mobile.png")); browser("set", "viewport", "1280", "900");
   console.log("R-01 browser: committed lost response, replacement submit guard, later 409, reload, member/preview navigation, catalogue change, and original-key replay passed with exactly one payment/period.");
   const owner = await admin.operator.findFirstOrThrow({ where: { gymId, role: "OWNER" } });
-  await confirmNewMembership("Owner Immediate Refresh Member", { id: owner.id, name: "Browser Owner" });
+  for (const duration of [30, 90, 180]) await confirmNewMembership(`Owner ${duration} Day Acceptance Member`, { id: owner.id, name: "Browser Owner" }, duration);
   // Review a real early renewal, then verify the displayed dates against PostgreSQL.
   browser("open", `${origin}/members/${browserMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
   const renewalId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
@@ -476,7 +505,7 @@ try {
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
   browser("find", "role", "radio", "click", "--name", "Staff", "--exact");
   fill("#identifier", username); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Staff");
-  await confirmNewMembership("Staff Immediate Refresh Member", { id: staff.id, name: "Browser Staff" });
+  for (const duration of [30, 90, 180]) await confirmNewMembership(`Staff ${duration} Day Acceptance Member`, { id: staff.id, name: "Browser Staff" }, duration);
   browser("open", `${origin}/members/${staffRecoveryMember.id}`); clickButton("Prepare charge preview"); checkText("Saved charge preview");
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
   evalBrowser(`(() => {
@@ -532,6 +561,11 @@ try {
   console.log("Browser flow: owner setup, replay denial, wrong-password denial, owner/staff login, invite, reauth, reset initiation, disable, and disabled-link denial passed.");
   assert.equal(evalBrowser(`JSON.stringify([localStorage, sessionStorage]).includes(${JSON.stringify(password)})`), false);
   console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
+} catch (error) {
+  primaryFailure = error;
+  throw error;
 } finally {
-  try { browser("close"); } finally { await db.$disconnect(); await admin.$disconnect(); }
+  try { browser("close"); }
+  catch (error) { if (!primaryFailure) throw error; }
+  finally { await db.$disconnect(); await admin.$disconnect(); }
 }

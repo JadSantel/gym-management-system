@@ -1,7 +1,22 @@
 # Gym CRM release-readiness audit
 
-**Date:** 2026-10-24 (Asia/Manila). **Audited HEAD:** `5362cd8` (`feat: validate member creation and search with Zod`). Initial working tree was clean.
-**Verdict: BLOCKED for release.** Existing S-01 checks pass, but targeted audit checks reproduce payment-recovery, renewal-preview, throttling and validation defects. This checkout does not contain the reported S-03–S-07 implementation. No application fixes, policy changes, live onboarding or deployment were authorized or performed.
+**Original audit:** 2026-10-24 (Asia/Manila), HEAD `5362cd8` (`feat: validate member creation and search with Zod`); initial working tree clean. Original findings and commands below are historical evidence.
+**Repair review:** 2026-10-25 (Asia/Manila), task-6 baseline HEAD `71cb7c2444b3e25c47ea85335d6b80e47f1726ea`; initial working tree clean. See [implementation ledger](IMPLEMENTATION_STATUS.md) for each checkpoint.
+**Current verdict: BLOCKED for live release.** The six authorized S-01 repairs and local synthetic cash acceptance are verified. Hosted/operational gates remain unverified. S-03–S-07 implementation was **not found in inspected branches/checkouts**; R-04 follow-up remains deferred by the user. No live onboarding, production, policy, external-service, commit or push change was made.
+
+## Current repair reconciliation (2026-10-25)
+
+| Findings | Current evidence and disposition |
+|---|---|
+| R-01 | Local recovery/refresh repaired. Browser verifies committed lost response, same-key replay after reload/catalogue/permission changes, one payment/period and immediate history/receipt/eligibility refresh. |
+| R-02 / R-09 | Local renewal dates and approved member row locks repaired. Real restricted PostgreSQL tests cover late renewal, midnight rollover, distinct-key contention after lock-holder commit/rollback, stale review and queued-term denial; browser verifies renewal review. |
+| R-03 | Local actor/action isolation verified. Deployed ingress/proxy trust remains blocked; hosted operations fail closed. |
+| R-04 / R-05 | No later-workflow acceptance or hosted/live-readiness claim. Deferred bounded reconciliation and separate operational gates remain in the ledger. |
+| R-06 / R-07 / R-08 | Local strict identity/finance/route/configuration validation, redacted configuration errors, browser field associations/focus/correction and integrity regressions verified in repairs 2/4/5. |
+| R-10 | **Local diagnostics and S-01 acceptance gap closed.** Application API 500s carry opaque references and fixed redacted diagnostics. Verified active actors' API 401/403 denials persist in the existing RLS-scoped audit after rollback; audit failure retains denial and emits a safe correlated fallback. No fabricated anonymous/revoked/inactive attribution, raw errors/payloads/targets or change to cash outcome markers. Six owner/staff × 30/90/180-day UI journeys pass. Hosted monitoring, clean-environment restore, hosted pooling and later-milestone acceptance remain unverified. |
+| R-11 | Stale README S-01 handoff, AD-003 region wording and §14's open O-07 wording reconciled with current evidence/approvals. Browser cleanup now preserves the primary failure. Historical pinned ESLint maintenance warning remains a separate tooling follow-up; no upgrade or fresh dependency-advisory audit performed. |
+
+Task-6 checks: `npm.cmd test` **PASS 73/73**, zero skips; `npm.cmd run test:browser` **PASS** against `npm.cmd run build` + `npm.cmd run start` at `http://127.0.0.1:3000`, using isolated Chrome outside the sandbox; `npm.cmd run typecheck`, `npm.cmd run lint`, `npm.cmd run build`, `git diff --check` **PASS**. Both DB destinations and synthetic origin were verified before writes. New tests demonstrate redaction/reference matching, actual denial-audit write failure, no business mutation, runtime append protection and cross-tenant audit invisibility. The browser matrix covers UI member creation, short/full cash, actor attribution, immediate history/eligibility, receipt reload, same-key replay and stored Manila-midnight/exact-duration/exclusive-end boundaries. Existing real DB concurrency, rollover, leap-year/month-end, RLS and financial-integrity checks pass. These results establish local S-01 acceptance only. Pause for the user's GitHub checkpoint and milestone review.
 
 ## Scope and evidence limits
 
@@ -9,7 +24,7 @@ Read `AGENTS.md`, `PROJECT.md`, `architecture.md`, `design.md`, the previous imp
 
 Tests used only the existing isolated synthetic PostgreSQL at `127.0.0.1:55432/gym_crm_synthetic`. Both runtime and migration destinations were asserted before tests. No cloud account, deployment, real receiving account, member data or live email was inspected. Absence of repository evidence does not prove an external system does not exist.
 
-## Findings, severity and minimum fixes
+## Original findings, severity and minimum fixes (2026-10-24)
 
 Severity: **High** blocks the affected release journey or security/operational gate; **Medium** requires bounded correction or explicit acceptance; **Low** is documentation/tooling debt. No confirmed Critical finding was established. Passing dependency advisories are not a security certification.
 
@@ -77,7 +92,7 @@ Severity: **High** blocks the affected release journey or security/operational g
 - Isolated install warns that pinned development ESLint 9.39.5 is unsupported. npm audit reports no known advisories. Verify maintenance compatibility in a separate bounded tooling task; no dependency upgrade is needed to record this audit.
 - Minimum fix: keep the status ledger current, then align stale handoffs with verified evidence and existing approvals. No business policy changed in this audit.
 
-## FR/AC coverage against actual repository
+## Original FR/AC coverage (2026-10-24; repaired local gaps reconciled above)
 
 | Requirement | Current executable/source evidence | Release result |
 |---|---|---|
@@ -94,7 +109,7 @@ Severity: **High** blocks the affected release journey or security/operational g
 | FR-11; AC-11a–c | No reviewed historical-entitlement/provenance/manual-entry workflow or uncertainty flags. Payment-sourced period cannot be repurposed as verified migration. | Missing/gated; R-04; O-08 |
 | FR-12; AC-12a–c | Online collection/entry/verification timestamps exist. No pilot worksheet/report, independent denominator, admission incidents, closing timing, adoption or baseline protocol evidence. A manual worksheet would be acceptable. | Missing/gated; R-04/05; O-09 |
 
-## Architecture and validation coverage
+## Original architecture and validation coverage (2026-10-24)
 
 | AD / validation group | Audit result |
 |---|---|
@@ -109,7 +124,7 @@ Severity: **High** blocks the affected release journey or security/operational g
 
 Architecture T-01–05, T-07–08 and local parts of T-14–17 have existing evidence. T-06 lacks distinct-key simultaneous renewal coverage; T-09 has staff storage denials but not implemented/audited correction endpoints; T-10/11 workflows are absent; T-12 restore and T-13 live provider failure handling are NOT VERIFIED. No claim of hosted-pool, full WCAG 2.2 AA or pilot acceptance is made.
 
-## Commands and actual results
+## Original commands and actual results (2026-10-24)
 
 | Command / check | Result |
 |---|---|
