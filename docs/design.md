@@ -4,7 +4,7 @@
 **Prepared:** 2026-10-24 (Asia/Manila)  
 **Reviewed:** 2026-10-25; approved S-02-S-04 behavior reconciled, remaining UX proposals and live gates retained.
 **Project:** Independent Gym Management System (multi-tenant SaaS for independent Philippine gyms)  
-**Scope:** S-01 through S-07 interaction guidance. S-01-S-03, supported S-04 and S-05 paths have recorded local synthetic verification; S-06/S-07 and live operations remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
+**Scope:** S-01 through S-07 interaction guidance. S-01-S-03, supported S-04, S-05 and S-06 paths have recorded local synthetic verification; S-07 and live/pilot operations remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
 **Source of truth:** `PROJECT.md` for product requirements, acceptance criteria, and operational decision gates; `product.md` for aligned customer problem and policy intent; `architecture.md` for approved technology, identity, isolation, security, and integrity rules. The conversation handoff provides historical context only.  
 **Decision rule:** The layouts, navigation, labels, colors, and responsive behavior in this file are **design proposals** until reviewed. They may be changed without changing a product rule. Where this file and an authoritative document differ, do **not** silently implement the difference; record and resolve it before the affected feature ships.
 
@@ -63,7 +63,7 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 
 - Public/account: `/login`, `/setup/invitation`, `/reset-password`, `/account/reconfirm-password`.
 - Authenticated app: `/app`, `/app/members`, `/app/members/[memberId]`, `/app/collections`, `/app/collections/[reference]`, `/app/settings/operators`, `/app/settings/plans`.
-- Proposed route labels above are conceptual. Local investigation and outage routes are `/investigations` and `/outage-receipts`; closing and pilot review remain later scope.
+- Proposed route labels above are conceptual. Local investigation and outage routes are `/investigations` and `/outage-receipts`; the local closing route is `/closing`; pilot review remains later scope.
 - Private platform operations **must not** be implemented as an unprotected variant of an `/app` route. Actual path and access architecture must be decided in the relevant implementation slice.
 
 Route names above are proposals. A route ID must never be trusted as authorization; all member/payment resources are checked within the active authenticated gym.
@@ -266,7 +266,7 @@ Flag duplicate receipt number, missing/void/invalid number, mismatched cash, or 
 - Staff-prepared summary by actual collector and method: confirmed recorded total; counted physical cash and verified digital actuals; resulting difference; independently visible **pending transfers, receipt gaps, corrections, refunds and other unresolved items**.
 - Owner reviews and, when permitted, **approves the unresolved difference without changing its amount or hiding the exception**. Staff cannot approve their own discrepancy resolution by role bypass.
 - Closing snapshot remains retrievable; later back-entry/adjustment is visibly linked by original collection date and later entry/approval date. Do not silently rewrite a prior closing.
-- Cutoff, cash float/removal, backdated allocation, and later close amendments require the open product operating decisions; block affected finalization until approved.
+- Local synthetic decisions approved October 25, 2026: Manila calendar-day cutoff, zero opening membership float and segregated batch counts, actual-settlement refund allocation and explicit append-only supplements. `/closing?day=YYYY-MM-DD` shows current source review, independent actual evidence, immutable original/supplement history and linked later events. Final submission is unavailable before day end. Counts require evidence/notes; member-linked investigations can be attached when identified, while unassigned differences remain on the closing with follow-up notes. A designated account viewer must check digital actuals, including explicit zero. Fresh owner acknowledgement changes no amount or open-item status. Live/pilot procedures remain gated; see [approved SOP](S06_CLOSING_POLICY_PROPOSAL.md).
 
 ### UX-12 — Verified history and pilot evidence (**S-07**)
 
@@ -337,7 +337,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | UX-D06 | Member identity fields and evidence access | Prototype with synthetic minimal labels; don't store real unapproved PII | Data-stewardship gate. |
 | UX-D07 | Queued advance renewals | Approved 2026-10-25: one queued paid term; block another sale until that term starts, preserve committed same-key recovery | PROJECT FR-05 / AC-05e; locally verified in S-02. |
 | UX-D08 | Cross-date digital confirmation / uncertain cash dates | Verified recovered full-cash original-date rule approved 2026-10-25; uncertain/conflicting cash dates and cross-date digital confirmation remain pending/escalated | PROJECT FR-04/07 and Section 9; no digital backdating exception. |
-| UX-D09 | Conditional refunds, outage procedures and closing | Approved S-04 paths and approved local S-05 registry/custody/independent verification are available; block discretionary cancellations, automatic repeat admission, live outage operations and unresolved closing decisions | PROJECT FR-08/09; approved local outage SOP; remaining O-03, live O-02/O-06 and closing gates. |
+| UX-D09 | Conditional refunds, outage procedures and closing | Approved S-04 paths and approved local S-05 registry/custody/independent verification are available; block discretionary cancellations, automatic repeat admission, live outage and closing operations | PROJECT FR-08/09; approved local outage SOP; remaining O-03, live O-02/O-06 and pilot closing gates. |
 | UX-D10 | Launch plan catalog/prices | Approved Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; live readiness remains gated | O-07 resolved 2026-10-24. |
 | UX-D11 | First-owner identity proof, owner manual recovery, real email sender | Private synthetic admin fixture only for build | Before real onboarding: admin SOP, domain, authenticated Brevo sender and verified delivery. |
 

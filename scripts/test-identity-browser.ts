@@ -998,6 +998,83 @@ try {
   browser('open',`${origin}/receipts/${outageResult.receiptId}`); checkText(`Original controlled paper receipt ${outageBook.code}-1`); checkText('Separate original provisional visit'); audit('S-05 linked receipt');
   browser('open',`${origin}/members/${outageMember.id}`); checkText('Independently verified; see linked payment history'); checkText('A verified paid period is in effect.');
   console.log('S-05 browser PASS: owner registry/designation/entry, independent staff verification, offline paper fixture recovery across two shifts, staff validation/partial/self-verification denial, lost-copy investigation, pending visit separation, original-date owner verification, lost-response/reload replay, linked history/receipt, keyboard, 375px and axe.');
+  // S-06: historical synthetic source setup; all closing counts/submissions/approvals use UI/API/RLS.
+  await admin.rateLimit.deleteMany();
+  browser('open',`${origin}/digital`);fill('#digital-owner-password',password);clickButton('Verify password');checkText('Password verified for five minutes.');
+  await grantDigital('BANK',owner.id);
+  const closingDay=outageDate; const closingUrl=`${origin}/closing?day=${closingDay}`;
+  for (const method of ['CASH','GCASH','BANK']) {
+    const member=postSynthetic('/api/members',{fullName:`Closing ${method} browser ${suffix}`});
+    await admin.$transaction(async tx => {
+      const start=new Date(`${closingDay}T00:00:00+08:00`); const finish=new Date(start.getTime()+recoveryPlan.durationDays*86400_000);
+      const charge=await tx.charge.create({data:{gymId,memberId:member.id,planId:recoveryPlan.id,planName:recoveryPlan.name,durationDays:recoveryPlan.durationDays,
+        priceCentavos:recoveryPlan.priceCentavos,planVersion:recoveryPlan.version,preparedBy:owner.id,intendedStart:start,intendedEnd:finish}});
+      const payment=await tx.payment.create({data:{gymId,memberId:member.id,chargeId:charge.id,amountCentavos:charge.priceCentavos,method,reference:`S06-B-${randomUUID()}`,
+        collectedBy:owner.id,collectedAt:outageAt,enteredAt:outageAt,verifiedAt:outageAt,verifiedBy:owner.id}});
+      const period=await tx.membershipPeriod.create({data:{gymId,memberId:member.id,paymentId:payment.id,confirmedBy:owner.id,startsAt:start,endsAt:finish}});
+      await tx.effectiveEntitlement.create({data:{gymId,memberId:member.id,periodId:period.id,startsAt:start,endsAt:finish}});
+      await tx.paymentReceipt.create({data:{gymId,paymentId:payment.id,reference:`S06-R-${randomUUID()}`}});
+      if (method!=='CASH') {
+        const claim=await tx.digitalClaim.create({data:{gymId,chargeId:charge.id,accountId:accountFor(method).id,amountCentavos:charge.priceCentavos,
+          transactionReference:`S06-T-${randomUUID()}`,reportedReceivedAt:outageAt,collectedBy:owner.id,enteredAt:outageAt}});
+        await tx.digitalSettlement.create({data:{gymId,claimId:claim.id,paymentId:payment.id,evidenceReference:`S06-ACCOUNT-${randomUUID()}`}});
+      }
+    });
+  }
+  const closingCase=postSynthetic('/api/investigations',{action:'open',memberId:outageMember.id,reason:'INCORRECT_ENTRY',summary:'Known paper collection/count evidence for PHP 50 excess',method:'CASH'});
+  browser('open',closingUrl); checkText('Close a business day');
+  const closingReady=() => browser('wait','--fn',"document.getElementById('closing-action')?.disabled === false"); closingReady();
+  clickButton('Save closing record'); checkText('Check the closing fields below.'); focusedFeedback('closing-feedback'); associatedError('closing-collectorId'); audit('S-06 count validation');
+  browser('find','role','link','click','--name','Check this field and its count, reference or attestation. (collectorId)','--exact');
+  assert.equal(evalBrowser('document.activeElement.id'),'closing-collectorId');
+  browser('select','#closing-action','submit');browser('check','#closing-countsReaffirmed');fill('#closing-evidenceReference','S06-MISSING-COUNTS');fill('#closing-notes','Independent actual counts must be recorded before closing');
+  clickButton('Save closing record');checkText('Check the closing fields below.');focusedFeedback('closing-feedback');
+  browser('find','role','link','click','--name','Check this field and its count, reference or attestation. (checkIds)','--exact');
+  assert.equal(evalBrowser('document.activeElement.id'),'closing-checkIds');audit('S-06 missing actual evidence');
+  browser('select','#closing-action','count');
+  const closingSource=evalBrowser(`fetch('/api/closing?day=${closingDay}').then(r=>r.json())`);
+  async function countClosing(who:string,method:string,amount:number) {
+    closingReady(); browser('select','#closing-action','count'); browser('select','#closing-collectorId',who); browser('select','#closing-method',method);
+    if(method!=='CASH') browser('select','#closing-accountId',accountFor(method).id);
+    if(method==='CASH' && who===staff.id) browser('select','#closing-caseId',closingCase.caseId);
+    fill('#closing-amount',(amount/100).toFixed(2));
+    if(method==='CASH') {fill('#closing-cashHeld',(amount/100).toFixed(2));fill('#closing-transferred','0');fill('#closing-paidFromBatch','0');}
+    browser('check','#closing-independentlyChecked'); browser('check','#closing-segregated');
+    const reference=`S06-COUNT-${method}-${who.slice(0,8)}-${randomUUID().slice(0,8)}`;
+    fill('#closing-evidenceReference',reference); fill('#closing-notes','Independent synthetic count; original collector and batch evidence reviewed');
+    clickButton('Save closing record'); checkText('Actual evidence saved.'); closingReady(); checkText(reference);
+  }
+  for(const row of closingSource.rows) await countClosing(row.collectorId,row.method,row.recorded-row.excluded+(row.collectorId===staff.id && row.method==='CASH' ? 5000:0));
+  // Staff submits an immutable excess with saved-key recovery after the committed response is lost.
+  browser('open',origin); clickButton('Sign out'); checkText('You are signed out.'); browser('find','role','radio','click','--name','Staff','--exact');
+  fill('#identifier',username);fill('#password',password);clickButton('Sign in');checkText('Welcome, Browser Staff');browser('open',closingUrl);closingReady();
+  browser('select','#closing-action','submit');browser('check','#closing-countsReaffirmed');fill('#closing-evidenceReference','S06-STAFF-SUBMIT');fill('#closing-notes','PHP 50 excess remains unresolved; owner review required');
+  evalBrowser(`(() => { const send=window.fetch; window.fetch=async function(input,init) { if(input==='/api/closing' && init?.method==='POST') { window.fetch=send; await send.call(this,input,init); throw new Error('Synthetic lost closing response'); } return send.call(this,input,init); }; return true; })()`);
+  clickButton('Save closing record');checkText('A saved submit operation may have committed.');
+  const savedClosing=JSON.parse(evalBrowser(`sessionStorage.getItem('closing-recovery:${gymId}:${staff.id}')`));
+  const snapshot=await admin.closingSnapshot.findUniqueOrThrow({where:{gymId_operationKey:{gymId,operationKey:savedClosing.key}}});
+  browser('reload');checkText('Retrieve saved closing operation');clickButton('Retrieve saved closing operation');checkText('Immutable closing submitted.');closingReady();checkText('Unresolved excess');
+  const linesBefore=await admin.closingLine.findMany({where:{snapshotId:snapshot.id},orderBy:{id:'asc'}});
+  assert.equal(linesBefore.find(l=>l.collectorId===staff.id && l.method==='CASH')!.difference,5000);
+  assert.ok(await admin.closingCheck.findFirst({where:{gymId,day:closingDay,caseId:closingCase.caseId}}));checkText('Linked investigation');
+  assert.equal(evalBrowser(`fetch('/api/closing',{method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({action:'approve',snapshotId:'${snapshot.id}',sourceHash:'${closingSource.sourceHash}',evidenceReference:'DENIED-STAFF',notes:'Staff cannot approve',acknowledgeUnresolved:true})}).then(r=>r.status)`),403);
+  assert.equal(evalBrowser("Array.from(document.querySelector('#closing-action').options).some(o=>o.value==='approve')"),false);
+  browser('set','viewport','375','812');assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'),true);audit('S-06 staff closing mobile');browser('screenshot',resolve('.local/s06-staff-mobile.png'));browser('set','viewport','1280','900');
+  browser('open',origin);clickButton('Sign out');checkText('You are signed out.');fill('#identifier',email);fill('#password',password);clickButton('Sign in');checkText('Welcome, Browser Owner');browser('open',closingUrl);closingReady();
+  fill('#closing-owner-password',password);clickButton('Verify password');checkText('Password verified for five minutes.');
+  browser('select','#closing-action','approve');browser('check','#closing-acknowledgeUnresolved');fill('#closing-evidenceReference','S06-OWNER-ACK');fill('#closing-notes','Excess remains visible; no funds or case outcome changed');
+  clickButton('Save closing record');checkText('Owner acknowledged the unresolved closing.');closingReady();checkText('Unresolved excess');
+  assert.deepEqual(await admin.closingLine.findMany({where:{snapshotId:snapshot.id},orderBy:{id:'asc'}}),linesBefore);
+  browser('screenshot',resolve('.local/s06-owner-desktop.png'));audit('S-06 owner approval desktop');
+  browser('set','viewport','375','812');assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'),true);audit('S-06 owner mobile');browser('screenshot',resolve('.local/s06-owner-mobile.png'));browser('set','viewport','1280','900');
+  // A new independent count requires a supplement; original excess/approval stay retrievable.
+  await countClosing(staff.id,'CASH',closingSource.rows.find((r:{collectorId:string;method:string})=>r.collectorId===staff.id && r.method==='CASH').recorded);
+  browser('select','#closing-action','submit');browser('check','#closing-countsReaffirmed');fill('#closing-evidenceReference','S06-SUPPLEMENT');fill('#closing-notes','New independent count explains original excess; preserve earlier snapshot');clickButton('Save closing record');checkText('Immutable closing submitted.');closingReady();checkText('Supplement 1');checkText('Unresolved excess');
+  assert.equal(await admin.closingSnapshot.count({where:{gymId,day:closingDay}}),2);assert.deepEqual(await admin.closingLine.findMany({where:{snapshotId:snapshot.id},orderBy:{id:'asc'}}),linesBefore);
+  const todayClosing=new Date(Date.now()+8*3600_000).toISOString().slice(0,10);browser('open',`${origin}/closing?day=${todayClosing}`);closingReady();browser('select','#closing-action','submit');
+  checkText('This is a preview.');checkText('Actual refund settlements and original allocation');checkText('actually paid by CASH');
+  assert.equal(evalBrowser("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save closing record').disabled"),true);
+  console.log('S-06 browser PASS: historical all-method/collector sources, independent actual forms, validation focus/keyboard, staff submission, excess retained, unauthorized approval denial, committed response loss/reload replay, fresh owner acknowledgement, immutable supplement, open-day preview, 375px and axe.');
   browser('open', origin); checkText('Welcome, Browser Owner');
   fill('#reauth-password',password); clickButton('Verify password'); checkText('Password verified for five minutes.');
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");

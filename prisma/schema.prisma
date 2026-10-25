@@ -478,6 +478,92 @@ model OutageEvent {
   @@map("outage_events")
 }
 
+model ClosingCheck {
+  id String @id @default(uuid()) @db.Uuid
+  ordinal Int @unique @default(autoincrement())
+  gymId String @map("gym_id") @db.Uuid
+  day String
+  sourceHash String @map("source_hash")
+  collectorId String @map("collector_id") @db.Uuid
+  method String
+  accountId String? @map("account_id") @db.Uuid
+  caseId String? @map("case_id") @db.Uuid
+  grossActual Int @map("gross_actual")
+  cashHeld Int @map("cash_held")
+  transferred Int
+  paidFromBatch Int @map("paid_from_batch")
+  evidenceReference String @map("evidence_reference")
+  notes String
+  checkedBy String @map("checked_by") @db.Uuid
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@unique([gymId, operationKey])
+  @@index([gymId, day])
+  @@map("closing_checks")
+}
+
+model ClosingSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  day String
+  revision Int
+  previousId String? @map("previous_id") @db.Uuid
+  sourceHash String @map("source_hash")
+  source Json
+  evidenceReference String @map("evidence_reference")
+  notes String
+  submittedBy String @map("submitted_by") @db.Uuid
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@unique([gymId, day, revision])
+  @@unique([gymId, operationKey])
+  @@map("closing_snapshots")
+}
+
+model ClosingLine {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  snapshotId String @map("snapshot_id") @db.Uuid
+  collectorId String @map("collector_id") @db.Uuid
+  method String
+  recorded Int
+  excluded Int
+  refunds Int
+  grossActual Int @map("gross_actual")
+  difference Int
+  @@unique([snapshotId, collectorId, method])
+  @@unique([id, gymId])
+  @@map("closing_lines")
+}
+
+model ClosingLineCheck {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  lineId String @map("line_id") @db.Uuid
+  checkId String @map("check_id") @db.Uuid
+  @@unique([lineId, checkId])
+  @@map("closing_line_checks")
+}
+
+model ClosingApproval {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  snapshotId String @unique @map("snapshot_id") @db.Uuid
+  approvedBy String @map("approved_by") @db.Uuid
+  sourceHash String @map("source_hash")
+  evidenceReference String @map("evidence_reference")
+  notes String
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([gymId, operationKey])
+  @@map("closing_approvals")
+}
+
 model InvestigationCase {
   id String @id @default(uuid()) @db.Uuid
   gymId String @map("gym_id") @db.Uuid
