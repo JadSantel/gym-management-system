@@ -1,9 +1,9 @@
 # Gym CRM — Coding Agent Contract (`AGENTS.md`)
 
-**Updated:** 2026-10-24 (Asia/Manila)  
+**Updated:** 2026-10-25 (Asia/Manila)
 **Mode:** Small verified increments; **pause after each resolved engineering task for the user's GitHub checkpoint** (user update, 2026-10-24). Continue within the current task only.
-**Historical starting milestone:** S-01 / S-01a. **Current handoff:** user reports S-01–S-07 complete; reconcile repository evidence and follow §9 for Zod integration. **Data:** synthetic only.  
-**Reality check:** Implementation is user-reported complete; the supplied evidence covers S-01 only. No repository was inspected during this documentation update. Deployment, domain, email sender and live readiness require their own evidence.
+**Historical starting milestone:** S-01 / S-01a. **Current handoff:** S-01-S-03 and supported S-04 paths have recorded local verification; S-05-S-07 and live readiness remain unverified. Read `docs/IMPLEMENTATION_STATUS.md` for exact evidence and limits. **Data:** synthetic only.
+**Reality check:** The earlier report of S-01-S-07 completion was not acceptance evidence. Current source and recorded checks support only the implemented scope in the ledger. Deployment, domain, email sender and live readiness require separate evidence.
 
 > Objective: build the **smallest correct, demonstrable increment**, test it, record evidence, then advance safely. Never trade away financial integrity, security, accessibility or acceptance criteria to reduce code or tokens.
 
@@ -13,7 +13,7 @@ Source order and purpose:
 
 1. `docs/PROJECT.md`: **controlling** MVP behavior, FR/AC acceptance, S-01–S-07 and §9 decisions/gates.
 2. `docs/product.md`: business rationale/approved BR policies; align after approved policy changes.
-3. `docs/architecture.md`: approved AD-001–AD-032, integrations, tenant/financial contracts; distinguish approved/proposed/open.
+3. `docs/architecture.md`: AD-001-AD-033, integrations, tenant/financial contracts; distinguish approved/proposed/open.
 4. `docs/design.md`: proposed UX, route labels, accessibility, state/confirmation patterns.
 5. `docs/IMPLEMENTATION_STATUS.md`: **current implementation state**, next increment, actual check evidence and blockers—not a policy authority.
 6. This `AGENTS.md`: implementation process and stop rules. Historical handoffs are context only.
@@ -45,7 +45,7 @@ Use the installed skill's real instructions when available. **Do not pretend an 
 
 ## 3. Continuous implementation loop (foreground execution only)
 
-**Business scope:** `CONTINUE_SCOPE=S-01`, with **PAUSE_AT_TASK_BOUNDARY=true** per the user's 2026-10-24 update. Finish and verify the current engineering task, then pause so the user can review and push to GitHub. Resume the next task only after the user asks. S-01a → S-01g remain one approved business milestone, with safe synthetic prerequisites. S-02, live onboarding and production changes remain unauthorized. This file cannot create background autonomy.
+**Business scope:** Work only within the latest user-authorized task. S-01 is closed for local acceptance; S-02, S-03 and supported S-04 were subsequently authorized and verified. The continuous-work exception applied to the authorized S-04 task; it does not authorize S-05, live onboarding, production changes or background work. Preserve task-boundary GitHub checkpoints unless the user explicitly overrides them for the current task.
 
 For each engineering task, subdivide **only as needed** into the smallest coherent, end-to-end increments. Do not split work into artificial UI-only/backend-only phases. Repeat:
 
@@ -55,11 +55,11 @@ For each engineering task, subdivide **only as needed** into the smallest cohere
 4. **Verify** — run relevant static/unit/integration/E2E checks available in the actual repository, including negative and authorization cases. Investigate failures, fix root cause, rerun. Never manufacture PASS or substitute mocked tests for required production-like DB/RLS tests.
 5. **Review** — inspect diff for scope, complexity, unintended behavior, secrets, cross-tenant access, concurrency and backward compatibility. Remove unneeded code. Review UX states where touched.
 6. **Record** — update `docs/IMPLEMENTATION_STATUS.md` with task status, changed paths, **actual** commands/results, FR/AC evidence, blockers and next task. Keep it concise; replace old transient narrative instead of appending logs.
-7. **Continue within the current task** while checks pass and dependencies are safe. **Pause at every verified or blocked engineering task** for the user's GitHub checkpoint. Do not start the next S-01 task until the user resumes. Git commits/pushes still require explicit instructions.
+7. **Continue within the current task** while checks pass and dependencies are safe. **Pause at every verified or blocked engineering task** for the user's GitHub checkpoint. Do not start another engineering task or milestone until the user resumes or explicitly authorizes that scope. Git commits/pushes still require explicit instructions.
 
 **On a session/context boundary:** leave a truthful status file and clear next action. A future agent can pick up. Do not promise to work after the session ends. Multiple agents may review in parallel, but **one writer owns a given branch/schema/migration** at a time; don't let concurrent agents edit the same files or run conflicting migrations.
 
-**At S-01 completion:** demonstrate join → full cash → durable receipt → current eligibility with synthetic data; verify acceptance criteria and negative cases, then **STOP for milestone review/approval**. Do not automatically start S-02 merely because some tests pass. Full business milestones S-01–S-07 retain `docs/PROJECT.md`'s names/order.
+**Historical S-01 completion gate (closed locally; retain as a regression contract):** demonstrate join → full cash → durable receipt → current eligibility with synthetic data; verify acceptance criteria and negative cases, then **STOP for milestone review/approval**. Do not automatically start S-02 merely because some tests pass. Full business milestones S-01–S-07 retain `docs/PROJECT.md`'s names/order.
 
 ## 4. Quality gates before moving forward
 
@@ -71,7 +71,7 @@ Required at the relevant slice, not all upfront:
 - **S-01c–d (members/plans):** tenant-safe create/search, minimum validated fields, owner-controlled **approved** plan prices/durations, historical price snapshot; block unsupported sales when O-07 not approved.
 - **S-01e–f (money/history):** full verified cash only; amounts in **integer PHP centavos**; atomic payment + immutable original period + current entitlement + receipt/reference + audit; tenant-scoped idempotency key/fingerprint, member lock, PostgreSQL exclusion constraint; rollback, concurrent submit, same-key lost-response retry, direct unauthorized calls and historical immutability tests.
 - **S-01g (eligibility):** fixed plan-duration paid periods `[start,end)`; O-07 user approval on 2026-10-24 sets Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days, each day exactly 24 hours. New/late verified terms start **00:00 Asia/Manila on the verified collection date**; early paid terms begin at previous term end; store instants in UTC; a scheduled paid future period is not currently eligible, and no pre-verification admission is implied. Test exact end, leap year and month-end. Pending/unverified payment grants no normal access.
-- **Later milestones:** digital receipt of **actual funds** verified by designated account viewers; owner-only confirmed-finance alterations; append-preserving corrections with explicit access outcomes; full-cash numbered paper outage receipt grants **one visit only**; daily closing preserves unresolved differences; reviewed legacy imports and defensible pilot evidence.
+- **Beyond S-01 (implemented/future contracts; see ledger for state):** digital receipt of **actual funds** verified by designated account viewers; owner-only confirmed-finance alterations; append-preserving corrections with explicit access outcomes; full-cash numbered paper outage receipt grants **one visit only**; daily closing preserves unresolved differences; reviewed legacy imports and defensible pilot evidence.
 
 Use available test tools, not imaginary scripts. Missing critical test infrastructure means **NOT VERIFIED**, not PASS. Block advancement into work that depends on an unverified security/financial invariant. A narrow independent task may still continue if safely isolated.
 
@@ -79,7 +79,7 @@ Use available test tools, not imaginary scripts. Missing critical test infrastru
 
 - Product roles: **Owner** and **Staff**; each authenticated identity belongs to **one gym**; capabilities are not extra business roles; **platform admin is separate**. Real first-owner activation requires independently verified gym ownership; private audited pending-gym invite; exactly one active primary owner. Staff owner-invited; password chosen privately. No fake emails, shared credentials, self-promotion or unreviewed admin seed.
 - Gym-scoped records: `gym_id`, server-resolved actor/gym, capability check at action time, tenant-consistent foreign keys, PostgreSQL RLS (`USING` and `WITH CHECK`), non-bypass runtime DB role, **transaction-local** tenant setting and same Prisma transaction client. Never trust client gym IDs, UI hiding or session-level `SET` with pooled connections.
-- Finance: reject partial, screenshot-only, unverified or pending settlement as confirmed membership. No installments/receivables, fabricated sales plans, discounts, credits, refunds or extra future renewals. Original confirmed transactions/paid periods remain auditably preserved; only owner approves corrections/refunds, with explicit real-funds and entitlement outcome. Cash outage provisional access and its later reconciliation are different states.
+- Finance: reject partial, screenshot-only, unverified or pending settlement as confirmed membership. No installments/receivables, fabricated sales plans, discounts, store credits, unapproved refunds or extra future renewals. The October 25, 2026 narrow full duplicate-excess refund and zero-movement corrections follow PROJECT.md FR-08; discretionary cancellation refunds remain gated. Original confirmed transactions/paid periods remain auditably preserved; only owner approves corrections/refunds, with explicit real-funds and entitlement outcome. Cash outage provisional access and its later reconciliation are different states.
 - Scope: **no** member portal, class/PT booking, marketing CRM, payment gateway/POS, biometric entry, offline digital sync, large analytics suite, multi-branch admin or complex general ledger unless explicitly approved.
 - Infrastructure: Next.js + TypeScript, stable **pinned Prisma 7** + PostgreSQL, self-hosted Better Auth (Prisma adapter/username), Vercel `sin1`, Neon `aws-ap-southeast-1`, Brevo **later**. Exact Node/package patches must be verified and pinned at setup; do not mix Prisma 8 APIs. No domain owned; use local/synthetic email until a domain/sender is acquired, authenticated and tested. Separate dev/staging/prod and runtime/migration credentials. Recovery target RPO ≤1h/RTO ≤4h is **unproven**.
 - Logging/privacy: no raw password, invitation/reset token, cookies, bank credentials, API keys, DB URLs, real member records or sensitive ownership evidence in logs. No real customer data without privacy/retention and operations gates.
@@ -88,7 +88,7 @@ Use available test tools, not imaginary scripts. Missing critical test infrastru
 
 **STOP the affected operation** and report a precise decision needed when:
 
-1. `docs/PROJECT.md` §9 has an unresolved required policy (e.g. pilot plan/price O-07, extra advance renewals, ambiguous past collection date, refund amounts, evidence/receipt custody, closing cutoff) or documents conflict.
+1. `docs/PROJECT.md` §9 has an unresolved required policy (e.g. repeat-outage/lost-receipt procedures, ambiguous historical cash dates/prices, discretionary cancellation terms, evidence/receipt custody, closing cutoff) or documents conflict.
 2. A change would alter an approved AD/BR/FR/AC, introduce major dependencies/infrastructure complexity or change scope without authorization.
 3. You would create live users, use real personal/payment data, activate live Brevo, buy/enable paid services, change production secrets, access live bank accounts, run destructive migrations, push/deploy to production or modify external services without explicit approval.
 4. Critical checks fail and cannot be repaired safely; verified RLS, auth, idempotency or atomic money invariants are missing; the repository has conflicting unexplained edits.
@@ -134,9 +134,9 @@ manual synthetic tests, and any missing verification. Do not claim background
 execution after this session ends.
 ```
 
-## 9. Zod integration and post-implementation handoff (2026-10-24)
+## 9. Validation and current implementation handoff (reviewed 2026-10-25)
 
-The user reports S-01–S-07 implemented; the supplied status snapshot records only S-01. Earlier starting-task/scope instructions are historical and must not restart S-01 or authorize new milestones. Reconcile against the actual repository and retain task-boundary GitHub checkpoints. The current authorized change is Zod documentation; subsequent code integration must begin from verified repository state.
+The earlier S-01-S-07 completion report and Zod-documentation-only handoff are historical. S-01-S-03 and supported S-04 workflows now have source/migration/test evidence in the ledger; Zod is pinned at 4.6.7 with boundary-specific coverage. This does not certify all future workflows, full S-04 closing integration, S-05-S-07, or live readiness. Resume only the latest explicitly authorized task and preserve its GitHub checkpoint.
 
 For application validation, follow architecture.md AD-033/§17 and PROJECT.md VAL-01–VAL-06:
 
@@ -144,4 +144,4 @@ For application validation, follow architecture.md AD-033/§17 and PROJECT.md VA
 - Validate application-owned untrusted input on the server and consume only parsed, allowlisted values. Reuse browser-safe schemas for forms; keep environment/secrets/database imports server-only. Use inferred types rather than manually duplicating schema types.
 - Preserve exact centavo conversion, timezone rules, Better Auth ownership, current endpoint contracts and idempotency semantics. Never trust client gym/actor/capabilities or replace transaction checks, RLS, constraints or locks with Zod.
 - Map failures to safe field/form errors. Never log raw credentials, tokens, configuration values, DB URLs or raw parse errors containing sensitive input. Preserve auth enumeration protections.
-- Migrate one workflow per task, add meaningful boundary/negative tests and rerun relevant existing integrity checks. Do not mark Zod installed, a workflow covered, or milestones verified without source and executable evidence. Track the inventory, next task and exact results in docs/IMPLEMENTATION_STATUS.md.
+- Migrate one workflow per task, add meaningful boundary/negative tests and rerun relevant existing integrity checks. Do not extend the existing Zod/workflow verification claims to another boundary or milestone without source and executable evidence. Track the inventory, next task and exact results in docs/IMPLEMENTATION_STATUS.md.

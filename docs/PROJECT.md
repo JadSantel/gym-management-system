@@ -1,10 +1,10 @@
 # Independent Gym Management System — MVP Delivery Specification
 
 **Status:** Working delivery specification; conditional requirements remain gated by the decisions in Section 9.  
-**Date:** 2026-10-24  
+**Date:** 2026-10-25 (documentation reconciliation; approval dates remain recorded with each decision)
 **Authority:** This document is the source of truth for current MVP requirements, approved behavior, and implementation gates. [product.md](product.md) provides aligned product context and policy references.  
 **Accountable product owner:** To assign. Pilot gym owners and operational reviewers: to assign.  
-**Implementation status:** User reports S-01–S-07 implemented (2026-10-24). The attached status snapshot documents S-01 only; repository verification of later milestones is pending. This requirements document does not certify implementation or release readiness.
+**Implementation status:** S-01-S-03 and supported S-04 recovery/correction/refund-settlement paths have recorded local verification as of 2026-10-25. S-05-S-07, full S-04 closing integration and live/pilot readiness remain unverified. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact evidence and conditional limits; this requirements document does not certify release readiness.
 
 ## 1. Authority, outcome, and interpretation
 
@@ -121,7 +121,7 @@ Search/create members, associate their transaction history and paid periods, and
 
 - **AC-02a:** Given a selected member and plan, when preparing a join/renewal, then the operator sees the full charge, method, and proposed period before confirming payment.
 - **AC-02b:** Given a prior confirmed payment, when the owner changes the plan price for later sales, then its historical amount, receipt, and paid period remain unchanged.
-- **AC-02c:** Given staff or an unsupported plan/discount request, when attempting to change pricing or sell an unapproved duration, then the action is blocked; the unresolved O-07 behavior is not silently substituted.
+- **AC-02c:** Given staff or an unsupported plan/discount request, when attempting to change pricing or sell an unapproved duration, then the action is blocked; the approved O-07 catalogue is not silently replaced by an unsupported plan, discount or duration.
 
 ### FR-03 — Full-payment recording and confirmation
 

@@ -2,8 +2,9 @@
 
 **Status:** Proposed UX/UI specification for review; **not** an approval of new product policies, implementation, pilot readiness, or visual brand identity.  
 **Prepared:** 2026-10-24 (Asia/Manila)  
+**Reviewed:** 2026-10-25; approved S-02-S-04 behavior reconciled, remaining UX proposals and live gates retained.
 **Project:** Independent Gym Management System (multi-tenant SaaS for independent Philippine gyms)  
-**Scope:** S-01 through S-07; implementation-ready interaction guidance for **S-01a** first.  
+**Scope:** S-01 through S-07 interaction guidance. S-01-S-03 and supported S-04 paths have recorded local verification; S-05-S-07 remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
 **Source of truth:** `PROJECT.md` for product requirements, acceptance criteria, and operational decision gates; `product.md` for aligned customer problem and policy intent; `architecture.md` for approved technology, identity, isolation, security, and integrity rules. The conversation handoff provides historical context only.  
 **Decision rule:** The layouts, navigation, labels, colors, and responsive behavior in this file are **design proposals** until reviewed. They may be changed without changing a product rule. Where this file and an authoritative document differ, do **not** silently implement the difference; record and resolve it before the affected feature ships.
 
@@ -13,7 +14,7 @@ Build a clear, fast, evidence-oriented tool for owners and authorized front-desk
 
 Design for **correctness ahead of speed** when confirmation changes membership or financial history. Faster entry must never mean silently accepting unverified funds, hiding discrepancies, or bypassing owner authorization.
 
-**In scope:** Individual operator account access; member/plan directory; verified full cash collections; pending/verified digital funds; 30-day paid terms and renewal; eligibility; investigations; owner-approved linked corrections/refunds; numbered outage-paper recovery; closing; verified migration; pilot review evidence.
+**In scope:** Individual operator account access; member/plan directory; verified full cash collections; pending/verified digital funds; approved fixed 30/90/180-day paid terms and renewal; eligibility; investigations; owner-approved linked corrections/refunds; numbered outage-paper recovery; closing; verified migration; pilot review evidence.
 
 **Not in MVP:** Public signup for gym accounts, member portal/app, installment balances, sales/marketing automation, gym class bookings, biometrics/turnstiles, a payment gateway, automated POS, fully offline digital app, broad attendance analytics, multi-branch admin, or general accounting.
 
@@ -332,11 +333,11 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | UX-D02 | UI theme, tokens and density | Use §4 neutral/teal scheme as initial proposal | Team/owner brand review, contrast testing. |
 | UX-D03 | Phone vs desktop priority | Desktop reception first, phone-responsive | Validate with operator device research. |
 | UX-D04 | English initial copy | Draft in English; localize only with evidence/decision | Validate comprehension with pilots. |
-| UX-D05 | Remaining-day rounding / expiry copy | **Always show exact expiry; omit rounded remaining-day claims until signed off** | `PROJECT.md` §9 O-01 residual decision. |
+| UX-D05 | Remaining-time display / expiry | Approved 2026-10-25: exact PHT expiry plus whole 24-hour days and hours rounded down at server check time; below one hour show "less than 1 hour"; current active term only | PROJECT FR-05; locally verified in S-02. |
 | UX-D06 | Member identity fields and evidence access | Prototype with synthetic minimal labels; don't store real unapproved PII | Data-stewardship gate. |
-| UX-D07 | Extra queued advance renewals | Disable further advance sales pending policy | Product/pilot owner decision. |
-| UX-D08 | Cross-date digital confirmation / uncertain cash dates | Keep pending/escalated; verified recovered cash dates approved October 25, 2026 | Product/pilot owner decision. |
-| UX-D09 | Refund rules, outage repeats, receipt custody and closing cutoff | Show case/evidence scaffolding; disable affected final decisions | O-02, O-03, O-06, closing details. |
+| UX-D07 | Queued advance renewals | Approved 2026-10-25: one queued paid term; block another sale until that term starts, preserve committed same-key recovery | PROJECT FR-05 / AC-05e; locally verified in S-02. |
+| UX-D08 | Cross-date digital confirmation / uncertain cash dates | Verified recovered full-cash original-date rule approved 2026-10-25; uncertain/conflicting cash dates and cross-date digital confirmation remain pending/escalated | PROJECT FR-04/07 and Section 9; no digital backdating exception. |
+| UX-D09 | Conditional refunds, outage procedures and closing | Approved S-04 owner recovery/zero-movement corrections/full evidenced excess-refund settlement are available locally; block discretionary cancellations and unresolved outage/closing decisions | PROJECT FR-08; O-02, remaining O-03, O-06 and closing gates. |
 | UX-D10 | Launch plan catalog/prices | Approved Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; live readiness remains gated | O-07 resolved 2026-10-24. |
 | UX-D11 | First-owner identity proof, owner manual recovery, real email sender | Private synthetic admin fixture only for build | Before real onboarding: admin SOP, domain, authenticated Brevo sender and verified delivery. |
 
