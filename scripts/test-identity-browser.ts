@@ -8,7 +8,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { bootstrapSyntheticOwner } from "../src/lib/identity";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { db } from "../src/lib/db";
-import { assessEligibility } from "../src/lib/eligibility";
+import { assessEligibility, remainingActiveTime } from "../src/lib/eligibility";
 
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
@@ -85,6 +85,17 @@ function assertRefreshedMembership(payment: { reference: string; receipt: { id: 
   assert.equal(evalBrowser(`document.getElementById('payment-history-title').parentElement.textContent.includes(${JSON.stringify(collectorName)})`), true);
   checkText("Full cash payment confirmed");
 }
+function assertRemainingTime(interval: { startsAt: Date; endsAt: Date }) {
+  const checkedAt = new Date(evalBrowser("document.getElementById('membership-access-title').parentElement.querySelector('time').dateTime"));
+  checkText(`Remaining in current paid period: ${remainingActiveTime(interval, checkedAt)} (rounded down at check time).`);
+}
+function assertReviewedDates(charge: { intendedStart: Date; intendedEnd: Date }) {
+  const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  for (const [label, date] of [["Proposed start (inclusive)", charge.intendedStart], ["Proposed end (exclusive)", charge.intendedEnd]] as const) {
+    const shown = evalBrowser(`Array.from(document.querySelectorAll('dt')).find(node => node.textContent === '${label}').nextElementSibling.textContent`);
+    assert.equal(shown, `${pht.format(date)} PHT`);
+  }
+}
 async function confirmNewMembership(memberName: string, collector: { id: string; name: string }, durationDays: number) {
   const operator = await admin.operator.findUniqueOrThrow({ where: { id: collector.id } });
   const plan = await admin.plan.findFirstOrThrow({ where: { gymId: operator.gymId, durationDays } });
@@ -124,6 +135,107 @@ async function confirmNewMembership(memberName: string, collector: { id: string;
   browser("open", `${origin}/members/${memberId}`); checkText("A verified paid period is in effect.");
   checkText(payment.reference); checkText(collector.name);
   console.log(`S-01 acceptance: ${operator.role} ${durationDays} days UI join, short/full cash, attributed history, durable receipt, same-key replay and stored eligibility boundaries passed.`);
+  // The real UI must preserve the original term when selling one advance renewal.
+  browser("select", "#charge-plan", plan.id);
+  clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  checkText("uncompleted purchase request"); checkText("Remaining in current paid period:");
+  assertRemainingTime(payment.period!);
+  const renewalId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
+  const renewal = await admin.charge.findUniqueOrThrow({ where: { id: renewalId } });
+  assert.equal(renewal.durationDays, durationDays);
+  assert.equal(renewal.priceCentavos, plan.priceCentavos);
+  assertReviewedDates(renewal);
+  assert.equal(renewal.intendedStart.getTime(), payment.period!.endsAt.getTime());
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId } }), 1, "A renewal preview grants no paid term");
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
+  const renewed = await admin.payment.findUniqueOrThrow({ where: { chargeId: renewalId }, include: { period: true, receipt: true } });
+  assertRefreshedMembership(renewed, collector.name);
+  checkText("Scheduled paid period:"); checkText("Another advance renewal is available once the scheduled paid period starts.");
+  assert.equal(renewed.period!.startsAt.getTime(), payment.period!.endsAt.getTime());
+  assert.equal(renewed.period!.endsAt.getTime(), renewal.intendedEnd.getTime());
+  assert.equal(renewed.period!.endsAt.getTime() - renewed.period!.startsAt.getTime(), durationDays * 86_400_000);
+  assert.deepEqual(await admin.membershipPeriod.findUniqueOrThrow({ where: { id: payment.period!.id } }), payment.period);
+  const allIntervals = await admin.effectiveEntitlement.findMany({ where: { memberId, isCurrentProjection: true } });
+  assert.equal(assessEligibility(allIntervals, new Date(payment.period!.endsAt.getTime() - 1)).interval!.endsAt.getTime(), payment.period!.endsAt.getTime());
+  assert.equal(assessEligibility(allIntervals, payment.period!.endsAt).interval!.endsAt.getTime(), renewed.period!.endsAt.getTime());
+  const previews = await admin.charge.count({ where: { memberId } });
+  clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+  assert.equal(await admin.charge.count({ where: { memberId } }), previews);
+  const renewalOperation = await admin.idempotencyOperation.findFirstOrThrow({ where: { paymentId: renewed.id } });
+  const recovered = evalBrowser(`fetch('/api/payments', {method:'POST',headers:{'content-type':'application/json','idempotency-key':'${renewalOperation.operationKey}'},body:JSON.stringify({chargeId:'${renewalId}',cashReceived:'${(plan.priceCentavos / 100).toFixed(2)}'})}).then(async r=>({status:r.status,body:await r.json()}))`);
+  assert.equal(recovered.status, 200); assert.equal(recovered.body.payment.id, renewed.id);
+  assert.equal(await admin.payment.count({ where: { memberId } }), 2);
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId } }), 2);
+  audit(`${operator.role} ${durationDays}-day early renewal`);
+  if (durationDays === 30) {
+    evalBrowser("window.scrollTo(0, 0)");
+    browser("screenshot", resolve(`.local/s02-renewal-${operator.role.toLowerCase()}-desktop.png`));
+    browser("set", "viewport", "375", "812");
+    evalBrowser("window.scrollTo(0, 0)");
+    assert.equal(evalBrowser("document.documentElement.scrollWidth <= innerWidth"), true);
+    audit(`${operator.role} mobile renewal`);
+    browser("screenshot", resolve(`.local/s02-renewal-${operator.role.toLowerCase()}-mobile.png`));
+    browser("set", "viewport", "1280", "900");
+  }
+  await verifyLateRenewal(collector, plan);
+  console.log(`S-02 acceptance: ${operator.role} ${durationDays} days early/late renewal, preserved original, current/scheduled distinction, queued denial and committed-key recovery passed.`);
+}
+
+// Synthetic historical/future fixtures only. Never rewrite immutable confirmed history to move time.
+async function paidFixture(collectorId: string, plan: { id: string; gymId: string; name: string; durationDays: number; priceCentavos: number; version: number }, startsAt: Date) {
+  return admin.$transaction(async tx => {
+    const member = await tx.member.create({ data: { gymId: plan.gymId, fullName: `Renewal Fixture ${randomUUID().slice(0, 8)}`, nameKey: `fixture-${randomUUID()}`, createdBy: collectorId } });
+    const endsAt = new Date(startsAt.getTime() + plan.durationDays * 86_400_000);
+    const charge = await tx.charge.create({ data: { gymId: plan.gymId, memberId: member.id, planId: plan.id, planName: plan.name, durationDays: plan.durationDays, priceCentavos: plan.priceCentavos, planVersion: plan.version, preparedBy: collectorId, intendedStart: startsAt, intendedEnd: endsAt } });
+    const collectedAt = new Date(Math.min(Date.now(), startsAt.getTime()));
+    const payment = await tx.payment.create({ data: { gymId: plan.gymId, memberId: member.id, chargeId: charge.id, reference: `SYNTHETIC-${randomUUID()}`, amountCentavos: plan.priceCentavos, collectedBy: collectorId, collectedAt, verifiedBy: collectorId, verifiedAt: collectedAt } });
+    const period = await tx.membershipPeriod.create({ data: { gymId: plan.gymId, memberId: member.id, paymentId: payment.id, confirmedBy: collectorId, startsAt, endsAt } });
+    await tx.effectiveEntitlement.create({ data: { gymId: plan.gymId, memberId: member.id, periodId: period.id, startsAt, endsAt } });
+    await tx.paymentReceipt.create({ data: { gymId: plan.gymId, paymentId: payment.id, reference: `SYNTHETIC-RECEIPT-${randomUUID()}` } });
+    return { member, period };
+  });
+}
+
+async function verifyLateRenewal(collector: { id: string; name: string }, plan: { id: string; gymId: string; name: string; durationDays: number; priceCentavos: number; version: number }) {
+  const localDate = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+  const midnight = new Date(`${localDate}T00:00:00+08:00`);
+  const fixture = await paidFixture(collector.id, plan, new Date(midnight.getTime() - (plan.durationDays + 2) * 86_400_000));
+  browser("open", `${origin}/members/${fixture.member.id}`);
+  checkText("The most recent verified paid period has expired.");
+  assert.equal(evalBrowser("document.getElementById('membership-access-title').parentElement.textContent.includes('Remaining in current paid period:')"), false);
+  browser("select", "#charge-plan", plan.id); clickButton("Prepare charge preview"); checkText("Saved charge preview");
+  const chargeId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
+  const preview = await admin.charge.findUniqueOrThrow({ where: { id: chargeId } });
+  assertReviewedDates(preview);
+  assert.equal(preview.intendedStart.getTime(), midnight.getTime());
+  assert.notEqual(preview.intendedStart.getTime(), fixture.period.endsAt.getTime());
+  browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
+  fill("#cash-received", ((plan.priceCentavos - 1) / 100).toFixed(2)); clickButton("Confirm full cash"); checkText("No payment was recorded.");
+  checkText("The most recent verified paid period has expired.");
+  assert.equal(await admin.membershipPeriod.count({ where: { memberId: fixture.member.id } }), 1);
+  fill("#cash-received", (plan.priceCentavos / 100).toFixed(2)); clickButton("Confirm full cash"); checkText("Full cash payment confirmed");
+  const paid = await admin.payment.findUniqueOrThrow({ where: { chargeId }, include: { receipt: true, period: true } });
+  assertRefreshedMembership(paid, collector.name);
+  assert.equal(paid.period!.startsAt.getTime(), preview.intendedStart.getTime());
+  assert.equal(paid.period!.endsAt.getTime(), preview.intendedEnd.getTime());
+  assert.equal(paid.period!.endsAt.getTime() - paid.period!.startsAt.getTime(), plan.durationDays * 86_400_000);
+  assert.deepEqual(await admin.membershipPeriod.findUniqueOrThrow({ where: { id: fixture.period.id } }), fixture.period);
+  browser("open", `${origin}/receipts/${paid.receipt!.id}`); browser("reload"); checkText(paid.reference);
+  browser("open", `${origin}/members/${fixture.member.id}`); checkText("Remaining in current paid period:");
+  assertRemainingTime(paid.period!);
+  const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short", hourCycle: "h23" });
+  checkText(`${pht.format(paid.period!.endsAt)} PHT exclusive`);
+  audit(`${plan.durationDays}-day late renewal`);
+  if (plan.durationDays === 30) {
+    const future = await paidFixture(collector.id, plan, new Date(midnight.getTime() + 86_400_000));
+    browser("open", `${origin}/members/${future.member.id}`); checkText("Not eligible yet"); checkText("Scheduled paid period:");
+    assert.equal(evalBrowser("document.getElementById('membership-access-title').parentElement.textContent.includes('Remaining in current paid period:')"), false);
+    clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+    assert.equal(await admin.payment.count({ where: { memberId: future.member.id } }), 1);
+    assert.equal(await admin.charge.count({ where: { memberId: future.member.id } }), 1);
+    audit("Future-only paid membership");
+  }
 }
 async function capturedUrl(operatorId: string) {
   const invitation = await admin.invitation.findFirstOrThrow({ where: { operatorId, consumedAt: null, sentAt: { not: null } }, orderBy: { createdAt: "desc" } });
@@ -443,13 +555,6 @@ try {
   const renewalId = new URL(evalBrowser("location.href")).searchParams.get("charge")!;
   const renewal = await admin.charge.findUniqueOrThrow({ where: { id: renewalId } });
   assert.equal(renewal.intendedStart.toISOString(), browserPayment.period!.endsAt.toISOString());
-  const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  function assertReviewedDates(charge: { intendedStart: Date; intendedEnd: Date }) {
-    for (const [label, date] of [["Proposed start (inclusive)", charge.intendedStart], ["Proposed end (exclusive)", charge.intendedEnd]] as const) {
-      const shown = evalBrowser(`Array.from(document.querySelectorAll('dt')).find(node => node.textContent === '${label}').nextElementSibling.textContent`);
-      assert.equal(shown, `${pht.format(date)} PHT`);
-    }
-  }
   assertReviewedDates(renewal);
   browser("wait", "--fn", "document.getElementById('cash-received').disabled === false");
   audit("Early renewal review"); clickButton("Confirm full cash"); checkText("Full cash payment confirmed");

@@ -56,7 +56,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
   }
   return <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="charge-title">
     <h2 id="charge-title" className="text-xl font-semibold">New membership charge preview</h2>
-    <p className="mb-5 mt-2 text-sm text-muted-foreground">Review the full charge and proposed dates before collecting funds. A preview records no payment and grants no admission.</p>
+    <p className="mb-5 mt-2 text-sm text-muted-foreground">Review the full charge and proposed dates before collecting funds. A preview is an uncompleted purchase request; it records no payment and grants no admission.</p>
     {canPrepare && plans.length > 0 ? <form className="flex flex-wrap items-end gap-3" aria-busy={busy} onSubmit={async event => {
       event.preventDefault(); if (!ready || busy || pendingRef.current) return;
       setBusy(true); setError("");

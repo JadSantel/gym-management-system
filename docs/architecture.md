@@ -181,7 +181,7 @@ Prerequisites: `gym_id`, `member_id`, `start_at`, `end_at` are non-null, timesta
 
 Mandatory acceptance examples: contiguous terms meeting exactly at `end` are allowed; overlaps of one second are rejected; attempts by two concurrent sessions are rejected/serialized; two different gyms may each have the same member UUID only within their own namespace without colliding; approved termination/correction preserves original ledger and updates eligibility according to explicit owner decision.
 
-**Unsettled product cases remain blocked:** multiple advance renewals, remaining-days rounding/UI copy, delayed GCash/bank confirmation crossing dates, non-outage historical recovered-payment effective date, and gym-specific refund/access dispositions.
+**S-02 policy approval (2026-10-25):** exact PHT expiry plus current-term whole days/hours rounded down at server check time, or "less than 1 hour" below one hour. Allow one queued paid term; block another sale until it starts and preserve committed same-key recovery. **Unsettled product cases remain blocked:** delayed GCash/bank confirmation crossing dates, non-outage historical recovered-payment effective date, and gym-specific refund/access dispositions.
 
 ## 7. Atomic financial transaction + idempotency
 
@@ -335,7 +335,7 @@ Vercel **Preview** deployments are not the same as a controlled staging environm
 | T-03 | Same operation key submitted concurrently | One payment, one term, one receipt; same result |
 | T-04 | Same operation key with changed member/amount/plan | Conflict; no second financial result |
 | T-05 | Failure after payment row but before period/receipt | Total rollback; neither paid period nor misleading confirmed outcome |
-| T-06 | Two distinct concurrent member renewals that would overlap | Lock / exclusion prevents overlapping currently effective intervals; unresolved multi-advance path blocked |
+| T-06 | Two distinct concurrent member renewals that would overlap | Lock / exclusion prevents overlapping currently effective intervals; additional advance sale blocked while a queued paid term exists |
 | T-07 | New/late payment at 18:30 and leap-year/month-end dates | 00:00 local effective start; fixed 30×24-hour end; exclusive end; never pre-payment access |
 | T-08 | At `end`, next paid interval begins at exactly same instant | Adjacent paid terms allowed, continuous correct eligibility |
 | T-09 | Staff executes direct refund or owner-recovery request | Denied and audited |
@@ -359,7 +359,7 @@ Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until
 - **S-01e:** exact full cash confirmation, transaction-local tenant client, idempotency, row lock, exclusion, financial atomicity.
 - **S-01f:** retrievable receipt and attributable payment history.
 - **S-01g:** eligibility, approved fixed 30/90/180-day calculations, complete cash join -> receipt -> eligibility.
-- **S-02:** early/late renewal with adjacency and no paid-time loss, subject to multiple-advance gate.
+- **S-02:** early/late renewal with adjacency and no paid-time loss; one queued paid term, with another sale allowed only once it starts (user approval 2026-10-25).
 - **S-03:** receiving-account verified GCash/bank workflows.
 - **S-04:** evidence-backed investigations and owner-approved linked correction/refund, with separate access projection if used.
 - **S-05:** physical outage receipt custody/back-entry and one-visit exceptions.
@@ -377,7 +377,7 @@ Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until
 5. **Operational readiness:** independent backup cadence/retention, named primary/backup incident responders, actual restore rehearsal evidence against **RPO ≤1h / RTO ≤4h**, monitoring/alerts, secret management, and manual owner-recovery proof/approval SOP. Independent backups and restore rehearsals are approved directions, not yet configured or demonstrated.
 6. **Physical migration:** implement the approved separate entitlement projection from S-01, enforce exclusion constraint, and test Prisma 7 + Neon pooled RLS on real transactions before accepting Slice 1.
 
-**Product/pilot gates still owned by `PROJECT.md` §9 (do not answer them in architecture):** remaining-time UI rounding; repeated queued advance renewals; delayed digital confirmation crossing dates; effective date for recovered non-outage historical claims; lost receipts and repeat visits during prolonged outage; refund case eligibility and amounts; designated account verifiers/evidence standards; daily cash cutoff/float and late closing; verified migration criteria; pilot protocol; evidence retention and personal-data stewardship. O-07 launch plans were approved on 2026-10-24: PHP 800/30 days, PHP 2,100/90 days and PHP 4,000/180 days, each day exactly 24 hours. Region/plan approval does not establish hosted provisioning or operational readiness.
+**Product/pilot gates still owned by `PROJECT.md` §9 (do not answer them in architecture):** delayed digital confirmation crossing dates; effective date for recovered non-outage historical claims; lost receipts and repeat visits during prolonged outage; refund case eligibility and amounts; designated account verifiers/evidence standards; daily cash cutoff/float and late closing; verified migration criteria; pilot protocol; evidence retention and personal-data stewardship. O-07 launch plans were approved on 2026-10-24: PHP 800/30 days, PHP 2,100/90 days and PHP 4,000/180 days, each day exactly 24 hours. Region/plan approval does not establish hosted provisioning or operational readiness.
 
 ## 15. S-01a engineering kickoff: prerequisites, acceptance, and handoff
 

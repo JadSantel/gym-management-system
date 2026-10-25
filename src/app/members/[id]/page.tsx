@@ -5,7 +5,7 @@ import { inGym } from "@/lib/tenant";
 import { memberQuerySchema, recordParamsSchema } from "@/lib/route-schema";
 import { IdentityError } from "@/lib/identity";
 import { ChargePreview } from "@/components/charge-preview";
-import { assessEligibility } from "@/lib/eligibility";
+import { assessEligibility, remainingActiveTime } from "@/lib/eligibility";
 export const dynamic = "force-dynamic";
 export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string | string[] }> }) {
   const rawParams = await params;
@@ -38,8 +38,13 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
   const status = eligibility.status === "ELIGIBLE" ? "Eligible" : eligibility.status === "SCHEDULED" ? "Not eligible yet" : "Not eligible";
   return <><Link href="/members" className="text-sm underline">Back to members</Link><h1 className="mt-5 text-3xl font-semibold tracking-tight">{member.fullName}</h1><p className="mt-3 break-all text-sm text-muted-foreground">Member reference: {member.id}</p>
     <section className="mt-8 rounded-xl border border-border bg-card p-6" aria-labelledby="membership-access-title"><h2 id="membership-access-title" className="text-xl font-semibold">Membership access</h2><p className="mt-3 text-2xl font-semibold" aria-live="polite">{status}</p><p className="mt-1 text-muted-foreground">{eligibility.reason}</p>
-      {eligibility.interval && <p className="mt-4 text-sm">{eligibility.status === "SCHEDULED" ? "Scheduled paid period" : eligibility.status === "EXPIRED" ? "Most recent paid period" : "Current paid period"}: {pht.format(eligibility.interval.startsAt)} PHT inclusive to {pht.format(eligibility.interval.endsAt)} PHT exclusive.</p>}
-      <p className="mt-3 text-sm text-muted-foreground">Checked {pht.format(checkedAt)} PHT. Payment previews and unverified payments do not grant normal access.</p></section>
+      {eligibility.interval && eligibility.status !== "SCHEDULED" && <p className="mt-4 text-sm">{eligibility.status === "EXPIRED" ? "Most recent paid period" : "Current paid period"}: {pht.format(eligibility.interval.startsAt)} PHT inclusive to {pht.format(eligibility.interval.endsAt)} PHT exclusive.</p>}
+      {eligibility.status === "ELIGIBLE" && <>
+        <p className="mt-3 text-sm tabular-nums">Remaining in current paid period: {remainingActiveTime(eligibility.interval, checkedAt)} (rounded down at check time).</p>
+        <p className="mt-2 text-sm text-muted-foreground">{intervals.some(interval => interval.startsAt > checkedAt) ? "Another advance renewal is available once the scheduled paid period starts." : "Optional advance renewal preserves this paid time and starts at the current period's exact end."}</p>
+      </>}
+      {intervals.filter(interval => interval.startsAt > checkedAt).map(interval => <p key={interval.id} className="mt-4 text-sm">Scheduled paid period: {pht.format(interval.startsAt)} PHT inclusive to {pht.format(interval.endsAt)} PHT exclusive. Fully paid; access from this period begins at its start.</p>)}
+      <p className="mt-3 text-sm text-muted-foreground">Checked <time dateTime={checkedAt.toISOString()}>{pht.format(checkedAt)} PHT</time>. Payment previews and unverified payments do not grant normal access.</p></section>
     <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="payment-history-title"><h2 id="payment-history-title" className="text-xl font-semibold">Payment history</h2>
       {payments.length ? <ol className="mt-4 divide-y divide-border">{payments.map(payment => <li key={payment.id} className="py-5 first:pt-0 last:pb-0">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"><h3 className="font-semibold">{payment.charge.planName} · {payment.charge.durationDays} days · {payment.method}</h3><strong className="tabular-nums">₱{(payment.amountCentavos / 100).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>

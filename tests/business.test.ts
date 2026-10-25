@@ -19,7 +19,7 @@ import { GET as chargeGet, POST as chargePost } from "../src/app/api/charges/rou
 import { POST as paymentPost } from "../src/app/api/payments/route";
 import { proposedPeriod } from "../src/lib/charges";
 import { parsePesos, formatPhp } from "../src/lib/money";
-import { assessEligibility } from "../src/lib/eligibility";
+import { assessEligibility, remainingActiveTime } from "../src/lib/eligibility";
 
 assertSynthetic();
 const admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL, options: "-c timezone=UTC" }) });
@@ -81,6 +81,50 @@ test("S-01g eligibility uses verified half-open paid intervals", () => {
   assert.equal(assessEligibility([second], new Date(boundary.getTime() - 1)).status, "SCHEDULED");
   assert.equal(assessEligibility([], boundary).status, "NOT_ELIGIBLE");
   assert.equal(assessEligibility([first], end).status, "EXPIRED");
+});
+
+test("S-02 all approved durations preserve early time, restart late at Manila midnight and gate queued terms", () => {
+  for (const [date, ends] of [
+    ["2027-01-31", ["2027-03-02", "2027-05-01", "2027-07-30"]],
+    ["2028-01-31", ["2028-03-01", "2028-04-30", "2028-07-29"]],
+    ["2027-04-15", ["2027-05-15", "2027-07-14", "2027-10-12"]],
+  ] as const) {
+    for (const [index, days] of [30, 90, 180].entries()) {
+      const now = new Date(`${date}T18:30:00+08:00`);
+      const join = proposedPeriod(now, days);
+      assert.equal(join.intendedStart.toISOString(), new Date(`${date}T00:00:00+08:00`).toISOString());
+      assert.equal(join.intendedEnd.toISOString(), new Date(`${ends[index]}T00:00:00+08:00`).toISOString());
+      const current = { startsAt: join.intendedStart, endsAt: join.intendedEnd };
+      const early = proposedPeriod(now, days, [current]);
+      assert.equal(early.intendedStart.getTime(), current.endsAt.getTime());
+      assert.equal(early.intendedEnd.getTime() - early.intendedStart.getTime(), days * 86_400_000);
+      const queued = { startsAt: early.intendedStart, endsAt: early.intendedEnd };
+      assert.equal(assessEligibility([queued, current], now).interval, current);
+      assert.equal(assessEligibility([queued], now).status, "SCHEDULED");
+      assert.throws(() => proposedPeriod(now, days, [current, queued]), /future paid period/);
+      assert.equal(assessEligibility([current, queued], queued.startsAt).interval, queued);
+      assert.equal(proposedPeriod(queued.startsAt, days, [current, queued]).intendedStart.getTime(), queued.endsAt.getTime(), "Another advance term is allowed once the queued term starts");
+      const lateAt = new Date(queued.endsAt.getTime() + 2 * 86_400_000 + 18.5 * 3_600_000);
+      const late = proposedPeriod(lateAt, days, [current, queued]);
+      assert.equal(late.intendedStart.getTime(), queued.endsAt.getTime() + 2 * 86_400_000);
+      assert.equal(late.intendedEnd.getTime() - late.intendedStart.getTime(), days * 86_400_000);
+      assert.equal(assessEligibility([current, queued], lateAt).status, "EXPIRED");
+    }
+  }
+});
+
+test("S-02 remaining time rounds down within only the current paid period", () => {
+  const interval = { startsAt: new Date("2028-02-28T16:00:00Z"), endsAt: new Date("2028-03-29T16:00:00Z") };
+  const at = (remaining: number) => new Date(interval.endsAt.getTime() - remaining);
+  assert.equal(remainingActiveTime(interval, interval.startsAt), "30 days 0 hours");
+  assert.equal(remainingActiveTime(interval, at(25 * 3_600_000 + 59 * 60_000)), "1 day 1 hour");
+  assert.equal(remainingActiveTime(interval, at(24 * 3_600_000 - 1)), "0 days 23 hours");
+  assert.equal(remainingActiveTime(interval, at(3_600_000)), "0 days 1 hour");
+  assert.equal(remainingActiveTime(interval, at(3_600_000 - 1)), "less than 1 hour");
+  assert.equal(remainingActiveTime(interval, at(1)), "less than 1 hour");
+  assert.equal(remainingActiveTime(interval, interval.endsAt), null);
+  assert.equal(remainingActiveTime(interval, at(-1)), null);
+  assert.equal(remainingActiveTime(interval, new Date(interval.startsAt.getTime() - 1)), null);
 });
 
 test("S-01 business acceptance using restricted PostgreSQL runtime and actual route handlers", async t => {
