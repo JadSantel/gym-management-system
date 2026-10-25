@@ -368,3 +368,51 @@ model PaymentFlag {
   @@unique([paymentId, reason])
   @@map("payment_flags")
 }
+
+model InvestigationCase {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  reason String
+  summary String
+  method String
+  claimedCentavos Int? @map("claimed_centavos")
+  originalCollectedAt DateTime? @map("original_collected_at") @db.Timestamptz(3)
+  openedBy String @map("opened_by") @db.Uuid
+  openedAt DateTime @default(now()) @map("opened_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@index([gymId, openedAt])
+  @@map("investigation_cases")
+}
+
+model InvestigationEvent {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  caseId String @map("case_id") @db.Uuid
+  revision Int
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  kind String
+  outcome String
+  reasoning String
+  evidenceReference String? @map("evidence_reference")
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  paymentId String? @map("payment_id") @db.Uuid
+  relatedPaymentId String? @map("related_payment_id") @db.Uuid
+  reason String?
+  collectionCount String? @map("collection_count")
+  amountCentavos Int? @map("amount_centavos")
+  method String?
+  moneyOutcome String? @map("money_outcome")
+  accessOutcome String? @map("access_outcome")
+  effectiveAt DateTime? @map("effective_at") @db.Timestamptz(3)
+  periodId String? @map("period_id") @db.Uuid
+  retainedPeriodId String? @map("retained_period_id") @db.Uuid
+  requestEventId String? @map("request_event_id") @db.Uuid
+  decision String?
+  @@unique([id, gymId])
+  @@unique([gymId, operationKey])
+  @@unique([caseId, revision])
+  @@map("investigation_events")
+}

@@ -44,6 +44,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         <div className="sm:col-span-2"><dt className="text-sm text-muted-foreground">Paid period</dt><dd>{pht.format(period.startsAt)} PHT inclusive to {pht.format(period.endsAt)} PHT exclusive</dd></div>
       </dl>
       <p className="text-sm">Payment reference: <span className="break-all font-medium">{payment.reference}</span></p>
+      <p className="mt-3 text-sm"><Link className="underline" href={`/investigations?memberId=${payment.memberId}`}>View investigation and owner-review history</Link>. This original receipt remains unchanged by pending requests or approval records.</p>
       {receipt.claim && <p className="mt-3 break-all text-sm">Transfer reference: {receipt.claim.transactionReference}. Matched receiving account: {receipt.account?.label}. Account activity evidence: {receipt.settlement?.evidenceReference}.</p>}
       {receipt.flags.map(flag => <p key={flag.id} className="mt-3 font-semibold">Owner review required: {flag.reason}. Original confirmation preserved; no automatic refund or access change.</p>)}
     </article></>;
