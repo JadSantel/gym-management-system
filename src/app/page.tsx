@@ -14,5 +14,6 @@ export default async function Home() {
     {(actor.operator.role === "OWNER" || actor.operator.canManageMembers) && <Link href="/outage-receipts" className="ml-4 mt-6 inline-flex min-h-11 items-center underline">Outage receipts and custody</Link>}
     {actor.operator.role === "OWNER" ? <OperatorSettings /> : <p className="mt-8 rounded-xl border border-border bg-card p-6">Your gym account is ready. Ask your owner for the permissions needed for your work.</p>}
     {(actor.operator.role === "OWNER" || actor.operator.canCollectCash || actor.operator.canManageMembers) && <Link href="/closing" className="mt-6 inline-flex min-h-11 items-center underline">Close a business day</Link>}
+    {(actor.operator.role === "OWNER" || actor.operator.canManageMembers) && <Link href="/pilot" className="ml-4 mt-6 inline-flex min-h-11 items-center underline">Pilot evidence review</Link>}
   </>;
 }

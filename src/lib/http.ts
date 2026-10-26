@@ -9,7 +9,7 @@ import { setGymContext } from "./binding";
 // Never copy URLs, query values, headers, payloads or caught errors into diagnostics.
 function diagnosticOperation(request: Request) {
   const path = new URL(request.url).pathname;
-  const routes = ["/api/members", "/api/plans", "/api/charges", "/api/payments", "/api/digital", "/api/investigations", "/api/outage", "/api/closing",
+  const routes = ["/api/members", "/api/plans", "/api/charges", "/api/payments", "/api/digital", "/api/investigations", "/api/outage", "/api/closing", "/api/legacy",
     ...["session", "operators", "setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"].map(action => `/api/identity/${action}`)];
   return { method: ["GET", "POST"].includes(request.method) ? request.method : "OTHER", route: routes.includes(path) ? path : "/api/other" };
 }

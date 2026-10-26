@@ -274,16 +274,43 @@ model EffectiveEntitlement {
   id String @id @default(uuid()) @db.Uuid
   gymId String @map("gym_id") @db.Uuid
   memberId String @map("member_id") @db.Uuid
-  periodId String @unique @map("period_id") @db.Uuid
+  periodId String? @unique @map("period_id") @db.Uuid
+  legacyRecordId String? @unique @map("legacy_record_id") @db.Uuid
   startsAt DateTime @map("starts_at") @db.Timestamptz(3)
   endsAt DateTime @map("ends_at") @db.Timestamptz(3)
   isCurrentProjection Boolean @default(true) @map("is_current_projection")
   gym Gym @relation(fields: [gymId], references: [id])
   member Member @relation(fields: [memberId, gymId], references: [id, gymId])
-  period MembershipPeriod @relation(fields: [periodId, gymId], references: [id, gymId])
+  period MembershipPeriod? @relation(fields: [periodId, gymId], references: [id, gymId])
   @@unique([periodId, gymId])
   @@unique([id, gymId])
   @@map("effective_entitlement_intervals")
+}
+
+model LegacyRecord {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  kind String
+  proposalId String? @map("proposal_id") @db.Uuid
+  previousId String? @map("previous_id") @db.Uuid
+  sourceReference String @map("source_reference")
+  sourceType String @map("source_type")
+  corroboratingReference String? @map("corroborating_reference")
+  interpretation String
+  claimedStart String? @map("claimed_start")
+  claimedEnd String? @map("claimed_end")
+  startsAt DateTime? @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime? @map("ends_at") @db.Timestamptz(3)
+  uncertainty String
+  notes String
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  operationKey String @map("operation_key") @db.Uuid
+  fingerprint String
+  @@unique([gymId, operationKey])
+  @@unique([id, gymId])
+  @@map("legacy_records")
 }
 
 model IdempotencyOperation {

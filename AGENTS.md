@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-26 (Asia/Manila)
 **Mode:** Small verified increments; **pause after each resolved engineering task for the user's GitHub checkpoint** (user update, 2026-10-24). Continue within the current task only.
-**Historical starting milestone:** S-01 / S-01a. **Current handoff:** S-01-S-03, supported S-04, S-05 and S-06 have recorded local synthetic verification. S-06 is stopped for the user's GitHub checkpoint; S-07 and live/pilot readiness remain unverified. Read `docs/IMPLEMENTATION_STATUS.md` for exact evidence and limits. **Data:** synthetic only.
+**Historical starting milestone:** S-01 / S-01a. **Current handoff:** S-01-S-03, supported S-04, S-05, S-06 and S-07 have recorded local synthetic verification. S-07 is stopped for the user's GitHub checkpoint. Actual pilot operation, baseline validation, measured improvement, real training/physical rehearsal and live readiness remain unverified. Read `docs/IMPLEMENTATION_STATUS.md` for exact evidence and limits. **Data:** synthetic only.
 **Reality check:** The earlier report of S-01-S-07 completion was not acceptance evidence. Current source and recorded checks support only the implemented scope in the ledger. Deployment, domain, email sender and live readiness require separate evidence.
 
 > Objective: build the **smallest correct, demonstrable increment**, test it, record evidence, then advance safely. Never trade away financial integrity, security, accessibility or acceptance criteria to reduce code or tokens.
@@ -45,7 +45,7 @@ Use the installed skill's real instructions when available. **Do not pretend an 
 
 ## 3. Continuous implementation loop (foreground execution only)
 
-**Business scope:** Work only within the latest user-authorized task. S-01 is closed for local acceptance; S-02, S-03, supported S-04, S-05 and S-06 were subsequently authorized and locally verified. The continuous-work exception applied only within the authorized S-06 task, now complete; it does not authorize S-07, live onboarding, production changes or background work. Preserve task-boundary GitHub checkpoints unless the user explicitly overrides them for the current task.
+**Business scope:** Work only within the latest user-authorized task. S-01-S-03, supported S-04, S-05, S-06 and S-07 are closed for local synthetic acceptance. The user authorized continuous S-07 local implementation and approved both O-08/O-09 local protocol decisions October 26, 2026; that exception ended at completed S-07. Stop for the user's GitHub checkpoint. It authorizes no further task, actual pilot, real training/rehearsal, live onboarding, production change or background work. Preserve task-boundary checkpoints unless explicitly overridden for a newly named task. R-04 remains deferred.
 
 For each engineering task, subdivide **only as needed** into the smallest coherent, end-to-end increments. Do not split work into artificial UI-only/backend-only phases. Repeat:
 
@@ -134,9 +134,9 @@ manual synthetic tests, and any missing verification. Do not claim background
 execution after this session ends.
 ```
 
-## 9. Validation and current implementation handoff (reviewed 2026-10-25)
+## 9. Validation and current implementation handoff (reviewed 2026-10-26)
 
-The earlier S-01-S-07 completion report and Zod-documentation-only handoff are historical. S-01-S-03, supported S-04, S-05 and S-06 now have source/migration/test evidence in the ledger, including supported S-04 closing integration. Zod is pinned at 4.6.7 with boundary-specific coverage. This does not certify unsupported corrections/refunds, S-07, physical operating rehearsal or live/pilot readiness. Resume only the latest explicitly authorized task and preserve its GitHub checkpoint.
+The earlier unsupported S-01-S-07 completion report and Zod-documentation-only handoff are historical. S-01-S-03, supported S-04, S-05, S-06 and S-07 now have source/migration/test evidence in the ledger, including supported S-04 closing integration and local S-07 legacy/measurement/rehearsal acceptance. Zod is pinned at 4.6.7 with boundary-specific coverage. This does not certify unsupported corrections/refunds, real physical rehearsal/training, actual pilot operation, measured improvement or live readiness. S-07 is stopped for the user's GitHub checkpoint; resume only a newly authorized task.
 
 For application validation, follow architecture.md AD-033/§17 and PROJECT.md VAL-01–VAL-06:
 

@@ -357,6 +357,20 @@ Proceed to broaden scope only if the product demonstrates meaningful improvement
 
 ## Appendix B — Relationship to `PROJECT.md` and readiness gates
 
+**S-07 local design approval, October 26, 2026:** The user approved both decisions
+in [the legacy/measurement protocol](S07_LOCAL_POLICY_PROPOSAL.md). Member-capable
+operators prepare historical evidence; a freshly reauthenticated owner independently
+checks original gym evidence and separate corroboration before exact-interval
+sign-off. Uncertain/duplicate/overlapping proposals grant no additional access;
+other verified access remains assessable. No dummy payment, receipt, receivable or
+historical sales total is created. Renewal uses accepted access without changing
+existing purchases. The [manual worksheet](S07_MEASUREMENT_WORKSHEET.md) defines
+independent event denominators, Manila cutoffs, collection/issuance/entry/verification
+times, incidents, active-time, eligibility samples and adoption coverage. UNKNOWN
+and zero-denominator results are explicit. Synthetic exercises prove neither live
+baseline nor improvement. Named live participants, actual baseline/trial dates,
+source custody/retention, real training and pilot sign-off remain separate gates.
+
 [PROJECT.md](PROJECT.md) is the **source of truth** for current MVP requirements, implementation slices, acceptance criteria, and decision gates. This document supplies aligned product context and policy references. Record approved changes in PROJECT.md first, then synchronize the affected BR/D/O entries, workflows, glossary, and pilot measures here.
 
 Settled invariants may be implemented and tested with synthetic data while conditional paths remain gated. Confirm written discretionary cancellation eligibility/amount/evidence/access terms (O-03); the narrow full unintended duplicate-excess refund is already approved. Confirm operational SOP details (O-06 through O-09), baseline measurement sources, and the derived readiness details in PROJECT.md Section 9 before enabling the affected live behavior. Fixed 30/90/180-day terms, verified cash original-date rules and midnight starts are settled; remaining operational decisions must stay visible and must not be invented during implementation.

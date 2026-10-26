@@ -274,6 +274,21 @@ Flag duplicate receipt number, missing/void/invalid number, mismatched cash, or 
 - Review screen shows separate incident categories, original collection/issuance/entry/verification timestamps, missing denominators, outages, staff adoption and parallel-ledger observations. Any baseline/target is a pilot hypothesis until verified.
 - Show uncertainty and unresolved missing data clearly rather than presenting “improvements” as proven.
 
+Local implementation follows both user-approved October 26, 2026 decisions in
+[the S-07 protocol](S07_LOCAL_POLICY_PROPOSAL.md). The member page prepares exact
+source evidence and preserves immutable owner decisions; historical access is
+labelled separately from paid periods. Staff preparation grants no access;
+fresh owner sign-off requires independent sources. Duplicate/overlap conflicts
+retain evidence for further review. Saved operations support same-key recovery
+after an unknown response. Field errors retain inputs and link to invalid fields.
+`/pilot` shows tenant-scoped original collection, paper issuance, actual first CRM
+entry and verification, linked source history, historical/legacy-exception labels,
+settlements and unresolved investigations. It explicitly reports UNKNOWN
+denominators and NOT VERIFIED outcomes. Complete measurements use the approved
+manual worksheet; timed checks, physical admission and shift use require observed
+evidence. Bounded source lists disclose truncation. No chart or automatic success
+claim substitutes for independent collection or adoption evidence.
+
 ## 9. Critical state transitions (UX representation)
 
 ```text

@@ -7,6 +7,7 @@ import { IdentityError } from "@/lib/identity";
 import { ChargePreview } from "@/components/charge-preview";
 import { DigitalClaimForm } from "@/components/digital-payments";
 import { assessEligibility, remainingActiveTime } from "@/lib/eligibility";
+import { LegacyAccess } from "@/components/legacy-access";
 export const dynamic = "force-dynamic";
 export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string | string[] }> }) {
   const rawParams = await params;
@@ -36,7 +37,9 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
     const refunds = await tx.investigationEvent.findMany({ where: { kind: "SETTLE", executionEventId: { in: adjustments.map(event => event.id) } } });
     const outageEntries = await tx.outageEntry.findMany({ where: { memberId: member.id }, orderBy: { collectedAt: "desc" } });
     const outageConfirmations = await tx.outageConfirmation.findMany({ where: { entryId: { in: outageEntries.map(entry => entry.id) } } });
-    return { member, plans, charge, payments, intervals, accounts, claims, settlements, flags, adjustments, refunds, outageEntries, outageConfirmations, recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
+    const legacyRecords = await tx.legacyRecord.findMany({ where: { memberId: member.id }, orderBy: [{ createdAt: "desc" }, { id: "asc" }] });
+    const legacyActors = await tx.operator.findMany({ where: { id: { in: legacyRecords.map(row => row.actorId) } }, select: { id: true, user: { select: { name: true } } } });
+    return { member, plans, charge, payments, intervals, accounts, claims, settlements, flags, adjustments, refunds, outageEntries, outageConfirmations, legacyRecords, legacyActors, owner: actor.operator.role === "OWNER", recoveryScope: `${actor.operator.gymId}:${actor.operator.id}`, canPrepare: actor.operator.role === "OWNER" || actor.operator.canCollectCash };
   }).catch(error => {
     if (error instanceof IdentityError) { if (error.status === 400 || error.status === 404) notFound(); redirect("/"); } throw error;
   });
@@ -48,10 +51,10 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
   const status = eligibility.status === "ELIGIBLE" ? "Eligible" : eligibility.status === "SCHEDULED" ? "Not eligible yet" : "Not eligible";
   return <><Link href="/members" className="text-sm underline">Back to members</Link><h1 className="mt-5 text-3xl font-semibold tracking-tight">{member.fullName}</h1><p className="mt-3 break-all text-sm text-muted-foreground">Member reference: {member.id}</p>
     <section className="mt-8 rounded-xl border border-border bg-card p-6" aria-labelledby="membership-access-title"><h2 id="membership-access-title" className="text-xl font-semibold">Membership access</h2><p className="mt-3 text-2xl font-semibold" aria-live="polite">{status}</p><p className="mt-1 text-muted-foreground">{eligibility.reason}</p>
-      {eligibility.interval && eligibility.status !== "SCHEDULED" && <p className="mt-4 text-sm">{eligibility.status === "EXPIRED" ? "Most recent paid period" : "Current paid period"}: {pht.format(eligibility.interval.startsAt)} PHT inclusive to {pht.format(eligibility.interval.endsAt)} PHT exclusive.</p>}
+      {eligibility.interval && eligibility.status !== "SCHEDULED" && <p className="mt-4 text-sm">{eligibility.interval.legacyRecordId ? "Approved historical interval" : eligibility.status === "EXPIRED" ? "Most recent paid period" : "Current paid period"}: {pht.format(eligibility.interval.startsAt)} PHT inclusive to {pht.format(eligibility.interval.endsAt)} PHT exclusive.</p>}
       {eligibility.status === "ELIGIBLE" && <>
-        <p className="mt-3 text-sm tabular-nums">Remaining in current paid period: {remainingActiveTime(eligibility.interval, checkedAt)} (rounded down at check time).</p>
-        <p className="mt-2 text-sm text-muted-foreground">{intervals.some(interval => interval.startsAt > checkedAt) ? "Another advance renewal is available once the scheduled paid period starts." : "Optional advance renewal preserves this paid time and starts at the current period's exact end."}</p>
+        <p className="mt-3 text-sm tabular-nums">Remaining in current {eligibility.interval.legacyRecordId ? "historical interval" : "paid period"}: {remainingActiveTime(eligibility.interval, checkedAt)} (rounded down at check time).</p>
+        <p className="mt-2 text-sm text-muted-foreground">{intervals.some(interval => interval.startsAt > checkedAt) ? "Another advance renewal is available once the scheduled paid period starts." : eligibility.interval.legacyRecordId ? "Optional advance renewal preserves this historical access and starts at its exact end." : "Optional advance renewal preserves this paid time and starts at the current period's exact end."}</p>
       </>}
       {intervals.filter(interval => interval.startsAt > checkedAt).map(interval => <p key={interval.id} className="mt-4 text-sm">Scheduled paid period: {pht.format(interval.startsAt)} PHT inclusive to {pht.format(interval.endsAt)} PHT exclusive. Fully paid; access from this period begins at its start.</p>)}
       <p className="mt-3 text-sm text-muted-foreground">Checked <time dateTime={checkedAt.toISOString()}>{pht.format(checkedAt)} PHT</time>. Payment previews and unverified payments do not grant normal access.</p></section>
@@ -68,6 +71,17 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
           {event.accessOutcome && <> Approved access outcome: {event.accessOutcome}, effective {pht.format(event.effectiveAt!)} PHT.</>} Original payment and paid period above are preserved; current access is shown separately.</p>)}
       </li>)}</ol> : <p className="mt-3 text-sm text-muted-foreground">No confirmed payments recorded.</p>}
     </section>
+    <LegacyAccess memberId={member.id} owner={data.owner} scope={data.recoveryScope}
+      proposals={data.legacyRecords.filter(row => row.kind === "PREPARE" && !data.legacyRecords.some(decision => decision.proposalId === row.id)).map(row => ({ id: row.id, label: `${row.sourceReference} — ${row.uncertainty}` }))}
+      records={data.legacyRecords.map(row => ({ id: row.id, label: `${row.kind} ${row.sourceReference}` }))} />
+    {data.legacyRecords.length > 0 && <section className="mt-7" aria-labelledby="legacy-history-title"><h2 id="legacy-history-title" className="text-xl font-semibold">Historical evidence and immutable decisions</h2><ul className="mt-3 space-y-4">{data.legacyRecords.map(row => <li key={row.id} id={`legacy-${row.id}`} className="break-words rounded-md border border-border p-4 text-sm">
+      <strong>{row.kind} · {row.sourceReference} · {row.uncertainty === "CERTAIN" ? row.kind === "APPROVE" ? "HISTORICAL_ENTITLEMENT" : "Awaiting/retained review" : "LEGACY_EXCEPTION"}</strong>
+      <p>Source {row.sourceType}; corroboration {row.corroboratingReference ?? "missing"}. Meaning: {row.interpretation}. Claimed {row.claimedStart ?? "unknown"} to {row.claimedEnd ?? "unknown"}.</p>
+      <p>{row.startsAt && row.endsAt ? `Reviewed interval: ${pht.format(row.startsAt)} PHT inclusive to ${pht.format(row.endsAt)} PHT exclusive.` : "No unambiguous interval established."}</p>
+      <p>{row.kind === "PREPARE" ? "Entered" : "Decision signed"} {pht.format(row.createdAt)} PHT by {data.legacyActors.find(actor => actor.id === row.actorId)?.user.name ?? row.actorId}. {row.notes}</p>
+      {row.proposalId && <p><Link className="underline" href={`#legacy-${row.proposalId}`}>Original proposal</Link></p>}{row.previousId && <p><Link className="underline" href={`#legacy-${row.previousId}`}>Previous preserved evidence</Link></p>}
+      <p>No historical collection, payment receipt or unpaid balance was created.</p>
+    </li>)}</ul></section>}
     <ChargePreview key={`${member.id}:${charge?.id ?? "no-preview"}`} memberId={member.id} memberName={member.fullName} canPrepare={data.canPrepare} recoveryScope={data.recoveryScope}
       plans={plans.map(({ id, name, durationDays, priceCentavos, version }) => ({ id, name, durationDays, priceCentavos, version }))}
       saved={charge ? { id: charge.id, planName: charge.planName, durationDays: charge.durationDays, priceCentavos: charge.priceCentavos,

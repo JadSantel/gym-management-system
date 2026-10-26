@@ -7,6 +7,9 @@ Project documents:
 - [Software architecture](docs/architecture.md)
 - [Interface and interaction design](docs/design.md)
 - [Implementation status and next task](docs/IMPLEMENTATION_STATUS.md)
+- [S-07 approved local legacy/measurement protocol](docs/S07_LOCAL_POLICY_PROPOSAL.md)
+- [Pilot measurement worksheet and synthetic calculations](docs/S07_MEASUREMENT_WORKSHEET.md)
+- [Owner/staff training, rehearsal and incident procedure](docs/S07_OPERATOR_TRAINING.md)
 
 Local synthetic development only. Requires Node **24.21.0**, npm **11.19.0**, and PostgreSQL **18** tools on PATH.
 
@@ -47,7 +50,7 @@ S-01d/e manual check (synthetic owner/member from the steps above):
 
 Prices are stored as integer centavos. The input range is PHP 0.01-PHP 21,474,836.47 (PostgreSQL integer capacity). Saved previews are proposals; confirmation records actual paid dates. Tenant RLS, composite references, restricted grants, immutable-history triggers and financial integrity constraints enforce storage boundaries.
 
-**Current local scope (reviewed 2026-10-26):** S-01 cash join/receipt/eligibility, S-02 renewal, S-03 designated-account digital verification, supported S-04 investigations/recovery/correction/refund settlement, S-05 outage recovery and S-06 daily closing have recorded local synthetic acceptance. S-06 checks passed 16/16 focused and 142/142 full tests, typecheck/lint/build, migrations and compiled-app owner/staff browser acceptance, including supported S-04 closing integration. Unsupported correction/refund paths, S-07, real physical rehearsal and live/pilot readiness remain unavailable or unverified. See the [implementation ledger](docs/IMPLEMENTATION_STATUS.md) for exact evidence, manual steps and completed S-06 and the pending GitHub checkpoint. No Git commit/push/deploy is implied.
+**Current local scope (reviewed 2026-10-26):** S-01-S-03, supported S-04 investigations/recovery/correction/refund settlement, S-05 outage recovery, S-06 daily closing and S-07 reviewed legacy access, measurement/training artifacts and synthetic rehearsal have recorded local acceptance. Final S-07 checks passed 154/154 tests, zero skips, typecheck/lint/build, migrations and compiled-app owner/staff browser acceptance. Unsupported correction/refund paths, real training/physical rehearsal, actual pilot operation, baseline validation, measured improvement and live readiness remain unavailable or unverified. See the [implementation ledger](docs/IMPLEMENTATION_STATUS.md) for exact evidence and manual steps. Stop at the completed S-07 GitHub checkpoint; no commit/push/deploy is implied.
 
 Unexpected application JSON API failures return an opaque `errorReference`, also included in the visible error message. Match it to the server's redacted `REQUEST_FAILED` event. These events contain only the reference, fixed event name, allowlisted method/route and HTTP status; no raw error, stack, payload, query, credentials or member data. This covers the application API adapter, not every framework/provider error path or hosted monitoring.
 
@@ -65,7 +68,7 @@ npm.cmd run test:browser
 
 For a repeat run, start `npm.cmd run db:local` and `npm.cmd run dev` in one terminal; run `npm.cmd run test:browser` in another. The coding sandbox may need permission to launch isolated headless Chrome; a normal PowerShell session does not use that sandbox.
 
-The browser script covers identity/HTTP denials, pricing, cash joins, renewal, digital verification, supported S-04 investigation/correction/refund settlement, S-05 receipt/custody recovery and S-06 all-method/collector count evidence, staff closing submission, owner acknowledgement, linked investigations, preserved excess and supplements. Committed response-loss/reload retry, direct staff approval denial, open-day finalization denial, owner/staff 30/90/180-day journeys, keyboard flow, 375px overflow and axe A/AA checks are included. Screenshots stay ignored under `.local/`. Run browser and database checks sequentially because both reset synthetic rate buckets. These checks do not establish full WCAG certification, real staff physical rehearsal, live/pilot readiness or S-07 acceptance.
+The browser script covers identity/HTTP denials, pricing, cash joins, renewal, digital verification, supported S-04 investigation/correction/refund settlement, S-05 receipt/custody recovery, S-06 closing/owner acknowledgement/supplements and S-07 staff legacy preparation, fresh owner historical sign-off and pilot source review. Committed response-loss/reload retry, direct staff approval denial, protected-field recovery, historical/uncertain source separation, open-day denial, owner/staff 30/90/180-day journeys, keyboard flow, 375px overflow and axe A/AA checks are included. Screenshots stay ignored under `.local/`. Run browser and database checks sequentially because both reset synthetic rate buckets. These checks establish local synthetic behavior only, not full WCAG certification, real training/physical rehearsal, actual pilot operation, measured improvement or live readiness.
 
 Auth behavior was checked against installed source and [Prisma adapter](https://better-auth.com/docs/adapters/prisma), [username](https://better-auth.com/docs/plugins/username), and [session](https://better-auth.com/docs/concepts/session-management) documentation. See [implementation status](docs/IMPLEMENTATION_STATUS.md) for current evidence/gates. No production, Brevo, domain, live identity, or real member data is configured.
 

@@ -1,0 +1,63 @@
+{
+  "synthetic": true,
+  "window": { "start": "2026-10-01T00:00:00+08:00", "end": "2026-10-15T00:00:00+08:00", "asOf": "2026-10-17T00:00:00+08:00", "complete": true },
+  "independentSources": [
+    { "id": "PAPER-C1", "kind": "CONTROLLED_RECEIPT", "actualEvent": "C1", "number": "SYN-001", "issuedAt": "2026-10-03T10:01:00+08:00" },
+    { "id": "CASH-C1", "kind": "CASH_CUSTODY_COUNT", "actualEvent": "C1", "amountCentavos": 80000 },
+    { "id": "BANK-C2", "kind": "RECEIVING_LEDGER", "actualEvent": "C2", "amountCentavos": 80000 },
+    { "id": "BANK-C3", "kind": "RECEIVING_LEDGER", "actualEvent": "C3", "amountCentavos": 80000 },
+    { "id": "CASH-OLD", "kind": "PRE_CUTOFF_RECEIPT_COUNT", "actualEvent": "OLD", "amountCentavos": 80000 }
+  ],
+  "collections": [
+    { "id": "C1", "sources": ["PAPER-C1", "CASH-C1"], "method": "CASH", "amountCentavos": 80000, "collectedAt": "2026-10-03T10:00:00+08:00", "enteredAt": "2026-10-05T10:00:00+08:00", "verifiedAt": "2026-10-05T11:00:00+08:00", "paperIssuedAt": "2026-10-03T10:01:00+08:00", "interactionStart": "2026-10-03T09:59:00+08:00", "interactionEnd": "2026-10-03T10:02:00+08:00", "observation": "OBS-C1", "offline": true, "crmRecords": ["CRM-C1"] },
+    { "id": "C2", "sources": ["BANK-C2"], "method": "BANK", "amountCentavos": 80000, "collectedAt": "2026-10-04T10:00:00+08:00", "enteredAt": "2026-10-04T10:01:00+08:00", "verifiedAt": "2026-10-04T10:02:00+08:00", "paperIssuedAt": null, "interactionStart": "2026-10-04T09:59:00+08:00", "interactionEnd": "2026-10-04T10:03:00+08:00", "observation": "OBS-C2", "offline": false, "crmRecords": ["CRM-C2", "CRM-C2-DUP"] },
+    { "id": "C3", "sources": ["BANK-C3"], "method": "BANK", "amountCentavos": 80000, "collectedAt": "2026-10-04T10:05:00+08:00", "enteredAt": "2026-10-04T10:06:00+08:00", "verifiedAt": "2026-10-04T10:07:00+08:00", "paperIssuedAt": null, "interactionStart": "2026-10-04T10:04:00+08:00", "interactionEnd": "2026-10-04T10:08:00+08:00", "observation": "OBS-C3", "offline": false, "crmRecords": ["CRM-C3"] },
+    { "id": "OLD", "sources": ["CASH-OLD"], "method": "CASH", "amountCentavos": 80000, "collectedAt": "2026-09-30T23:59:00+08:00", "enteredAt": "2026-10-05T10:00:00+08:00", "verifiedAt": "2026-10-05T11:00:00+08:00", "paperIssuedAt": "2026-09-30T23:59:30+08:00", "interactionStart": null, "interactionEnd": null, "observation": null, "offline": true, "crmRecords": ["CRM-OLD"] }
+  ],
+  "incidents": [
+    { "id": "I1", "category": "RECORDING_DELAY", "collections": ["C1"], "state": "RESOLVED", "source": "OBS-C1" },
+    { "id": "I2", "category": "DUPLICATE_RECORD", "collections": ["C2"], "state": "RESOLVED", "source": "BANK-C2" },
+    { "id": "I3", "category": "DUPLICATE_COLLECTION", "collections": ["C3"], "state": "RESOLVED", "source": "BANK-C3" },
+    { "id": "I4", "category": "DISPUTED_CLAIM", "collections": [], "state": "OPEN", "source": "UNSUPPORTED-CLAIM" }
+  ],
+  "changes": [
+    { "id": "EXCLUDE-C2-DUP", "kind": "EXECUTED_FALSE_RECORD", "record": "CRM-C2-DUP", "amountCentavos": 80000, "source": "OWNER-EXECUTION-C2" },
+    { "id": "REFUND-C3", "kind": "REFUND", "approvedAt": "2026-10-06T10:00:00+08:00", "settledAt": "2026-10-07T10:00:00+08:00", "amountCentavos": 80000, "originalMethod": "BANK", "settlementMethod": "CASH", "source": "INDEPENDENT-CASH-PAYOUT-C3" }
+  ],
+  "closingSegments": [
+    { "operator": "A", "start": "2026-10-04T00:00:00+08:00", "end": "2026-10-04T00:10:00+08:00", "active": true, "phase": "ORIGINAL", "source": "TIMER-A1" },
+    { "operator": "A", "start": "2026-10-04T00:10:00+08:00", "end": "2026-10-04T00:15:00+08:00", "active": false, "phase": "BREAK", "source": "TIMER-BREAK" },
+    { "operator": "A", "start": "2026-10-04T00:15:00+08:00", "end": "2026-10-04T00:30:00+08:00", "active": true, "phase": "ORIGINAL", "source": "TIMER-A2" },
+    { "operator": "B", "start": "2026-10-04T00:20:00+08:00", "end": "2026-10-04T00:25:00+08:00", "active": true, "phase": "ORIGINAL", "source": "TIMER-B" },
+    { "operator": "A", "start": "2026-10-06T00:00:00+08:00", "end": "2026-10-06T00:05:00+08:00", "active": true, "phase": "SUPPLEMENT", "source": "TIMER-A3" }
+  ],
+  "eligibilitySamples": [
+    { "id": "E1", "seconds": 8, "failure": false, "source": "OBS-E1" },
+    { "id": "E2", "seconds": 12, "failure": false, "source": "OBS-E2" },
+    { "id": "E3", "seconds": 20, "failure": false, "source": "OBS-E3" },
+    { "id": "E4", "seconds": null, "failure": true, "source": "OBS-E4-UNTIMED" }
+  ],
+  "admissions": [
+    { "id": "A1", "category": "MISTAKEN_ADMISSION", "source": "OBS-A1" },
+    { "id": "A2", "category": "WRONGFUL_DENIAL", "source": "OBS-A2" },
+    { "id": "A3", "category": "AUTHORIZED_OUTAGE_VISIT", "source": "PAPER-C1" },
+    { "id": "A4", "category": "OWNER_AUTHORIZED_EXCEPTION", "source": "OWNER-A4" },
+    { "id": "A5", "category": "PENDING_UNCERTAIN", "source": "OBS-A5" }
+  ],
+  "admissionCoverageComplete": false,
+  "operatorShifts": [
+    { "shift": "S1", "operator": "A", "applicable": true, "used": true, "source": "OBS-S1-A" },
+    { "shift": "S1", "operator": "B", "applicable": true, "used": true, "source": "OBS-S1-B" },
+    { "shift": "S2", "operator": "A", "applicable": true, "used": false, "source": "OBS-S2-A" },
+    { "shift": "S3", "operator": "B", "applicable": false, "used": null, "source": "ROSTER-S3-NO-COLLECTION-OR-ELIGIBILITY-DUTIES" }
+  ],
+  "parallelRecords": [
+    { "id": "P1", "authorizedOutage": false, "shift": "S2", "operator": "A", "source": "OBS-SHADOW-LEDGER" },
+    { "id": "P2", "authorizedOutage": true, "shift": "S1", "operator": "A", "source": "PAPER-C1" }
+  ],
+  "legacy": [
+    { "id": "L1", "classification": "HISTORICAL_ENTITLEMENT", "source": "REGISTER-L1-CARD-L1" },
+    { "id": "L2", "classification": "LEGACY_EXCEPTION", "source": "CONFLICT-L2" }
+  ],
+  "baselineObservations": null
+}
