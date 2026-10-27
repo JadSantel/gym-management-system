@@ -38,7 +38,7 @@ export function ReauthenticationForm({ id, helpId, disabled = false }: { id: str
         const result = identitySchemas.reauthenticate.shape.password.safeParse(event.target.value);
         setPasswordError(result.success ? "" : result.error.issues[0].message);
       } }} /></label>
-    <Button type="submit" disabled={busy || disabled}>{busy ? "Verifying…" : "Verify password"}</Button>
+    <Button type="submit" variant="outline" disabled={busy || disabled}>{busy ? "Verifying…" : "Verify password"}</Button>
     {passwordError && <p id={`${id}-error`} className="w-full text-sm text-destructive">{passwordError}</p>}
   </form>;
 }

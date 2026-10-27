@@ -1,22 +1,59 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:is(.dark *));
 :root {
-  --background: #f8fafc; --foreground: #0f172a; --card: #ffffff;
-  --muted: #f1f5f9; --muted-foreground: #475569; --border: #cbd5e1;
-  --input: #94a3b8; --primary: #155e75; --primary-foreground: #ffffff;
-  --destructive: #b91c1c; --ring: #155e75;
+  color-scheme: light;
+  --background: #f6f8f7; --foreground: #18221e;
+  --card: #ffffff; --card-foreground: #18221e;
+  --popover: #ffffff; --popover-foreground: #18221e;
+  --sidebar: #ffffff; --muted: #eef2f0; --muted-foreground: #55635c;
+  --border: #dce3df; --input: #82948a;
+  --primary: #047857; --primary-foreground: #ffffff;
+  --secondary: #eef2f0; --secondary-foreground: #35463c;
+  --accent: #e5f2eb; --accent-foreground: #096443;
+  --success: #14633f; --success-surface: #e9f5ee;
+  --attention: #85500c; --attention-surface: #fff3d9;
+  --destructive: #b42332; --destructive-foreground: #ffffff;
+  --ring: #047857; --radius: 0.75rem;
+}
+.dark {
+  color-scheme: dark;
+  --background: #101315; --foreground: #f1f4f2;
+  --card: #191d20; --card-foreground: #f1f4f2;
+  --popover: #191d20; --popover-foreground: #f1f4f2;
+  --sidebar: #14181a; --muted: #242a2d; --muted-foreground: #aebbb4;
+  --border: #343d39; --input: #74857b;
+  --primary: #34d399; --primary-foreground: #08271c;
+  --secondary: #242a2d; --secondary-foreground: #d4ded8;
+  --accent: #203b30; --accent-foreground: #8ce5b8;
+  --success: #8ce5b8; --success-surface: #203b30;
+  --attention: #f3cd87; --attention-surface: #3a301f;
+  --destructive: #ff8e99; --destructive-foreground: #3c0911;
+  --ring: #58dca7;
 }
 @theme inline {
   --color-background: var(--background); --color-foreground: var(--foreground);
-  --color-card: var(--card); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border); --color-input: var(--input); --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground); --color-destructive: var(--destructive); --color-ring: var(--ring);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+  --color-sidebar: var(--sidebar); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border); --color-input: var(--input);
+  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success); --color-success-surface: var(--success-surface);
+  --color-attention: var(--attention); --color-attention-surface: var(--attention-surface);
+  --color-destructive: var(--destructive); --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --font-sans: "Segoe UI", Arial, Helvetica, sans-serif;
 }
 @layer base {
-  body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; line-height: 1.5; }
+  * { scrollbar-color: var(--input) var(--background); }
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); line-height: 1.5; }
   a { color: var(--primary); text-underline-offset: 3px; }
-  a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+  :is(a, button, input, select, summary):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
   label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 600; }
+  input { accent-color: var(--primary); caret-color: var(--primary); }
+  input::placeholder { color: var(--muted-foreground); }
+  ::selection { background: var(--primary); color: var(--primary-foreground); }
+  h1, h2, h3 { text-wrap: balance; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: 0s !important; scroll-behavior: auto !important; } }

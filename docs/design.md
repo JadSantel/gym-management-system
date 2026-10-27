@@ -68,29 +68,42 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 
 Route names above are proposals. A route ID must never be trusted as authorization; all member/payment resources are checked within the active authenticated gym.
 
-## 4. Proposed visual language (editable design direction)
+## 4. Selected dual-theme visual direction (presentation only; editable tokens)
 
-Visual intention: calm, utilitarian, legible at a busy reception desk; status clarity takes priority over decorative animation. Use semantic design tokens rather than scattered color literals.
+**User-selected design direction, 2026-10-26:** Build a coherent modern SaaS interface supporting **Light, Dark, and System** preferences. The references supplied by the user guide *navigation organization, visual hierarchy, table density, cards, typography, and spacing*; do not copy their business features, specific content, pricing, or brand. This presentation choice does **not** approve a final gym brand, new product policies, hosted services, or production readiness.
 
-| Token | Suggested value | Usage |
-|---|---|---|
-| `surface.page` | `#F8FAFC` | Neutral page background |
-| `surface.card` | `#FFFFFF` | Panels, dialogs, tables |
-| `text.primary` | `#0F172A` | Primary copy |
-| `text.secondary` | `#475569` | Supporting explanations |
-| `border.subtle` | `#CBD5E1` | Table and input borders |
-| `action.primary` | `#155E75` | Primary action, focus/selection with contrast review |
-| `state.verified` | `#166534` | Verified/eligible, always with text/icon |
-| `state.pending` | `#92400E` | Pending/evidence needed, always with text/icon |
-| `state.blocked` | `#B91C1C` | Not eligible/destructive, always with text/icon |
-| `state.info` | `#1D4ED8` | Informational message |
+**Dark mode:** layered dark charcoal canvas, navigation, and cards; strong but not glaring text; fine neutral borders and subtle insets. **Light mode:** equally polished near-white/light-neutral canvas with white cards, defined dividers and legible dark text; charcoal backgrounds must not leak into the light theme. Use a restrained green/emerald primary-action accent in both themes and amber only for real attention states. Reserve red for destructive/blocked states. Consistent spacing and information hierarchy are more important than hue changes.
 
-- **Typography:** readable system-sans or licensed project font; avoid tiny counter-critical text. Suggested 16px body, 14px supporting, 20–24px page title, 28–32px highlighted financial/eligibility values; scale as necessary for responsive and accessibility checks.
-- **Density:** comfortable default with high-scannability, optional compact tables only if pilots need them. Price, collector, status, and expiry must never be truncated in critical review screens.
-- **Shape/layout:** 8–12px card radii, consistent 4/8/12/16/24 spacing, borders rather than heavy shadows, restrained use of color.
-- **Icons:** supplement clear written labels; no color-only, icon-only indication for a financial action or admission decision.
-- **Animation:** short nonblocking state transitions may be used for navigation or disclosure; no motion on confirmed transactions that obscures completion or makes a pending operation look complete. Respect reduced-motion preferences.
-- **Branding:** platform identity and any gym-specific brand/logo are **not yet selected**. Never infer an actual brand palette or design asset from these token proposals.
+**Illustrative semantic palette (not a fixed hardcoded CSS mandate; check contrast when implementing):**
+
+| Semantic role | Light-mode reference | Dark-mode reference | Usage |
+|---|---|---|---|
+| Canvas | `#F7F9FC` | `#0B0D10` | App background outside contained work areas |
+| Sidebar / surface | `#FFFFFF` | `#111317` | Persistent app navigation |
+| Card / panel | `#FFFFFF` | `#171A1F` | Data, forms, dialogs |
+| Subtle inset / muted | `#F1F4F8` | `#20242A` | Grouped metrics, secondary surfaces |
+| Main text | `#111827` | `#F3F5F7` | Headings, amounts and primary copy |
+| Secondary text | `#4B5563` | `#B6BDC6` | Supporting descriptions |
+| Border | `#E2E8F0` | `#30343B` | Panel outlines and dividers |
+| Primary fill | `#047857` | `#10B981` | Key actions; check foreground contrast separately |
+| Primary fill foreground | `#FFFFFF` | `#07130E` | Text/icons on primary buttons |
+| Attention | accessible amber | accessible amber | Needs review, not generic decoration |
+| Destructive | accessible red | accessible red | Disabled/danger/denial as appropriate, always with a text label |
+
+Implement using **semantic CSS variables and shadcn-compatible Tailwind utility classes** (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground` and status variants), with theme overrides selected via `.dark` or the project's existing equivalent. Avoid repeated inline hex colors and separate page-specific themes. If theme infrastructure does not exist, consider `next-themes` for a keyboard-operable Light/Dark/System control; verify hydration and persistence. Support system preference without requiring manual selection, and preserve deliberate user choice across navigation/reload when technically available.
+
+**Component system:** Favor real locally installed **shadcn/ui** primitives and composed domain components, not merely shadcn-like styling. Before adding components, inspect `components.json`, installed dependencies, existing `src/components/ui` files, project aliases, and actual imports. Prefer accessible `Button`, `Input`, `Label`/`Field`, `Card`, `Badge`, `Dialog` and `AlertDialog`, `Sheet`, `Select`, `DropdownMenu`, `Table`, `Skeleton`, `Alert`, and `Sidebar` only when needed by a real task. Do not blindly run `init`, overwrite customized components, install an entire catalog, or replace valid native HTML unnecessarily. No UI component makes an authorization decision; server contracts remain authoritative.
+
+**Composition:** persistent labeled sidebar on desktop with permission-appropriate groups and clear current-location highlighting; a purposeful page header and one dominant next action; data panels and scannable lists/tables rather than large repeated form cards; aligned labels, states, compact supporting text, and meaningful empty/loading/error states. For sensitive owner actions, keep the five-minute reauthentication requirement and security explanation easy to find, even if presented contextually in a dialog. Phone layouts collapse navigation and keep core actions, results, and labels usable.
+
+- **Typography:** legible system/approved font; clear hierarchy for headings, monetary amounts and status decisions; avoid tiny critical text. Use consistent type scale and weights rather than headline decoration.
+- **Density:** designed for operating a gym quickly. Allow compact scannable rows where legible; never truncate price, collector, verification state, access decision or exact expiry in a critical review.
+- **Shape/spacing:** consistently scaled radius, 4/8/12/16/24 spacing progression, restrained shadow, differentiated surfaces and subtle dividers. Avoid gratuitous nested cards.
+- **States/accessibility:** status must carry text, not only green/amber/red. Aim for WCAG 2.2 AA across both themes; verify keyboard use, touch targets and visible focus rings.
+- **Animation:** subtle, nonblocking transitions respecting reduced-motion preferences; do not imply financial completion before a server-committed result.
+- **Branding:** platform branding and tenant-specific logos remain pending. Visual inspiration does not authorize copying a third-party gym identity.
+
+**Acceptance condition for a user-authorized structural redesign:** measurable improvement in information architecture, hierarchy, grouping, navigation, responsive composition and component consistency, **not** a color-only or image-only pass. Current markup is not a requirement; approved product behavior and evidence/security rules are.
 
 ## 5. Layout, responsiveness, and accessibility
 
@@ -345,7 +358,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | ID | UX/design decision | Current recommendation | Required action / owner |
 |---|---|---|---|
 | UX-D01 | Navigation and screen naming | Use §3; progressively expose only built screens | Team reviews prototype; non-policy. |
-| UX-D02 | UI theme, tokens and density | Use §4 neutral/teal scheme as initial proposal | Team/owner brand review, contrast testing. |
+| UX-D02 | UI theme, tokens and density | **User-selected 2026-10-26:** responsive Light/Dark/System visual direction; charcoal only in dark mode, neutral light mode, semantic theme tokens, restrained emerald actions, shadcn/ui composition as appropriate. See §4. | Implement and contrast/accessibility-test both themes; final gym-specific branding remains open, with no change to product policy. |
 | UX-D03 | Phone vs desktop priority | Desktop reception first, phone-responsive | Validate with operator device research. |
 | UX-D04 | English initial copy | Draft in English; localize only with evidence/decision | Validate comprehension with pilots. |
 | UX-D05 | Remaining-time display / expiry | Approved 2026-10-25: exact PHT expiry plus whole 24-hour days and hours rounded down at server check time; below one hour show "less than 1 hour"; current active term only | PROJECT FR-05; locally verified in S-02. |
@@ -359,6 +372,8 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 Record any newly accepted UX decisions with approver, date, impacted screens, tests, and source-policy check. **Do not reinterpret design proposals as owner approval simply because they are written here.**
 
 ## 13. S-01a concrete UI implementation checklist
+
+**Historical S-01a checklist, preserved as test/audit evidence:** This marked an early-slice scope limit, **not** a permanent prohibition on redesigning currently implemented later-slice UI within a newly authorized task. Do not use it to invent unsupported future features.
 
 **Build only these visible surfaces now, using synthetic data:**
 
@@ -383,7 +398,7 @@ Keep feedback separate from approved changes. Proposed UX refinements can be acc
 
 ## 15. Validation interaction contract — Zod (AD-033)
 
-Apply to existing forms as validation is integrated; preserve their workflow and visual system. Zod is an implementation detail and must not appear in operator-facing copy.
+Apply to existing forms as validation is integrated; preserve their **workflow, validation states, authorization consequences and accessibility**. Their layout and appearance may change under an explicitly authorized visual redesign and must conform to the dual-theme system in §4. Zod is an implementation detail and must not appear in operator-facing copy.
 
 - Share browser-safe field rules with the server where practical. Validate on submit; after an attempted submission, revalidate corrected fields without noisy errors on every initial keystroke. Server validation always remains required.
 - Show specific inline messages associated with labels/controls using accessible descriptions and invalid state. Do not rely on color or a toast alone. On failed submission, focus the first invalid field or an accessible error summary with links to fields; announce updates without repeatedly interrupting typing.

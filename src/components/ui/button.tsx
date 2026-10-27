@@ -7,7 +7,7 @@ const buttonVariants = cva("inline-flex min-h-11 cursor-pointer items-center jus
   variants: { variant: {
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
     outline: "border border-border bg-card text-foreground hover:bg-muted",
-    destructive: "bg-destructive text-white hover:bg-destructive/90",
+    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
   } }, defaultVariants: { variant: "default" },
 });
 export function Button({ className, variant, type = "button", ...props }: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants>) {

@@ -399,7 +399,7 @@ try {
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, true);
   browser("uncheck", "input[name=cash]"); clickButton("Save permissions"); checkText("Staff permissions saved.");
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, false);
-  browser("find", "role", "link", "click", "--name", "Find or create a member", "--exact"); checkText("Find a member");
+  browser("find", "role", "link", "click", "--name", "Members", "--exact"); checkText("Find a member");
   const beforeMembers = await admin.member.count({ where: { gymId } });
   fill("#member-name", "   "); clickButton("Create member"); checkText("Enter a member name with 1–100 visible characters.");
   assert.equal(evalBrowser("document.activeElement?.id"), "member-feedback");
