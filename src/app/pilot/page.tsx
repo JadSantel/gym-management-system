@@ -16,7 +16,7 @@ export default async function PilotPage({ searchParams }: { searchParams: Promis
     if (error instanceof IdentityError) redirect("/"); throw error;
   });
   const pht = (value: Date) => new Intl.DateTimeFormat("en-PH",{timeZone:"Asia/Manila",dateStyle:"medium",timeStyle:"long",hourCycle:"h23"}).format(value);
-  return <><Link href="/" className="underline">Back to home</Link><h1 className="mt-5 text-3xl font-semibold">Pilot evidence review</h1>
+  return <><Link href="/" className="underline">Back to home</Link><h1 className="mt-5 text-[28px] font-semibold tracking-tight">Pilot evidence review</h1>
     <p className="mt-3">SYNTHETIC local records only. Independent collection denominators, timing and adoption observations belong in the reviewed measurement worksheet. Application rows alone cannot prove completeness or improvement.</p>
     <form className="mt-5 flex flex-wrap items-end gap-4" method="get"><div><label htmlFor="pilot-start">Start date (Manila, inclusive)</label><Input id="pilot-start" name="start" type="date" required defaultValue={typeof query.start === "string" ? query.start : today} /></div><div><label htmlFor="pilot-end">End date (Manila, exclusive)</label><Input id="pilot-end" name="end" type="date" required defaultValue={typeof query.end === "string" ? query.end : tomorrow} /></div><Button type="submit">Review pilot evidence</Button></form>
     {!data ? <p role="alert" className="mt-5">Choose valid dates spanning 1–31 days. Duplicate date parameters are invalid.</p> : <>

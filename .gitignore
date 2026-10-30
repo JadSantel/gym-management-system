@@ -6,3 +6,5 @@ node_modules/
 src/generated/
 *.tsbuildinfo
 test-results/
+
+.impeccable/review/

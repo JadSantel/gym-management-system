@@ -12,6 +12,7 @@ import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { inGym } from "../src/lib/tenant";
 import { setGymContext } from "../src/lib/binding";
 import { createMember, findMembers } from "../src/lib/members";
+import { workspaceOverview } from "../src/lib/workspace";
 import { memberCreateSchema, memberSearchSchema } from "../src/lib/member-schema";
 import { GET as memberGet, POST as memberPost } from "../src/app/api/members/route";
 import { GET as plansGet, POST as plansPost } from "../src/app/api/plans/route";
@@ -719,4 +720,29 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     }), /effective_entitlement_no_overlap/);
     assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 2);
   });
+  await t.test("Prototype overview and directory use tenant-scoped current evidence and owner authority", async () => {
+    const overview = await workspaceOverview(owners[0]);
+    const start = new Date(overview.days.at(-1)!.date);
+    const end = new Date(start.getTime() + 86_400_000);
+    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0], collectedAt: { gte: start, lt: end } }, _sum: { amountCentavos: true }, _count: true });
+    assert.equal(overview.days.at(-1)!.amount, expected._sum.amountCentavos ?? 0);
+    assert.equal(overview.days.at(-1)!.count, expected._count);
+    assert.equal(overview.days.length, 7);
+    assert.equal(overview.activeMembers, await admin.member.count({ where: { gymId: gyms[0], entitlements: { some: { isCurrentProjection: true, startsAt: { lte: overview.checkedAt }, endsAt: { gt: overview.checkedAt } } } } }));
+    assert.ok(overview.payments.length > 0);
+    assert.ok(overview.payments.every(payment => payment.gymId === gyms[0]));
+    assert.equal(overview.caseCount, await admin.investigationCase.count({ where: { gymId: gyms[0] } }));
+    assert.equal(overview.pending, 0);
+    const other = await workspaceOverview(owners[1]);
+    assert.ok(other.payments.every(payment => payment.gymId === gyms[1]));
+    await assert.rejects(workspaceOverview(staffHeaders), { status: 403 });
+    await assert.rejects(workspaceOverview(new Headers()), { status: 401 });
+    const directory = await findMembers(owners[0], "Confirmed Cash Member");
+    assert.ok(directory.length > 0);
+    for (const member of directory) {
+      assert.equal(member.gymId, gyms[0]);
+      assert.deepEqual(member.entitlements.map(interval => interval.startsAt.toISOString()).sort(), (await admin.effectiveEntitlement.findMany({ where: { memberId: member.id, gymId: gyms[0], isCurrentProjection: true } })).map(interval => interval.startsAt.toISOString()).sort());
+    }
+  });
+
 });

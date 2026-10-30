@@ -119,7 +119,7 @@ export function DigitalPayments({ data }: { data: DigitalView }) {
         const settlement = data.settlements.find(row => row.claimId === claim.id);
         const account = data.accounts.find(row => row.id === claim.accountId)!;
         const canVerify = data.grants.some(row => row.accountId === claim.accountId && row.operatorId === data.operatorId && row.active);
-        return <li key={claim.id} className="rounded-xl border border-border bg-card p-5" data-claim={claim.id}>
+        return <li key={claim.id} id={`claim-${claim.id}`} className="rounded-xl border border-border bg-card p-5" data-claim={claim.id}>
           <h3 className="text-lg font-semibold"><Link href={`/members/${claim.memberId}`} className="underline">{claim.memberName}</Link> · {settlement ? "Confirmed" : "Pending verification"}</h3>
           <p className="mt-2">{account.method} · {account.label} · claimed {formatPhp(claim.amountCentavos)} · required {formatPhp(claim.requiredCentavos)}</p>
           <p className="mt-2 break-all text-sm">Transfer reference: {claim.transactionReference}</p>

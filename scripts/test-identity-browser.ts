@@ -35,7 +35,13 @@ function browser(...args: string[]) {
   return result.stdout;
 }
 function checkText(value: string) { browser("wait", "--text", value); }
-function clickButton(name: string) { browser("find", "role", "button", "click", "--name", name, "--exact"); }
+function clickButton(name: string) {
+  if (name === "Confirm full cash" && evalBrowser("Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Review cash payment')")) {
+    browser("find", "role", "button", "click", "--name", "Review cash payment", "--exact");
+    checkText("Confirm only after receiving the full cash amount.");
+  }
+  browser("find", "role", "button", "click", "--name", name, "--exact");
+}
 function fill(selector: string, value: string) { browser("fill", selector, value); }
 function fillDateTime(selector: string, value: string) {
   // This CLI's fill leaves Chromium datetime-local inputs empty. Set the native
@@ -46,6 +52,7 @@ function fillDateTime(selector: string, value: string) {
 function audit(page: string) {
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json"));
   if (result.data.counts.incomplete) console.log(JSON.stringify(result.data.incomplete.map((item: { id: string; nodes: { target: string[]; failureSummary: string }[] }) => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, summary: node.failureSummary })) }))));
+  if (result.data.counts.violations) console.log(JSON.stringify({ page, violations: result.data.violations }));
   assert.equal(result.data.counts.violations, 0, `${page} accessibility violations`);
   assert.equal(result.data.counts.incomplete, 0, `${page} incomplete accessibility checks`);
   console.log(`${page}: axe WCAG A/AA checks passed.`);
@@ -166,7 +173,9 @@ async function confirmNewMembership(memberName: string, collector: { id: string;
   assert.equal(assessEligibility(allIntervals, new Date(payment.period!.endsAt.getTime() - 1)).interval!.endsAt.getTime(), payment.period!.endsAt.getTime());
   assert.equal(assessEligibility(allIntervals, payment.period!.endsAt).interval!.endsAt.getTime(), renewed.period!.endsAt.getTime());
   const previews = await admin.charge.count({ where: { memberId } });
-  clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+  assert.equal(evalBrowser("document.getElementById('charge-plan').disabled"), true);
+  checkText("Another sale is blocked until the scheduled paid period starts.");
+  assert.equal(evalBrowser(`fetch('/api/charges', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({memberId:'${memberId}',planId:'${plan.id}'}) }).then(response => response.status)`), 409);
   assert.equal(await admin.charge.count({ where: { memberId } }), previews);
   const renewalOperation = await admin.idempotencyOperation.findFirstOrThrow({ where: { paymentId: renewed.id } });
   const recovered = evalBrowser(`fetch('/api/payments', {method:'POST',headers:{'content-type':'application/json','idempotency-key':'${renewalOperation.operationKey}'},body:JSON.stringify({chargeId:'${renewalId}',cashReceived:'${(plan.priceCentavos / 100).toFixed(2)}'})}).then(async r=>({status:r.status,body:await r.json()}))`);
@@ -237,7 +246,9 @@ async function verifyLateRenewal(collector: { id: string; name: string }, plan: 
     const future = await paidFixture(collector.id, plan, new Date(midnight.getTime() + 86_400_000));
     browser("open", `${origin}/members/${future.member.id}`); checkText("Not eligible yet"); checkText("Scheduled paid period:");
     assert.equal(evalBrowser("document.getElementById('membership-access-title').parentElement.textContent.includes('Remaining in current paid period:')"), false);
-    clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+    assert.equal(evalBrowser("document.getElementById('charge-plan').disabled"), true);
+    checkText("Another sale is blocked until the scheduled paid period starts.");
+    assert.equal(evalBrowser(`fetch('/api/charges', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({memberId:'${future.member.id}',planId:'${plan.id}'}) }).then(response => response.status)`), 409);
     assert.equal(await admin.payment.count({ where: { memberId: future.member.id } }), 1);
     assert.equal(await admin.charge.count({ where: { memberId: future.member.id } }), 1);
     audit("Future-only paid membership");
@@ -328,7 +339,7 @@ try {
   assert.equal(evalBrowser(`document.getElementById('price-${monthly.id}').value`), "800.00");
   assert.equal((await admin.plan.findUniqueOrThrow({ where: { id: monthly.id } })).version, monthly.version);
   clickButton("Save Monthly price"); checkText("Catalogue saved."); audit("Plan pricing");
-  browser("open", origin); checkText("Welcome, Browser Owner");
+  browser("open", `${origin}/team`); checkText("Welcome, Browser Owner");
   clickButton("Verify password"); checkText("Enter your current password."); focusedFeedback("reauth-password-feedback"); associatedError("reauth-password");
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   fill("#staff-name", "   "); fill("#staff-username", "ab"); fill("#staff-email", "staff@example.com");
@@ -382,7 +393,7 @@ try {
   assert.equal(evalBrowser(`fetch('/api/identity/capabilities', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({operatorId:'${staff.id}',canManageMembers:true,canCollectCash:true})}).then(r=>r.status)`), 403);
   assert.equal(evalBrowser("fetch('/api/plans',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'initialize'})}).then(r=>r.status)"), 403);
   clickButton("Sign out"); checkText("You are signed out.");
-  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner"); browser("open", `${origin}/team`);
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   browser("check", "input[name=members]"); browser("check", "input[name=cash]");
   alterIdentityRequest("capabilities", { canCollectCash: "true" }); clickButton("Save permissions");
@@ -399,7 +410,7 @@ try {
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, true);
   browser("uncheck", "input[name=cash]"); clickButton("Save permissions"); checkText("Staff permissions saved.");
   assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canCollectCash, false);
-  browser("find", "role", "link", "click", "--name", "Members", "--exact"); checkText("Find a member");
+  browser("find", "role", "link", "click", "--name", "Members", "--exact"); checkText("Member directory");
   const beforeMembers = await admin.member.count({ where: { gymId } });
   fill("#member-name", "   "); clickButton("Create member"); checkText("Enter a member name with 1–100 visible characters.");
   assert.equal(evalBrowser("document.activeElement?.id"), "member-feedback");
@@ -568,7 +579,9 @@ try {
   assert.equal(renewed.period!.startsAt.toISOString(), renewal.intendedStart.toISOString());
   assert.equal(renewed.period!.endsAt.toISOString(), renewal.intendedEnd.toISOString());
   const previewsBeforeQueued = await admin.charge.count({ where: { memberId: browserMember.id } });
-  clickButton("Prepare charge preview"); checkText("A future paid period already exists.");
+  assert.equal(evalBrowser("document.getElementById('charge-plan').disabled"), true);
+  checkText("Another sale is blocked until the scheduled paid period starts.");
+  assert.equal(evalBrowser(`fetch('/api/charges', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({memberId:'${browserMember.id}',planId:'${monthly.id}'}) }).then(response => response.status)`), 409);
   assert.equal(await admin.charge.count({ where: { memberId: browserMember.id } }), previewsBeforeQueued);
   assert.equal(await admin.payment.count({ where: { memberId: browserMember.id } }), 2);
   audit("Queued renewal preview denied");
@@ -642,7 +655,7 @@ try {
   assert.equal(await admin.payment.count({ where: { memberId: staffRecoveryMember.id } }), 1);
   assert.equal(await admin.membershipPeriod.count({ where: { memberId: staffRecoveryMember.id } }), 1);
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
-  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner"); browser("open", `${origin}/team`);
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("R-01 browser: real 403 after committed lost response retained the key across reload; restored permission returned the original payment without duplicates.");
   const readStatuses = evalBrowser(`(async () => {
@@ -683,6 +696,7 @@ try {
     clickButton("Prepare charge preview"); checkText("Saved charge preview");
     const memberId = new URL(evalBrowser("location.href")).pathname.split("/").at(-1)!;
     const at = new Date(Date.now() - 2000); const localTime = new Date(at.getTime() + 8 * 3600_000).toISOString().slice(0, 19);
+    clickButton(method === "BANK" ? "Bank transfer" : "GCash");
     browser("select", '#digital-claim-title ~ form select[name=accountId]', accountFor(method).id);
     fill('#digital-claim-title ~ form input[name=transactionReference]', `BROWSER-${method}-${suffix}`);
     fillDateTime('#digital-claim-title ~ form input[name=reportedReceivedAt]', localTime);
@@ -760,13 +774,13 @@ try {
   browser("open", `${origin}/members/${digitalStaff.memberId}`); checkText("A verified paid period is in effect."); checkText(bankPayment.reference);
   browser("set", "viewport", "375", "812"); assert.equal(evalBrowser("document.documentElement.scrollWidth <= window.innerWidth"), true); audit("Digital member history mobile"); browser("set", "viewport", "1280", "900");
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
-  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner"); browser("open", `${origin}/team`);
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("S-03 browser: owner GCash/staff bank claims, explicit authority/revoke, full-funds confirmation, mismatch denial, committed lost-response/revoked-permission recovery, receipts, flags, history, mobile overflow and axe passed.");
   // S-04: preserve cases and explicit owner decisions while policy-gated money/access stays unchanged.
   await admin.rateLimit.deleteMany();
   const originalCasePayment = await admin.payment.findUniqueOrThrow({ where: { id: digitalPayment.id }, include: { period: true, receipt: true } });
-  browser("find", "role", "link", "click", "--name", "Payment investigations", "--exact"); checkText("Search payment history");
+  browser("find", "role", "link", "click", "--name", "Exceptions", "--exact"); checkText("Search payment history");
   fill('input[name="reference"]', originalCasePayment.receipt!.reference); clickButton("Search confirmed payments");
   checkText("1 confirmed payment(s)."); checkText(originalCasePayment.reference); audit("Payment history search");
   browser("open", `${origin}/investigations?memberId=${digitalOwner.memberId}`);
@@ -819,7 +833,7 @@ try {
   const deniedCaseReview = evalBrowser(`fetch('/api/investigations', {method:'POST',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({action:'execute',caseId:'${createdCase.caseId}'})}).then(response=>response.status)`);
   assert.equal(deniedCaseReview, 403); audit("Staff case escalation");
   browser("open", origin); clickButton("Sign out"); checkText("You are signed out.");
-  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner");
+  fill("#identifier", email); fill("#password", password); clickButton("Sign in"); checkText("Welcome, Browser Owner"); browser("open", `${origin}/team`);
   fill("#reauth-password", password); clickButton("Verify password"); checkText("Password verified for five minutes.");
   console.log("S-04 browser: history search, retained validation and rejected proposal fields, lost-response/reload case recovery, existing-payment match, explicit request/owner approval, blocked execution, preserved payment/receipt/access, staff escalation/denial, mobile overflow and axe passed.");
   // S-04 approved execution: use real browser forms/API and verify committed DB effects.
@@ -1049,8 +1063,8 @@ try {
   browser('open',origin); clickButton('Sign out'); checkText('You are signed out.'); browser('find','role','radio','click','--name','Staff','--exact');
   fill('#identifier',username);fill('#password',password);clickButton('Sign in');checkText('Welcome, Browser Staff');browser('open',closingUrl);closingReady();
   browser('select','#closing-action','submit');browser('check','#closing-countsReaffirmed');fill('#closing-evidenceReference','S06-STAFF-SUBMIT');fill('#closing-notes','PHP 50 excess remains unresolved; owner review required');
-  evalBrowser(`(() => { const send=window.fetch; window.fetch=async function(input,init) { if(input==='/api/closing' && init?.method==='POST') { window.fetch=send; await send.call(this,input,init); throw new Error('Synthetic lost closing response'); } return send.call(this,input,init); }; return true; })()`);
-  clickButton('Save closing record');checkText('A saved submit operation may have committed.');
+  evalBrowser(`(() => { const send=window.fetch; window.fetch=async function(input,init) { if(input==='/api/closing' && init?.method==='POST') { window.fetch=send; const response=await send.call(this,input,init); if(response.ok) throw new Error('Synthetic lost closing response'); return response; } return send.call(this,input,init); }; return true; })()`);
+  clickButton('Save closing record');checkText('Synthetic lost closing response');
   const savedClosing=JSON.parse(evalBrowser(`sessionStorage.getItem('closing-recovery:${gymId}:${staff.id}')`));
   const snapshot=await admin.closingSnapshot.findUniqueOrThrow({where:{gymId_operationKey:{gymId,operationKey:savedClosing.key}}});
   browser('reload');checkText('Retrieve saved closing operation');clickButton('Retrieve saved closing operation');checkText('Immutable closing submitted.');closingReady();checkText('Unresolved excess');
@@ -1123,7 +1137,7 @@ try {
   browser('set','viewport','375','812');assert.equal(evalBrowser('document.documentElement.scrollWidth <= window.innerWidth'),true);audit('S-07 evidence mobile');
   browser('open',`${origin}/pilot?start=2026-02-29&end=2026-03-01`);checkText('Choose valid dates');audit('S-07 invalid reporting window');browser('set','viewport','1280','900');
   console.log('S-07 browser PASS: staff preparation/approval denial, uncertain evidence separate, protected-field rejection/retention, owner independent sign-off, committed-response loss/reload replay, no fabricated collections, linked timestamp/classification review, keyboard, 375px and axe. Entire run rehearses supported S-01 through S-07; no real training or business improvement implied.');
-  browser('open', origin); checkText('Welcome, Browser Owner');
+  browser('open', `${origin}/team`); checkText('Welcome, Browser Owner');
   fill('#reauth-password',password); clickButton('Verify password'); checkText('Password verified for five minutes.');
   alterIdentityRequest("reset-staff", { operatorId: "invalid-reference" }); clickButton("Send reset link");
   checkText("Check the account fields and try again."); focusedFeedback("operator-feedback");
@@ -1143,7 +1157,7 @@ try {
   console.log("R-06/08 browser: client validation, real server rejection, field associations, summary focus/keyboard links, retained non-secret values/selections, cleared passwords and corrected retries passed for all identity actions.");
 } catch (error) {
   try {
-    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback','case-feedback','outage-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
+    console.log("Browser failure state:", evalBrowser("({path:location.pathname,buttons:Array.from(document.querySelectorAll('button')).map(button=>({text:button.textContent,disabled:button.disabled})),feedback:['cash-error','digital-feedback','claim-feedback','case-feedback','outage-feedback','closing-feedback'].map(id=>({id,text:document.getElementById(id)?.textContent}))})"));
     browser("screenshot", resolve(".local/browser-failure.png"));
   } catch { /* Preserve the original failure if the browser is unavailable. */ }
   primaryFailure = error;

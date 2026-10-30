@@ -2,7 +2,7 @@
 
 **Status:** Proposed UX/UI specification for review; **not** an approval of new product policies, implementation, pilot readiness, or visual brand identity.  
 **Prepared:** 2026-10-24 (Asia/Manila)  
-**Reviewed:** 2026-10-25; approved S-02-S-04 behavior reconciled, remaining UX proposals and live gates retained.
+**Reviewed:** 2026-10-30: section 4 and UX-D02 now follow the user-supplied prototype v2 presentation. Earlier behavior reconciliation and live gates remain governed by PROJECT.md and IMPLEMENTATION_STATUS.md.
 **Project:** Independent Gym Management System (multi-tenant SaaS for independent Philippine gyms)  
 **Scope:** S-01 through S-07 interaction guidance. S-01-S-03, supported S-04, S-05 and S-06 paths have recorded local synthetic verification; S-07 and live/pilot operations remain future/unverified scope. See `IMPLEMENTATION_STATUS.md` for evidence and current handoff.
 **Source of truth:** `PROJECT.md` for product requirements, acceptance criteria, and operational decision gates; `product.md` for aligned customer problem and policy intent; `architecture.md` for approved technology, identity, isolation, security, and integrity rules. The conversation handoff provides historical context only.  
@@ -70,40 +70,15 @@ Route names above are proposals. A route ID must never be trusted as authorizati
 
 ## 4. Selected dual-theme visual direction (presentation only; editable tokens)
 
-**User-selected design direction, 2026-10-26:** Build a coherent modern SaaS interface supporting **Light, Dark, and System** preferences. The references supplied by the user guide *navigation organization, visual hierarchy, table density, cards, typography, and spacing*; do not copy their business features, specific content, pricing, or brand. This presentation choice does **not** approve a final gym brand, new product policies, hosted services, or production readiness.
+**User-selected replacement, October 30, 2026:** follow the supplied `gym-crm-prototype-v2.html` screens and flow. Its final v2 style block supersedes the earlier green CSS: warm paper, ink, one orange accent, and Geist. Root `DESIGN.md` and runtime semantic tokens record the implemented palette and composition. This replaces the October 26 emerald presentation; business and architecture policies remain unchanged.
 
-**Dark mode:** layered dark charcoal canvas, navigation, and cards; strong but not glaring text; fine neutral borders and subtle insets. **Light mode:** equally polished near-white/light-neutral canvas with white cards, defined dividers and legible dark text; charcoal backgrounds must not leak into the light theme. Use a restrained green/emerald primary-action accent in both themes and amber only for real attention states. Reserve red for destructive/blocked states. Consistent spacing and information hierarchy are more important than hue changes.
+Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses a warm neutral canvas and off-white panels; dark uses near-black layers. Primary actions reverse ink/paper between themes. Orange marks navigation, selected controls and focus; green means confirmed/effective, amber pending/attention, red blocked/destructive. The prototype's dark front-desk banner is adapted to neutral light in light mode under the existing AGENTS.md contract. All text/control contrast still requires rendered checks.
 
-**Illustrative semantic palette (not a fixed hardcoded CSS mandate; check contrast when implementing):**
+Navigation follows Overview, Operate, Members, Transactions, Daily closing, Exceptions. Existing digital verification, outage/custody, pilot evidence, plan pricing and team/account operations remain available under Management. Owners land on recorded operational evidence at `/`; staff with member access land at `/operate`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
 
-| Semantic role | Light-mode reference | Dark-mode reference | Usage |
-|---|---|---|---|
-| Canvas | `#F7F9FC` | `#0B0D10` | App background outside contained work areas |
-| Sidebar / surface | `#FFFFFF` | `#111317` | Persistent app navigation |
-| Card / panel | `#FFFFFF` | `#171A1F` | Data, forms, dialogs |
-| Subtle inset / muted | `#F1F4F8` | `#20242A` | Grouped metrics, secondary surfaces |
-| Main text | `#111827` | `#F3F5F7` | Headings, amounts and primary copy |
-| Secondary text | `#4B5563` | `#B6BDC6` | Supporting descriptions |
-| Border | `#E2E8F0` | `#30343B` | Panel outlines and dividers |
-| Primary fill | `#047857` | `#10B981` | Key actions; check foreground contrast separately |
-| Primary fill foreground | `#FFFFFF` | `#07130E` | Text/icons on primary buttons |
-| Attention | accessible amber | accessible amber | Needs review, not generic decoration |
-| Destructive | accessible red | accessible red | Disabled/danger/denial as appropriate, always with a text label |
+Member profiles separate current access, queued paid periods, original confirmed history, membership payment, and historical evidence. Payment follows Plan / Payment / Review using the existing durable charge, exact full payment, pending digital claim, designated verification, and same-key recovery. Prototype attendance storage/check-ins, fictional metrics, optional phone data and simplified owner-only transfer verification are outside this presentation task. Current read-only eligibility remains authoritative.
 
-Implement using **semantic CSS variables and shadcn-compatible Tailwind utility classes** (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground` and status variants), with theme overrides selected via `.dark` or the project's existing equivalent. Avoid repeated inline hex colors and separate page-specific themes. If theme infrastructure does not exist, consider `next-themes` for a keyboard-operable Light/Dark/System control; verify hydration and persistence. Support system preference without requiring manual selection, and preserve deliberate user choice across navigation/reload when technically available.
-
-**Component system:** Favor real locally installed **shadcn/ui** primitives and composed domain components, not merely shadcn-like styling. Before adding components, inspect `components.json`, installed dependencies, existing `src/components/ui` files, project aliases, and actual imports. Prefer accessible `Button`, `Input`, `Label`/`Field`, `Card`, `Badge`, `Dialog` and `AlertDialog`, `Sheet`, `Select`, `DropdownMenu`, `Table`, `Skeleton`, `Alert`, and `Sidebar` only when needed by a real task. Do not blindly run `init`, overwrite customized components, install an entire catalog, or replace valid native HTML unnecessarily. No UI component makes an authorization decision; server contracts remain authoritative.
-
-**Composition:** persistent labeled sidebar on desktop with permission-appropriate groups and clear current-location highlighting; a purposeful page header and one dominant next action; data panels and scannable lists/tables rather than large repeated form cards; aligned labels, states, compact supporting text, and meaningful empty/loading/error states. For sensitive owner actions, keep the five-minute reauthentication requirement and security explanation easy to find, even if presented contextually in a dialog. Phone layouts collapse navigation and keep core actions, results, and labels usable.
-
-- **Typography:** legible system/approved font; clear hierarchy for headings, monetary amounts and status decisions; avoid tiny critical text. Use consistent type scale and weights rather than headline decoration.
-- **Density:** designed for operating a gym quickly. Allow compact scannable rows where legible; never truncate price, collector, verification state, access decision or exact expiry in a critical review.
-- **Shape/spacing:** consistently scaled radius, 4/8/12/16/24 spacing progression, restrained shadow, differentiated surfaces and subtle dividers. Avoid gratuitous nested cards.
-- **States/accessibility:** status must carry text, not only green/amber/red. Aim for WCAG 2.2 AA across both themes; verify keyboard use, touch targets and visible focus rings.
-- **Animation:** subtle, nonblocking transitions respecting reduced-motion preferences; do not imply financial completion before a server-committed result.
-- **Branding:** platform branding and tenant-specific logos remain pending. Visual inspiration does not authorize copying a third-party gym identity.
-
-**Acceptance condition for a user-authorized structural redesign:** measurable improvement in information architecture, hierarchy, grouping, navigation, responsive composition and component consistency, **not** a color-only or image-only pass. Current markup is not a requirement; approved product behavior and evidence/security rules are.
+Use actual local shadcn Button/Input/Card/Badge and native accessible controls where appropriate. Maintain 44px controls, associated errors, busy/retry/empty/permission states, visible keyboard focus, safe-area navigation and responsive tables. No new dependency or external font call is needed; Geist is self-hosted with its OFL license.
 
 ## 5. Layout, responsiveness, and accessibility
 
@@ -358,7 +333,7 @@ Claim / investigation -> separate case state (never implicitly changes payment o
 | ID | UX/design decision | Current recommendation | Required action / owner |
 |---|---|---|---|
 | UX-D01 | Navigation and screen naming | Use §3; progressively expose only built screens | Team reviews prototype; non-policy. |
-| UX-D02 | UI theme, tokens and density | **User-selected 2026-10-26:** responsive Light/Dark/System visual direction; charcoal only in dark mode, neutral light mode, semantic theme tokens, restrained emerald actions, shadcn/ui composition as appropriate. See §4. | Implement and contrast/accessibility-test both themes; final gym-specific branding remains open, with no change to product policy. |
+| UX-D02 | UI theme, tokens and density | **User-selected replacement 2026-10-30:** prototype v2 warm-paper/ink/orange/Geist; responsive Light/Dark/System, charcoal only in dark mode, semantic tokens, actual shadcn/ui composition. See section 4. | Implement and contrast/accessibility-test both themes; final gym-specific branding remains open, with no product-policy change. |
 | UX-D03 | Phone vs desktop priority | Desktop reception first, phone-responsive | Validate with operator device research. |
 | UX-D04 | English initial copy | Draft in English; localize only with evidence/decision | Validate comprehension with pilots. |
 | UX-D05 | Remaining-time display / expiry | Approved 2026-10-25: exact PHT expiry plus whole 24-hour days and hours rounded down at server check time; below one hour show "less than 1 hour"; current active term only | PROJECT FR-05; locally verified in S-02. |

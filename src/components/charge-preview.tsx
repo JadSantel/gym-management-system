@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { formatPhp, pesoInput } from "@/lib/money";
 import { cashConfirmationSchema, chargePrepareSchema, financeFieldErrors, pendingCashSchema, type PendingCash } from "@/lib/finance-schema";
 import type { PlanSummary } from "./plan-settings";
+import { DigitalClaimForm } from "./digital-payments";
 
 type SavedPreview = {
   id: string; planName: string; durationDays: number; priceCentavos: number; preparerName: string;
   intendedStart: string; intendedEnd: string; preparedAt: string; priceChanged: boolean;
 };
 const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, recoveryScope }: { memberId: string; memberName: string; plans: PlanSummary[]; canPrepare: boolean; saved: SavedPreview | null; recoveryScope: string }) {
+export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, recoveryScope, accounts, canClaim, saleBlocked }: { memberId: string; memberName: string; plans: PlanSummary[]; canPrepare: boolean; saved: SavedPreview | null; recoveryScope: string; accounts: { id: string; label: string; method: string }[]; canClaim: boolean; saleBlocked: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,10 +21,26 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
   const [cashReceived, setCashReceived] = useState(saved ? pesoInput(saved.priceCentavos) : "");
   const [pending, setPending] = useState<PendingCash | null>(null);
   const [ready, setReady] = useState(false);
+  const [method, setMethod] = useState("CASH");
+  const [reviewing, setReviewing] = useState(false);
   const [confirmed, setConfirmed] = useState<{ payment: { reference: string }; period: { startsAt: string; endsAt: string }; receipt: { reference: string } } | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const pendingRef = useRef<PendingCash | null>(null);
   const storageKey = `cash-recovery:${recoveryScope}`;
+  const savedId = saved?.id;
+  useEffect(() => {
+    if (!savedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const heading = document.getElementById("charge-title");
+      heading?.focus({ preventScroll: true });
+      const main = document.getElementById("main");
+      if (heading && main && getComputedStyle(main).overflowY === "auto") {
+        window.scrollTo(0, 0);
+        main.scrollTo({ top: main.scrollTop + heading.getBoundingClientRect().top - main.getBoundingClientRect().top - 24 });
+      } else heading?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [savedId]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -54,11 +71,14 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
     sessionStorage.removeItem(storageKey);
     pendingRef.current = null; setPending(null);
   }
-  return <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="charge-title">
-    <h2 id="charge-title" className="text-xl font-semibold">New membership charge preview</h2>
+  return <section className="panel mt-5" aria-labelledby="charge-title">
+    <h2 id="charge-title" tabIndex={-1} className="scroll-mt-6 text-xl font-semibold outline-offset-4">Membership payment</h2>
+    <ol aria-label="Payment steps" className="my-6 flex flex-wrap gap-4 border-b border-border pb-5 text-sm">{["Plan", "Payment", "Review"].map((label, index) => <li key={label} aria-current={(pending || reviewing ? 2 : saved ? 1 : 0) === index ? "step" : undefined} className={`flex items-center gap-2 ${(pending || reviewing ? 2 : saved ? 1 : 0) === index ? "font-semibold text-foreground" : "text-muted-foreground"}`}><span className={`grid size-7 place-items-center rounded border ${((pending || reviewing ? 2 : saved ? 1 : 0) === index) ? "border-brand bg-brand text-on-brand" : "border-border bg-muted"}`}>{index + 1}</span>{label}</li>)}</ol>
+    <h3 className="panel-title">{saved ? "Saved membership charge preview" : "New membership charge preview"}</h3>
     <p className="mb-5 mt-2 text-sm text-muted-foreground">Review the full charge and proposed dates before collecting funds. A preview is an uncompleted purchase request; it records no payment and grants no admission.</p>
+    {saleBlocked && <p role="status" className="mb-5 rounded-md bg-attention-surface p-4 text-sm text-attention">An advance renewal is already fully paid. Another sale is blocked until the scheduled paid period starts. Any saved confirmation below must still be resolved with its original operation key.</p>}
     {canPrepare && plans.length > 0 ? <form className="flex flex-wrap items-end gap-3" aria-busy={busy} onSubmit={async event => {
-      event.preventDefault(); if (!ready || busy || pendingRef.current) return;
+      event.preventDefault(); if (!ready || busy || pendingRef.current || saleBlocked) return;
       setBusy(true); setError("");
       try {
         const parsed = chargePrepareSchema.safeParse({ memberId, planId: new FormData(event.currentTarget).get("planId") });
@@ -66,20 +86,21 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
         const response = await fetch("/api/charges", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(parsed.data) });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        router.replace(`/members/${memberId}?charge=${result.id}`, { scroll: false }); router.refresh();
+        router.replace(`/members/${memberId}?charge=${result.id}#membership-payment`); router.refresh();
       } catch (failure) { setError(failure instanceof Error ? failure.message : "Unable to connect. Try again."); errorRef.current?.focus(); }
       finally { setBusy(false); }
     }}>
-      <label htmlFor="charge-plan" className="min-w-0 grow basis-64">Approved plan<select id="charge-plan" name="planId" className="min-h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" required disabled={busy || !ready || !!pending}>
+      <label htmlFor="charge-plan" className="min-w-0 grow basis-64">Approved plan<select id="charge-plan" name="planId" className="min-h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" required disabled={busy || !ready || !!pending || saleBlocked}>
         {plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} · {plan.durationDays} days · {formatPhp(plan.priceCentavos)}</option>)}
-      </select></label><Button type="submit" disabled={busy || !ready || !!pending}>{busy ? "Preparing…" : "Prepare charge preview"}</Button>
+      </select></label><Button type="submit" disabled={busy || !ready || !!pending || saleBlocked}>{busy ? "Preparing…" : "Prepare charge preview"}</Button>
     </form> : <p className="text-sm text-muted-foreground">{!plans.length ? "Your owner must set up the approved catalogue before a charge can be prepared." : "Preparing a charge requires member access and cash collection permission from your owner."}</p>}
     <p id="cash-error" ref={errorRef} tabIndex={-1} role="alert" className="mt-3 text-sm text-destructive">{error}</p>
     {pending && <div role="status" className="mt-4 text-sm">
       <p>Confirmation status unknown. Resolve the original operation before preparing another charge. Do not collect cash again.</p>
       <Link className="mt-2 inline-block underline" href={`/members/${pending.memberId}?charge=${pending.chargeId}`}>Review unresolved charge</Link>
     </div>}
-    {saved && <div aria-live="polite" className="mt-6 border-t border-border pt-6">
+    {saved && <div aria-live="polite" className="mt-6 grid gap-6 border-t border-border pt-6 lg:grid-cols-[1.4fr_1fr]">
+      <div>
       <p className="text-sm font-semibold text-primary">Saved charge preview</p><p className="mt-2 text-3xl font-semibold tabular-nums">{formatPhp(saved.priceCentavos)}</p>
       <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
         <div><dt className="text-muted-foreground">Member</dt><dd className="font-semibold">{memberName}</dd></div>
@@ -92,15 +113,20 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
       </dl>
       {saved.priceChanged && <p role="status" className="mt-5 text-sm font-semibold">The catalogue price has changed. This saved preview preserves its original terms. {pending ? "Resolve the original operation before preparing a new preview." : "Prepare a new preview to review the current price."}</p>}
       <p className="mt-5 text-sm text-muted-foreground">These proposed dates use the current paid terms for this member. Confirmation rechecks them; if they change, prepare and review a new charge before collecting cash. A paid period does not prove admission before payment verification or its effective start.</p>
+      </div><aside className="border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><h3 className="panel-title">Payment summary</h3><p className="mt-3 text-sm text-muted-foreground">{memberName}</p><p className="mt-6 text-xs text-muted-foreground">Amount due in full</p><p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{formatPhp(saved.priceCentavos)}</p><p className="mt-4 text-sm">{saved.planName} · {saved.durationDays} elapsed days</p><p className="mt-4 text-xs leading-relaxed text-muted-foreground">No installment, discount, or unpaid balance. One fully paid future term at a time.</p></aside>
     </div>}
+    {saved && canPrepare && !saleBlocked && !confirmed && !pending && <fieldset disabled={busy || !ready || reviewing} className="mt-6 border-t border-border pt-6"><legend className="px-1 text-base font-semibold">How is the member paying?</legend><div className="mt-3 flex flex-wrap gap-2">{[["CASH", "Cash"], ["GCASH", "GCash"], ["BANK", "Bank transfer"]].map(([value, label]) => <Button variant="outline" key={value} aria-pressed={method === value} className={method === value ? "border-brand bg-brand-surface" : ""} onClick={() => setMethod(value)}>{label}</Button>)}</div><p className="mt-3 text-xs text-muted-foreground">Digital claims require independent receiving-account verification. A screenshot grants no new access.</p></fieldset>}
+    {saved && canPrepare && !saleBlocked && canClaim && method !== "CASH" && !pending && !confirmed && <DigitalClaimForm key={method} chargeId={saved.id} amountCentavos={saved.priceCentavos} accounts={accounts.filter(account => account.method === method)} />}
+    {saved && method !== "CASH" && !canClaim && <p role="status" className="mt-5 text-sm text-attention">This saved charge already has a payment or digital claim. Review its status in the member payment history.</p>}
       {confirmed ? <div role="status" className="mt-6 rounded-lg border border-primary/40 bg-muted p-4" aria-live="polite">
         <h3 className="font-semibold">Full cash payment confirmed</h3>
         <p className="mt-2">Payment reference: <strong className="break-all">{confirmed.payment.reference}</strong></p>
         <p>Receipt reference: <strong className="break-all">{confirmed.receipt.reference}</strong></p>
         <p className="mt-2">Paid period: {pht.format(new Date(confirmed.period.startsAt))} PHT inclusive to {pht.format(new Date(confirmed.period.endsAt))} PHT exclusive.</p>
         <p className="mt-2 text-sm text-muted-foreground">The period is paid and recorded. Normal admission still depends on its effective start time.</p>
-      </div> : canPrepare && (pending || (saved && !saved.priceChanged && !reviewRequired)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
+      </div> : canPrepare && (pending || (saved && !saleBlocked && method === "CASH" && !saved.priceChanged && !reviewRequired)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
         event.preventDefault(); if (!ready || busy || (!pendingRef.current && reviewRequired)) return;
+        if (!pendingRef.current && !reviewing) { setReviewing(true); setError(""); return; }
         setBusy(true); setError("");
         try {
           if (!pendingRef.current) {
@@ -133,9 +159,11 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
             <input id="cash-received" name="cashReceived" inputMode="decimal" autoComplete="off" required value={pending ? pending.amount : cashReceived} disabled={busy || !!pending || !ready}
               onChange={event => { setCashReceived(event.target.value); setError(""); }} aria-invalid={!!error && !pending} aria-describedby={error ? "cash-required cash-error" : "cash-required"} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2 text-base tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
           </label>
-          <Button type="submit" disabled={busy || !ready}>{busy ? "Confirming…" : pending ? "Retry same confirmation" : "Confirm full cash"}</Button>
+          <Button type="submit" disabled={busy || !ready}>{busy ? "Confirming…" : pending ? "Retry same confirmation" : reviewing ? "Confirm full cash" : "Review cash payment"}</Button>
+          {reviewing && !pending && <Button variant="outline" disabled={busy} onClick={() => setReviewing(false)}>Back to payment</Button>}
         </div>
         <p id="cash-required" className="mt-2 text-sm text-muted-foreground">{pending ? `Original attempted amount: PHP ${pending.amount}.` : `Required exact amount: ${formatPhp(saved!.priceCentavos)}.`}</p>
+        {reviewing && !pending && <p role="status" className="mt-4 rounded-md bg-attention-surface p-4 text-sm text-attention">Review {memberName}, the full amount, and the proposed dates above. Confirm only after receiving the full cash amount. This records a confirmed payment and paid period.</p>}
       </form> : null}
   </section>;
 }

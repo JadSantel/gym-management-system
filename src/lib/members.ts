@@ -5,7 +5,8 @@ import { memberCreateSchema, memberFieldErrors, memberSearchSchema } from "./mem
 export async function findMembers(headers: Headers, search: unknown) {
   const parsed = memberSearchSchema.safeParse(search);
   if (!parsed.success) throw new IdentityError(400, parsed.error.issues[0].message, { q: parsed.error.issues[0].message });
-  return inGym(headers, "MEMBERS", tx => tx.member.findMany({ where: { fullName: { contains: parsed.data, mode: "insensitive" } }, orderBy: [{ fullName: "asc" }, { id: "asc" }], take: 25 }));
+  return inGym(headers, "MEMBERS", tx => tx.member.findMany({ where: { fullName: { contains: parsed.data, mode: "insensitive" } }, orderBy: [{ fullName: "asc" }, { id: "asc" }], take: 25,
+    include: { entitlements: { where: { isCurrentProjection: true }, select: { startsAt: true, endsAt: true, legacyRecordId: true } } } }));
 }
 export async function createMember(headers: Headers, input: unknown) {
   const parsed = memberCreateSchema.safeParse(input);

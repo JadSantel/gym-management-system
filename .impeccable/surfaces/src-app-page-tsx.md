@@ -2,25 +2,17 @@
 version: 1
 slug: "src-app-page-tsx"
 primary_target: "src/app/page.tsx"
-related_targets: ["src/components/operator-settings.tsx","src/components/app-shell.tsx","src/components/theme-control.tsx"]
+related_targets: ["src/components/app-shell.tsx", "src/app/operate/page.tsx", "src/app/members/page.tsx", "src/app/members/[id]/page.tsx", "src/app/transactions/page.tsx", "src/app/team/page.tsx"]
 ---
 
-# Team and access workspace
+# Prototype v2 operations overhaul
 
-Mode: Operate. Primary target: src/app/page.tsx. Related: operator-settings.tsx, app-shell.tsx, theme-control.tsx and globals.css.
+Mode: Operate. User-pinned reference: gym-crm-prototype-v2.html, final v2 restyle, October 30, 2026. No invention/comp selection round; the supplied functioning prototype is the approved reference. Compare rendered reference and implementation at the same sizes.
 
-## Direction contract
-
-THESIS: Make individual operator access understandable at a glance. Replace the scattered welcome hub with stable navigation and a roster-first workspace.
-
-OWN-WORLD: User-pinned neutral light surfaces and charcoal dark surfaces, restrained emerald actions, fine separators, system UI typography, local shadcn primitives and explicit textual statuses.
-
-STORY: Owners scan identity and account state, invite staff through an individual mailbox, and verify their own password before protected changes. Staff see only their workspace destinations. No invented activity metrics.
-
-FIRST VIEWPORT: A 256px desktop sidebar and 80px header frame the Team & access title. The roster leads the main area; a 360px secondary column contains invitation and protected verification. Below 1280px, supporting panels flow below the roster; below 1024px navigation becomes a native disclosure. One visible current-location accent carries across routes. Motion is limited to nonblocking color transitions with reduced-motion support.
-
-FORM: User-pinned SaaS operations shell; code-led. No concept roll or comp is applicable to this explicitly selected direction. seed: none (user-pinned).
-
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
-
-Constraints: FR-01/AC-01a-c, AD-030/032/033, UX-01 and design.md sections 4-5. Existing server contracts, field IDs, tenant permissions, five-minute freshness, 48-hour invite, reset/disable/revocation, validation and financial invariants remain authoritative. Synthetic data only. No shipping raster assets are created.
+THESIS: Make daily operations the entry point, with member lookup, access, payment, transaction review, exceptions, and closing in one coherent workspace.
+OWN-WORLD: Warm paper, near-black ink controls, Geist, orange selection accents, green confirmed/effective states, rectangular controls and border-led panels. First-class Light/Dark/System. Light banner remains neutral light per AGENTS.md.
+STORY: Owners scan actual tenant records; staff land at front-desk work only when authorized. Administration moves to /team. Preserve all existing recovery and evidence tools.
+FIRST VIEWPORT: 224px sidebar, 65px header, 30px gutters, four owner metrics, attention/recent case review and real seven-day gross amounts; table of recent confirmed records below. Mobile disclosure, bottom navigation, stacking and labelled table rows.
+FORM: Implementation follows the user-supplied HTML design directly, not AI-generated replacement comps. No raster asset generation or comp build gates are applicable.
+CONSTRAINTS: FR-01-12, AC-01-12, UX-01-12, AD-030/032/033. No financial mutation, approval, auth or RLS contract changes. No attendance storage, invented metrics, phone fields, role switch, dependency, schema, production, or live-data changes.
+FINISH: Rendered comparison, both-theme responsive/accessibility checks, real synthetic regression, independent finish review, DESIGN.md and sidecar, then GitHub checkpoint.

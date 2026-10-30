@@ -13,7 +13,7 @@ export default async function OutagePage() {
   const operator = (id: string) => data.operators.find(o => o.id === id)?.user.name ?? "Preserved operator reference";
   const member = (id: string) => data.members.find(m => m.id === id)?.fullName ?? "Member";
   const grant = data.verifiers.find(v => v.operatorId === data.operatorId)?.active;
-  return <><Link href="/" className="underline">Back to home</Link><h1 className="mt-5 text-3xl font-semibold">Outage receipts and custody</h1>
+  return <><Link href="/" className="underline">Back to home</Link><h1 className="mt-5 text-[28px] font-semibold tracking-tight">Outage receipts and custody</h1>
     <p className="mt-3 max-w-3xl text-muted-foreground">Full cash and a controlled paper receipt may document one provisional visit. Back-entry remains pending until independent verification. No automatic repeat admission or additional payment is implied.</p>
     <p className="mt-3 text-sm">During an outage, use pre-prepared paper receipts and signed physical counts at every shift handover. This page records them after recovery. Local synthetic use only; live operations remain unavailable.</p>
     <p className="mt-3 text-sm">Designated independent verifiers: {data.verifiers.filter(v => v.active).map(v => operator(v.operatorId)).join(", ") || "None available — keep receipts pending"}. A collector or entrant cannot verify their own record.</p>

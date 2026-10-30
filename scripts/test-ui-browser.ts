@@ -48,7 +48,7 @@ try {
   browser("fill", "#password", password); browser("fill", "#confirmation", password); click("Save private password");
   text("Your password is ready"); browser("open", `${origin}/login`);
   browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in");
-  text("Welcome, Studio Owner"); text("Operators");
+  text("Welcome, Studio Owner"); browser("open", `${origin}/team`); text("Operators");
   if (before) {
     for (const [name, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["mobile", 375, 812]] as const) {
       browser("set", "viewport", String(width), String(height));
@@ -74,7 +74,7 @@ try {
     const staffUrl = JSON.parse(readFileSync(resolve(".local/mailbox", `${invitation.id}.json`), "utf8")).url;
     click("Sign out"); text("You are signed out."); browser("open", staffUrl);
     browser("fill", "#password", password); browser("fill", "#confirmation", password); click("Save private password"); text("Your password is ready");
-    browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Studio Owner");
+    browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Studio Owner"); browser("open", `${origin}/team`);
     // Fresh owner verification remains enforced by the real API.
     click("Save permissions"); text("Verify your password again before this action.");
     browser("fill", "#reauth-password", password); click("Verify password"); text("Password verified for five minutes.");
@@ -94,7 +94,7 @@ try {
     for (const theme of ["light", "dark"]) {
       browser("select", 'select[aria-label="Appearance"]', theme);
       browser("wait", "--fn", `document.documentElement.classList.contains('dark') === ${theme === "dark"}`);
-      browser("open", `${origin}/`); text("Front Desk Operator");
+      browser("open", `${origin}/team`); text("Front Desk Operator");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
       for (const [name, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["mobile", 375, 812]] as const) {
         browser("set", "viewport", String(width), String(height));
@@ -110,15 +110,15 @@ try {
     browser("set", "media", "dark"); browser("select", 'select[aria-label="Appearance"]', "system");
     browser("wait", "--fn", "document.documentElement.classList.contains('dark')");
     browser("set", "media", "light"); browser("wait", "--fn", "!document.documentElement.classList.contains('dark')");
-    browser("open", `${origin}/`); assert.equal(evaluate("document.querySelector('select[aria-label=Appearance]').value"), "system");
+    browser("open", `${origin}/team`); assert.equal(evaluate("document.querySelector('select[aria-label=Appearance]').value"), "system");
     for (const theme of ["light", "dark"]) {
       browser("select", 'select[aria-label="Appearance"]', theme);
       // UI-only response stubs exercise exceptional list states, then are removed.
       browser("network", "route", "**/api/identity/operators", "--body", "[]");
-      browser("open", `${origin}/`); text("No operators to display"); audit(`${theme} empty list`);
+      browser("open", `${origin}/team`); text("No operators to display"); audit(`${theme} empty list`);
       browser("screenshot", resolve(output, `${theme}-empty.png`), "--full");
       browser("network", "unroute"); browser("network", "route", "**/api/identity/operators", "--abort");
-      browser("open", `${origin}/`); text("Unable to load operators."); audit(`${theme} list failure`);
+      browser("open", `${origin}/team`); text("Unable to load operators."); audit(`${theme} list failure`);
       browser("screenshot", resolve(output, `${theme}-error.png`), "--full");
       browser("network", "unroute");
       evaluate("(() => { const send=window.fetch; window.fetch=function(input,init){if(input==='/api/identity/operators'){window.fetch=send;return new Promise(resolve=>{window.releaseList=()=>resolve(send.call(this,input,init))})}return send.call(this,input,init)}; return true })()");
@@ -142,11 +142,11 @@ try {
     assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, "320px reflow");
     audit("320px reflow");
     browser("set", "viewport", "1440", "1000");
-    browser("find", "role", "link", "click", "--name", "Members", "--exact"); text("Find a member");
-    browser("open", `${origin}/`); text("Team & access");
+    browser("find", "role", "link", "click", "--name", "Members", "--exact"); text("Member directory");
+    browser("open", `${origin}/team`); text("Team & access");
     console.log("Themes/system/persistence, real invitation/permissions/reset/disable, focus/cancel, list states and navigation PASS.");
   }
-} catch (error) { failure = error; }
+} catch (error) { try { browser("screenshot", resolve(output, "failure.png"), "--full"); } catch {} failure = error; }
 finally {
   try { browser("close"); } catch (error) { failure ??= error; }
   await admin.$disconnect(); await db.$disconnect();
