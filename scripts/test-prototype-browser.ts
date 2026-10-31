@@ -41,6 +41,13 @@ function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
+  if (result.incomplete?.some((item: { id: string }) => item.id === "aria-hidden-focus") && evaluate("!!document.querySelector('[role=dialog]')")) {
+    browser("focus", '[role="dialog"] button:has-text("Close")'); browser("press", "Tab");
+    assert.equal(evaluate("document.querySelector('[role=dialog]').contains(document.activeElement)"), true);
+    browser("press", "Shift+Tab"); assert.equal(evaluate("document.activeElement.textContent"), "Close");
+    result.counts.incomplete -= result.incomplete.filter((item: { id: string }) => item.id === "aria-hidden-focus").length;
+    console.log(`${label}: aria-hidden-focus manual review PASS (Tab/Shift+Tab wrap).`);
+  }
   if (result.counts.violations || result.counts.incomplete) console.log(JSON.stringify({ label, violations: result.violations, incomplete: result.incomplete }));
   assert.equal(result.counts.violations, 0, `${label} violations`); assert.equal(result.counts.incomplete, 0, `${label} incomplete`);
 }
@@ -107,8 +114,9 @@ try {
   browser("fill", "#transaction-search", "No matching transaction"); text("No transactions match this view."); audit("Empty transaction filter");
   browser("open", `${origin}/members`); browser("fill", "#search-name", "Nobody with this name"); click("Search"); text("No matching members."); audit("Empty member search");
   browser("fill", "#search-name", "Ana Cruz"); click("Search"); text("Paid next term scheduled"); click("Expired"); text("No members match this filter.");
-  browser("open", `${origin}/operate`); browser("focus", "summary"); browser("press", "Enter");
-  assert.equal(evaluate("document.querySelector('details').open"), true); audit("Mobile keyboard navigation");
+  browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
+  browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("set", "viewport", "320", "812"); audit("320px front desk reflow");
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/members/${fixture[0].id}`);
   browser("select", "#legacy-action", "review"); browser("check", "#legacy-independentlyChecked");
@@ -117,7 +125,9 @@ try {
   audit("Mobile historical review checkbox"); browser("screenshot", resolve(output, "dark-legacy-checkbox-phone.png"));
   click("Sign out"); text("You are signed out."); browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Welcome, Prototype Staff");
   assert.equal(new URL(evaluate("location.href")).pathname, "/operate");
+  click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   assert.equal(evaluate("document.querySelector('nav[aria-label=\"Main navigation\"]')?.textContent.includes('Team & access')"), false);
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: false });
   for (const path of ["/", "/operate", "/members", "/transactions", "/team"]) {

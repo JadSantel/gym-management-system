@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-30T09:33:29.539022+00:00",
+  "generatedAt": "2026-10-31T11:19:28.561Z",
   "title": "Design System: Form & Function",
   "extensions": {
     "breakpoints": [
@@ -817,6 +817,10 @@
           "oklch(84% 0.15981 45.89)",
           "oklch(95% 0.15981 45.89)"
         ]
+      },
+      "scrim": {
+        "displayName": "Modal scrim",
+        "role": "neutral"
       }
     },
     "typographyMeta": {
@@ -838,7 +842,7 @@
     "northStar": "The supplied v2 warm-paper operations workspace",
     "overview": "Follow the supplied prototype v2 warm-paper operations workspace. Product truth and server permissions govern every displayed state.",
     "keyCharacteristics": [
-      "224px navigation rail",
+      "19rem floating sidebar-04 navigation",
       "Warm paper and ink controls",
       "Orange current-location and selection accents",
       "Self-hosted Geist",

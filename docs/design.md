@@ -84,6 +84,8 @@ Use actual local shadcn Button/Input/Card/Badge and native accessible controls w
 
 ### Layout proposals
 
+**Sidebar selection (2026-10-31):** the user selected shadcn `sidebar-04`: floating 19rem desktop navigation, grouped submenus, and a header toggle. Below 1024px use its labelled Sheet drawer with keyboard focus containment, visible close, Escape dismissal, and focus return; retain the existing bottom quick navigation. Map sidebar tokens to the current light/dark system and preserve all route permission checks.
+
 - **Wide desktop (≥1024px):** persistent labeled side navigation, page title + context, main content and compact task/status summary. Use tables with aligned monetary amounts and secondary detail sections.
 - **Tablet (768–1023px):** collapsible side navigation; important action and access status appear above supplementary history. Avoid hidden destructive action menus.
 - **Phone (<768px):** single-column cards, prominent search, full-width action controls, stack field labels, show essential financial/eligibility attributes without horizontal scrolling. For dense ledgers, use accessible responsive record cards or intentional table scroll with headers.

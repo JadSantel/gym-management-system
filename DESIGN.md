@@ -2,6 +2,7 @@
 name: Form & Function - Gym CRM
 description: Warm paper, ink controls, and one orange operations accent.
 colors:
+  scrim: "rgb(0 0 0 / 50%)"
   light-background: "#f4f4f0"
   light-foreground: "#121212"
   light-card: "#fcfcfa"
@@ -145,6 +146,8 @@ The prototype is design input, not product-policy authority. `docs/PROJECT.md` a
 
 `globals.css` owns light/dark semantic pairs, mapped to Tailwind tokens. Light canvas is warm paper with off-white panels. Dark canvas and panels are near-black. Primary controls reverse ink/paper between themes. Orange identifies current navigation, selected payment methods, focus, and the front-desk signature. Green means effective or confirmed; amber means pending/attention; red means blocked/destructive. Always accompany color with text.
 
+The shared `scrim` token darkens the content behind a modal drawer by 50% in either theme.
+
 The light front-desk banner uses a neutral light surface to preserve the first-class light-mode contract; dark mode supplies the ink treatment. No charcoal content panel is imported into light mode. Overview amounts are original confirmed gross collections; daily closing keeps adjustments, refunds, and actual-funds differences.
 
 ## Typography
@@ -153,15 +156,15 @@ Self-hosted Geist Latin, copied unmodified from pinned Next.js 16.4.3. The font 
 
 ## Layout
 
-Desktop: 224px fixed sidebar, 65px header, 30px content gutters. Workspace navigation mirrors the prototype: Overview (owner), Operate, Members, Transactions, Daily closing, Exceptions. Management retains all existing digital verification, outage, pilot, plan, and account workflows. Team administration is `/team`; owners land at `/`, member-enabled staff at `/operate`, other staff at `/team`.
+Desktop: user-selected shadcn `sidebar-04`, a 19rem floating sidebar with grouped submenus, header toggle, and 30px content gutters. Workspace navigation mirrors the prototype: Overview (owner), Operate, Members, Transactions, Daily closing, Exceptions. Management retains all existing digital verification, outage, pilot, plan, and account workflows. Team administration is `/team`; owners land at `/`, member-enabled staff at `/operate`, other staff at `/team`.
 
-Below 1024px a native keyboard-operable navigation disclosure and five-destination bottom navigation replace the sidebar. The authenticated shell is anchored to the viewport and fills 100dvh: header, independently scrolling content, then bottom navigation with safe-area padding. Navigation never overlays form controls. Expanded navigation can scroll within the header; changing route resets the content scroll container. Phone content gutters are 18px. Metric cards use four/two/one columns. The profile groups identity, access, history, and front-desk actions; membership payment follows Plan, Payment, Review while keeping saved-charge and lost-response recovery.
+Below 1024px the header toggle opens a labelled Radix Sheet with focus containment, a visible close control, Escape dismissal, and return focus. Choosing a destination closes the drawer. Five-destination bottom navigation remains. The authenticated shell is anchored to the viewport and fills 100dvh: header, independently scrolling content, then bottom navigation with safe-area padding. Changing route resets the content scroll container. Phone content gutters are 18px. Metric cards use four/two/one columns. The profile groups identity, access, history, and front-desk actions; membership payment follows Plan, Payment, Review while keeping saved-charge and lost-response recovery.
 
 Member status filters scope the displayed maximum 25 search results. Search refreshes the recorded check time. Profiles recheck current eligibility before admission. Transactions show the latest 50 confirmed records and pending claims; full filtered history stays in Exceptions. Responsive tables preserve native table semantics while showing labelled records on phones.
 
 ## Elevation & Depth
 
-Flat surfaces with one-pixel borders and no decorative shadows. Active navigation has the prototype's slim orange inset. The front-desk banner has a restrained dithered orange corner in CSS. No stock imagery, raster comps, fake charts, or fabricated activity.
+Flat surfaces with one-pixel borders; the floating sidebar uses its block's subtle shadow. Active navigation uses orange text, a neutral selected surface, and `aria-current`. The front-desk banner has a restrained dithered orange corner in CSS. No stock imagery, raster comps, fake charts, or fabricated activity.
 
 ## Shapes
 
@@ -169,7 +172,7 @@ Controls and avatars: 6px corners. Panels: 8px. Status labels: 4px. Local shadcn
 
 ## Components
 
-Actively imported local shadcn Button, Input, Card/CardContent and Badge support the interface. Existing native selects, labels, checkbox confirmations, details/summary, and tables remain where simpler. No new UI package or runtime dependency.
+Actively imported local shadcn Button, Input, Card/CardContent and Badge support the interface. The shell composes the installed `sidebar-04` AppSidebar and SidebarProvider/Trigger with local Sidebar, Sheet, Separator, Skeleton and Tooltip primitives. Existing Button/Input files are preserved. Generated `cn` imports reuse the project utility; required `radix-ui` and `lucide-react` versions are pinned. Native selects, labels, checkbox confirmations, and tables remain where simpler.
 
 The shell displays the authenticated role; it has no demo role switch. Appearance remains Light/Dark/System, persisted with pre-paint initialization, live system preference updates, and storage failure fallback. Existing identity summaries, field associations, focus restoration, permission filtering, and server-enforced five-minute owner verification remain.
 
