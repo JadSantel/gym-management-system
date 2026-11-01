@@ -73,6 +73,13 @@ try {
   const staff = await admin.operator.findFirstOrThrow({ where: { gymId, role: "STAFF" } });
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: false });
   browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Alex Prototype");
+  browser("set", "viewport", "1440", "1000");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Workspace", "Management"]);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
+    ["Add Member", "/members#member-name"], ["Record Cash Payment", "/operate"],
+    ["Dashboard", "/"], ["Front Desk", "/operate"], ["Members", "/members"], ["Payments", "/transactions"],
+    ["Plans & pricing", "/plans"], ["Team & access", "/team"], ["Historical pilot evidence", "/pilot"],
+  ]);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
   const paths: string[][] = [["overview", "/"], ["operate", "/operate"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
@@ -84,6 +91,17 @@ try {
       if (name === "payment") browser("wait", "--fn", "document.activeElement?.id === 'charge-title'");
       for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812]] as const) {
         browser("set", "viewport", String(width), String(height)); audit(`${theme} ${name} ${device}`);
+        if (["overview", "operate", "members", "profile", "transactions", "team", "plans", "pilot"].includes(name)) {
+          if (device !== "desktop") { click("Toggle Sidebar"); browser("wait", '[role="dialog"]'); }
+          const expected = name === "profile" ? "/members" : path;
+          assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [expected], `${theme} ${name} ${device} single active destination`);
+          if (device !== "desktop") {
+            audit(`${theme} ${name} ${device} drawer`);
+            if (name === "overview") browser("screenshot", resolve(output, `${theme}-sidebar-${device}.png`));
+            browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+            assert.equal(evaluate("document.activeElement.matches('[data-sidebar=trigger]')"), true, "Escape returns focus to trigger");
+          }
+        }
         if (device !== "desktop" && evaluate("window.scrollY") !== 0) console.log("Frame geometry", evaluate("(() => { const app=document.querySelector('.app-workspace'),main=document.getElementById('main'); return {width:innerWidth,height:innerHeight,rootY:scrollY,rootHeight:document.documentElement.scrollHeight,bodyHeight:document.body.scrollHeight,appHeight:app.getBoundingClientRect().height,mainHeight:main.getBoundingClientRect().height,mainScroll:main.scrollTop,mainOverflow:getComputedStyle(main).overflowY,appOverflow:getComputedStyle(app).overflow,visualHeight:visualViewport.height}; })()"));
         if (device !== "desktop") assert.equal(evaluate("window.scrollY"), 0, `${name} outer page scroll after resize`);
         evaluate(name === "payment" ? "(() => { const heading=document.getElementById('charge-title'),main=document.getElementById('main'); if(getComputedStyle(main).overflowY==='auto') main.scrollTop += heading.getBoundingClientRect().top-main.getBoundingClientRect().top-24; else heading.scrollIntoView({block:'start'}); return true; })()" : "window.scrollTo(0,0); true");
@@ -94,6 +112,30 @@ try {
       console.log(`${theme} ${name}: desktop/tablet/phone, overflow, axe PASS`);
     }
   }
+  browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
+  click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  browser("click", 'nav[aria-label="Main navigation"] a[href="/members#member-name"]');
+  browser("wait", "#member-name"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  assert.equal(evaluate("location.pathname + location.hash"), "/members#member-name");
+  assert.equal(evaluate("(() => {const box=document.getElementById('member-name').getBoundingClientRect(), main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top && box.bottom<=main.bottom && scrollY===0;})()"), true, "Add Member targets visible form");
+  click("Create member"); text("Check the member fields below.");
+  const newName = `Sidebar member ${suffix}`;
+  browser("fill", "#member-name", newName); click("Create member"); text("Member created. Review the member record before collecting payment.");
+  const created = await admin.member.findFirstOrThrow({ where: { gymId, fullName: newName } });
+  assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Creation alone records no payment");
+  click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  browser("find", "role", "link", "click", "--name", "Record Cash Payment", "--exact");
+  text("Who's at the desk?"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  browser("fill", "#search-name", newName); click("Search"); text(newName);
+  browser("click", `main a[href="/members/${created.id}"]`); text("Member profile"); text(newName);
+  assert.equal(evaluate("document.querySelector('main').innerText.includes('Not eligible')"), true);
+  click("Prepare charge preview"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
+  click("Review cash payment"); text("Confirm only after receiving the full cash amount.");
+  assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Review creates no payment");
+  click("Confirm full cash"); text("Full cash payment confirmed");
+  assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 1);
+  assert.equal(await admin.paymentReceipt.count({ where: { payment: { memberId: created.id } } }), 1);
+  console.log("Add Member and Record Cash Payment shortcuts: validation, no access/payment from creation, full cash and durable receipt PASS.");
   for (const path of ["/digital", "/investigations", "/investigations/retired", "/outage-receipts", "/closing"]) {
     browser("open", `${origin}${path}`);
     assert.equal(evaluate("document.body.innerText.includes('404') || document.body.innerText.includes('This page could not be found')"), true, `${path} is retired`);
@@ -109,7 +151,7 @@ try {
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); text("Payment history");
   browser("fill", "input[name=member]", "Maria Santos"); click("Search history"); text("Maria Santos");
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Pending verification')"), false);
-  browser("fill", "#transaction-search", "No matching transaction"); text("No payment record(s) shown."); audit("Empty transaction filter");
+  browser("fill", "#transaction-search", "No matching transaction"); text("0 payment record(s) shown."); audit("Empty transaction filter");
   browser("open", `${origin}/members`); browser("fill", "#search-name", "Nobody with this name"); click("Search"); text("No matching members."); audit("Empty member search");
   browser("fill", "#search-name", "Ana Cruz"); click("Search"); text("Paid next term scheduled"); click("Expired"); text("No members match this filter.");
   browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
@@ -123,16 +165,34 @@ try {
   audit("Mobile historical review checkbox"); browser("screenshot", resolve(output, "dark-legacy-checkbox-phone.png"));
   click("Sign out"); text("You are signed out."); browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Welcome, Prototype Staff");
   assert.equal(new URL(evaluate("location.href")).pathname, "/operate");
+  for (const path of ["/", "/plans"]) {
+    browser("open", `${origin}${path}`); text("Welcome, Prototype Staff");
+    assert.equal(evaluate("location.pathname"), "/operate", `${path} denies owner-only content to staff`);
+  }
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.equal(evaluate("document.querySelector('nav[aria-label=\"Main navigation\"]')?.textContent.includes('Team & access')"), false);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Front Desk", "Members", "Payments", "Your account", "Historical pilot evidence"]);
+  assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/operate", "Staff brand keeps Front Desk home");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
+  assert.equal(evaluate(`fetch('/api/charges', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:'${fixture[0].id}',planId:'${monthly.id}'})}).then(response=>response.status)`), 403);
+  await reauthenticate(owner, password);
+  await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: true });
+  browser("reload"); text("Prepare charge preview"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  assert.equal(evaluate("!!document.querySelector('nav[aria-label=\"Main navigation\"] a[href=\"/operate\"]:has(svg)') && document.querySelector('nav[aria-label=\"Main navigation\"]').textContent.includes('Record Cash Payment')"), true);
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: true });
+  browser("open", `${origin}/team`); text("Your account"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Your account"], "cash-only staff cannot use member-based shortcuts");
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: false });
   for (const path of ["/", "/operate", "/members", "/transactions", "/team"]) {
     browser("open", `${origin}${path}`); text("Your account");
     assert.equal(evaluate("document.querySelector('main').textContent.includes('Maria Santos')"), false);
   }
   assert.equal(evaluate("fetch('/api/members').then(response => response.status)"), 403);
+  click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Management"], "empty action/workspace groups hidden");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Your account"]);
   console.log("Transaction/member filters, empty states, keyboard, 320px reflow, staff landing, denied cash preparation and immediate capability revocation PASS.");
 } catch (error) { try { browser("screenshot", resolve(output, "failure.png"), "--full"); } catch {} failure = error; }
 finally {

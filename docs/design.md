@@ -45,26 +45,36 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 | Primary owner | “Which actions and receipts are attributable?” | Filterable history, capabilities and account lifecycle. Historical records are clearly read-only. |
 | Platform administrator (separate trust boundary) | “Has independent gym ownership been verified?” | **Private and audited** pending-owner bootstrap/recovery; never exposed in normal gym navigation. |
 
-### 3.2 Suggested navigation (progressive by delivery slice)
+### 3.2 Implemented navigation - November 1, 2026
 
-| Area (suggested label) | Main purpose | Earliest slice | Notes |
+The sidebar and responsive drawer use **Quick Actions**, **Workspace**, and **Management**, in that order. Empty groups are hidden. The shortcuts deliberately add rows for faster access; grouping alone does not reduce the destination count.
+
+| Group | Label | Route | Visibility / purpose |
 |---|---|---|---|
-| **Overview** | Recorded cash activity and quick links | S-01g onward | No fabricated revenue or closing totals. A simple signed-in landing page is enough for S-01a. |
-| **Members** | Search/create; detail with access and paid history | S-01c | Present access independently from collection status. |
-| **Collections** | Prepare exact charge, confirm full cash, retrieve references | S-01d–f | Full cash only; digital states are historical and read-only. |
-| **Settings** | Gym plan/pricing, operator accounts and capabilities, appropriate configuration | S-01a/b/d | Owner and capability checks per operation. |
-| **Historical pilot evidence** | Read prior migration and measurement artifacts | S-07 | Archive only; no current pilot workflow is authorized. |
+| Quick Actions | Add Member | `/members#member-name` | Owner or staff with member access; targets the existing name field. Creation records no payment and grants no paid access. |
+| Quick Actions | Record Cash Payment | `/operate` | Owner or staff with both member access and cash collection permission; opens Front Desk to find a member and prepare the existing full-cash flow. |
+| Workspace | Dashboard | `/` | Owner only; existing overview page. |
+| Workspace | Front Desk | `/operate` | Owner or staff with member access; existing lookup and eligibility workflow. |
+| Workspace | Members | `/members` | Owner or staff with member access; search, create, paid periods and eligibility. |
+| Workspace | Payments | `/transactions` | Owner or staff with member access; confirmed payment history. Historical non-cash records remain read-only. |
+| Management | Plans & pricing | `/plans` | Owner only. |
+| Management | Team & access / Your account | `/team` | Owner sees Team & access; staff see Your account with existing account permissions. |
+| Management | Historical pilot evidence | `/pilot` | Owner or staff with member access; archive only, no current pilot authorization. |
 
-**Navigation principle:** Show only authorized actions. Staff may still see a read-only status/clear “not permitted” explanation where useful; a direct forbidden request is rejected by the server. Do not reveal another gym’s existence or data. Avoid inventing a gym selector; an operator account belongs to one gym.
+Workspace and Management destinations use exact or descendant route highlighting; Dashboard matches `/` only. Quick Actions are shortcuts, without current-page styling, so Record Cash Payment does not duplicate Front Desk's active state. The header uses the destination label. Desktop and mobile both say **Payments**. Below 1024px the drawer contains all permitted groups and the bottom navigation contains Front Desk, Members and Payments for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. The brand link preserves owner `/`, member-capable staff `/operate`, other staff `/team`.
 
-### 3.3 Suggested route inventory (illustrative, not framework or API contracts)
+**Authorization:** Navigation reflects existing capabilities; server/API checks remain authoritative, including direct requests, fresh capability checks and tenant isolation. Cash permission alone does not expose the shortcut because member lookup/charge preparation also requires member access.
 
-- Public/account: `/login`, `/setup/invitation`, `/reset-password`, `/account/reconfirm-password`.
-- Authenticated app: `/app`, `/app/members`, `/app/members/[memberId]`, `/app/collections`, `/app/collections/[reference]`, `/app/settings/operators`, `/app/settings/plans`.
-- Retired routes `/digital`, `/investigations`, `/outage-receipts`, and `/closing` are removed. Existing history is shown read-only on member/payment pages. `/pilot` is a historical evidence archive; it is not a current pilot workflow.
-- Private platform operations **must not** be implemented as an unprotected variant of an `/app` route. Actual path and access architecture must be decided in the relevant implementation slice.
+**Deferred:** Reports, Attendance, QR Scanner, public registration, member login/portal and QR attendance require separately approved scope. Do not add placeholders. Payments has no pending/failed/refunded tabs or membership balances. Member eligibility remains Active, Scheduled, Expired and No membership; no undefined "expiring soon" window is introduced.
 
-Route names above are proposals. A route ID must never be trusted as authorization; all member/payment resources are checked within the active authenticated gym.
+**Next task after the navigation GitHub checkpoint:** separately merge Front Desk lookup/eligibility into Members using existing behavior. Verify lookup, eligibility, creation and payment access before replacing `/operate` with a compatibility redirect and removing its navigation link. This increment retains Front Desk and does not perform that merge.
+
+### 3.3 Current route inventory
+
+- Public/account: `/login` (including owner recovery) and `/setup` for private invitation/reset completion; no public registration.
+- Authenticated app: `/`, `/operate`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/plans`, `/team`, `/pilot`, subject to existing server authorization.
+- Retired routes `/digital`, `/investigations`, `/outage-receipts`, and `/closing` are removed. Existing linked history remains read-only on member/payment pages.
+- Private platform operations remain outside normal gym navigation. A route/resource ID never establishes authority; every protected resource is checked within the authenticated gym.
 
 ## 4. Selected dual-theme visual direction (presentation only; editable tokens)
 
@@ -72,7 +82,7 @@ Route names above are proposals. A route ID must never be trusted as authorizati
 
 Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses a warm neutral canvas and off-white panels; dark uses near-black layers. Primary actions reverse ink/paper between themes. Orange marks navigation, selected controls and focus; green means confirmed/effective, amber pending/attention, red blocked/destructive. The prototype's dark front-desk banner is adapted to neutral light in light mode under the existing AGENTS.md contract. All text/control contrast still requires rendered checks.
 
-Navigation follows Overview, Operate, Members and Transactions, with Plans, Team & access, and the Historical pilot evidence archive under Management. Digital collection, Exceptions, outage receipt/custody, and daily closing are absent. Owners land at `/`; staff with member access land at `/operate`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
+Navigation follows the implemented Quick Actions, Workspace and Management groups in section 3.2: Dashboard, Front Desk, Members and Payments, with Plans & pricing, Team & access and Historical pilot evidence under Management. Digital collection, Exceptions, outage receipt/custody, and daily closing are absent. Owners land at `/`; staff with member access land at `/operate`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
 
 Member profiles separate current access, queued paid periods, cash payment/receipt history, and retained historical digital, case, adjustment and outage records. Payment follows Plan / Payment / Review using an exact full-cash charge and same-key recovery. Retired historical records are read-only. Prototype attendance storage/check-ins, fictional metrics and optional phone data remain outside scope. Current eligibility remains authoritative.
 

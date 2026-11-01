@@ -11,18 +11,22 @@ type ShellActor = { name: string; gym: string; owner: boolean; members: boolean;
 export function AppShell({ actor, children }: { actor: ShellActor | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const members = actor && (actor.owner || actor.members);
+  const actions: Destination[] = actor ? [
+    ...(members ? [{ href: "/members#member-name", label: "Add Member", icon: "plus" as const }] : []),
+    ...(members && (actor.owner || actor.cash) ? [{ href: "/operate", label: "Record Cash Payment", icon: "wallet" as const }] : []),
+  ] : [];
   const workspace: Destination[] = actor ? [
-    ...(actor.owner ? [{ href: "/", label: "Overview", icon: "overview" as const }] : []),
+    ...(actor.owner ? [{ href: "/", label: "Dashboard", icon: "overview" as const }] : []),
     ...(members ? [
-      { href: "/operate", label: "Operate", icon: "operate" as const },
+      { href: "/operate", label: "Front Desk", icon: "operate" as const },
       { href: "/members", label: "Members", icon: "members" as const },
-      { href: "/transactions", label: "Transactions", icon: "receipt" as const },
+      { href: "/transactions", label: "Payments", icon: "receipt" as const },
     ] : []),
   ] : [];
   const administration: Destination[] = actor ? [
-    ...(members ? [{ href: "/pilot", label: "Historical pilot evidence", icon: "shield" as const }] : []),
-    ...(actor.owner ? [{ href: "/plans", label: "Plans and pricing", icon: "plans" as const }] : []),
+    ...(actor.owner ? [{ href: "/plans", label: "Plans & pricing", icon: "plans" as const }] : []),
     { href: "/team", label: actor.owner ? "Team & access" : "Your account", icon: "team" as const },
+    ...(members ? [{ href: "/pilot", label: "Historical pilot evidence", icon: "shield" as const }] : []),
   ] : [];
   const current = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   const label = [...workspace, ...administration].find(item => current(item.href))?.label ?? "Workspace";
@@ -33,10 +37,10 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
     </div>
     </header>
     <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>
-    {actor && workspace.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{workspace.filter(item => item.href !== "/").slice(0, 5).map(item => <Link key={item.href} href={item.href} aria-current={current(item.href) ? "page" : undefined} className={current(item.href) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label === "Transactions" ? "Payments" : item.label}</span></Link>)}</nav>}
+    {actor && workspace.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{workspace.filter(item => item.href !== "/").slice(0, 5).map(item => <Link key={item.href} href={item.href} aria-current={current(item.href) ? "page" : undefined} className={current(item.href) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label}</span></Link>)}</nav>}
   </div>;
   return actor ? <SidebarProvider style={{ "--sidebar-width": "19rem" } as React.CSSProperties}>
-    <AppSidebar actor={actor} groups={[{ title: "Workspace", items: workspace }, { title: "Management", items: administration }]} current={current} />
+    <AppSidebar actor={actor} groups={[{ title: "Quick Actions", items: actions, actions: true }, { title: "Workspace", items: workspace }, { title: "Management", items: administration }]} current={current} />
     {content}
   </SidebarProvider> : content;
 }
