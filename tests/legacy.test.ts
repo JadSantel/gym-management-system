@@ -16,7 +16,6 @@ import { assessEligibility } from "../src/lib/eligibility";
 import { legacyCommand, LegacyRejected } from "../src/lib/legacy";
 import { legacyCommandSchema, legacyInterval } from "../src/lib/legacy-schema";
 import { pilotEvidence, pilotWindowSchema } from "../src/lib/pilot";
-import { closingOverview } from "../src/lib/closing";
 import { POST } from "../src/app/api/legacy/route";
 
 assertSynthetic();
@@ -84,8 +83,7 @@ test("S-07 real PostgreSQL reviewed legacy access and purchase isolation", async
   });
   await t.test("approval is atomic, preserves provenance and creates no collections or closing changes",async()=>{
     const p=await proposal(); const day=new Date(Date.now()+8*3600_000).toISOString().slice(0,10);
-    const before=await closingOverview(owners[0],day);
-    const counts=await Promise.all([admin.payment.count({where:{gymId:gyms[0]}}),admin.charge.count({where:{gymId:gyms[0]}}),admin.paymentReceipt.count({where:{gymId:gyms[0]}})]);
+    const before=await Promise.all([admin.payment.count({where:{gymId:gyms[0]}}),admin.charge.count({where:{gymId:gyms[0]}}),admin.paymentReceipt.count({where:{gymId:gyms[0]}}),admin.closingSnapshot.count({where:{gymId:gyms[0]}}),admin.closingLine.count({where:{gymId:gyms[0]}}),admin.closingApproval.count({where:{gymId:gyms[0]}})]);
     const entered=p.row.createdAt; const key=randomUUID(); const approved=await legacyCommand(owners[0],review(p.row.id),key);
     assert.equal(approved.proposalId,p.row.id); assert(approved.createdAt>=entered); assert.equal(approved.actorId,owner.id);
     const intervals=await admin.effectiveEntitlement.findMany({where:{memberId:p.member.id}});
@@ -93,8 +91,7 @@ test("S-07 real PostgreSQL reviewed legacy access and purchase isolation", async
     assert.equal(assessEligibility(intervals,new Date(start)).status,"ELIGIBLE");
     assert.equal(assessEligibility(intervals,new Date(end)).status,"EXPIRED");
     assert.equal(assessEligibility(intervals,new Date(new Date(start).getTime()-1)).status,"SCHEDULED");
-    assert.deepEqual(await Promise.all([admin.payment.count({where:{gymId:gyms[0]}}),admin.charge.count({where:{gymId:gyms[0]}}),admin.paymentReceipt.count({where:{gymId:gyms[0]}})]),counts);
-    assert.equal((await closingOverview(owners[0],day)).sourceHash,before.sourceHash);
+    assert.deepEqual(await Promise.all([admin.payment.count({where:{gymId:gyms[0]}}),admin.charge.count({where:{gymId:gyms[0]}}),admin.paymentReceipt.count({where:{gymId:gyms[0]}}),admin.closingSnapshot.count({where:{gymId:gyms[0]}}),admin.closingLine.count({where:{gymId:gyms[0]}}),admin.closingApproval.count({where:{gymId:gyms[0]}})]),before);
     assert.equal((await legacyCommand(owners[0],review(p.row.id),key)).id,approved.id);
     assert.equal((await request(owners[0],{...review(p.row.id),notes:"Changed fingerprint"},key)).status,409);
     const report=await pilotEvidence(staff,{start:day,end:new Date(new Date(`${day}T00:00Z`).getTime()+86400_000).toISOString().slice(0,10)});

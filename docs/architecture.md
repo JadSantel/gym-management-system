@@ -1,9 +1,13 @@
 # Gym CRM — Software Architecture (`architecture.md`)
 
-**Status:** Working architecture, reviewed 2026-10-25 for current local S-01-S-03, supported S-04 and S-05 source/verification plus the approved October 25 policies. Approved direction, local implementation and live operational evidence remain distinct. No live domain/Brevo provisioning, deployment or backup validation is asserted.
-**Updated:** 2026-10-25 (Asia/Manila)
+**Status:** Working architecture, reviewed 2026-11-01 for the user-approved cash-only scope revision. Current full-cash, receipt/history, eligibility, tenant, and security contracts are separated from retired S-03-S-06 implementation context. Approved direction, local implementation and live operational evidence remain distinct. No live domain/Brevo provisioning, deployment or backup validation is asserted.
+**Updated:** 2026-11-01 (Asia/Manila)
 **Authoritative inputs:** `PROJECT.md` governs MVP requirements/acceptance/implementation gates; `product.md` defines business-policy intent and discovery context. Flag inconsistencies rather than choosing silently. Historical conversation handoffs are context, not overriding sources; use `IMPLEMENTATION_STATUS.md` for current source/check evidence.
-**Implementation baseline:** Seven business milestones S-01–S-07, with S-01a–S-01g engineering tasks. Scope and accepted membership/payment policy are inherited, not altered here.
+**Implementation baseline:** S-01-S-07 have historical local evidence as detailed in the ledger; the 2026-11-01 revision retires current S-03-S-06 operation. S-01a-S-01g implementation contracts remain relevant. No live/pilot readiness is implied.
+
+## Current architecture scope — user-approved 2026-11-01
+
+New ordinary membership payments are full cash only. Digital collections, Exceptions (investigation/recovery/correction/refund), outage receipts/custody/provisional access, and daily closing are retired; their mutation APIs reject requests. Existing schema, migrations, records and links remain preserved for audit and read-only member/payment history. No destructive migration or history rewrite is authorized. The detailed S-03–S-06 architecture below documents the prior implementation and remains historical context; it does not authorize current writes. A future emergency process outside the CRM requires a separate operational decision.
 
 ## 1. Approved decisions versus open selections
 
@@ -142,14 +146,14 @@ This guide combines implemented foundations with explicitly labelled future conc
 | `members` | `gym_id`, stable member ID, minimum approved fields | Composite tenant-aware references and member search indexes |
 | `plans` | gym owner-controlled price, duration, active version | Validated full price; historical sales keep immutable snapshots |
 | `idempotency_operations` | gym, command type, operation key, canonical request fingerprint, committed result | `UNIQUE(gym_id, operation_type, operation_key)` |
-| `payments` | gym, member, method, **amount_centavos**, currency, plan/price snapshot, collector, distinct time fields, verifier, state, external reference | Pending digital payment gives no entitlement; confirmed entries not silently edited/deleted |
+| `payments` | gym, member, method, **amount_centavos**, currency, plan/price snapshot, collector, distinct time fields, verifier, state, external reference | New ordinary payments are full CASH only; historical methods/states remain preserved and read-only |
 | `membership_periods` | confirmed source payment; future verified migration provenance remains S-07 scope; start/end and original immutable paid promise | For purchases, exactly one corresponding confirmed membership payment; `[start,end)` |
 | `effective_entitlement_intervals` (**approved separate model**) | gym, member, exactly one paid-period or approved-legacy source, effective `[start,end)`, current projection flag | DB exclusion prevents overlapping **current effective** segments; original sources preserved; purchases remain payment-backed |
-| `payment_receipts` | unique reference, gym, confirmed payment, issued timestamp | One retrievable issued reference per confirmed collection; controlled physical outage receipt scope separate |
+| `payment_receipts` | unique reference, gym, confirmed payment, issued timestamp | Ordinary cash receipts remain retrievable; old outage receipt references remain linked as historical records |
 | `identity_audit` (current append-protected audit) | actor, gym, action, target, timestamp, safe metadata | Append-preserving history, no credential secrets |
-| `investigation_cases`, `investigation_events` (local S-04) | immutable claims, evidence references, proposal, owner approval, linked execution and settlement | Actual local adjustment/evidence storage is append-only investigation events; supported scope and conditional refund limits follow PROJECT FR-07/08 |
-| `outage_books`, `outage_prices`, `outage_verifiers`, `outage_entries`, `outage_handovers`, `outage_confirmations`, `outage_events` (local S-05) | gym/booklet/number scope, approved immutable paper prices, designated independent verifiers, original one-visit record and actual/recovery custody times | Append-only evidence; pending entry grants no entitlement; unique payment source and atomic complete result; explicit exception/investigation history |
-| Local S-06: `closing_checks`, `closing_snapshots`, `closing_lines`, `closing_line_checks`, `closing_approvals` | business date, immutable source/count evidence, original collector/method totals, differences, source links and owner acknowledgement | Immutable originals and explicit linked supplemental snapshots; later events never rewrite history |
+| Historical `investigation_cases`, `investigation_events` (S-04) | Existing immutable claims, evidence, decisions, adjustments and settlements | Retained read-only; no current investigation, recovery, correction or refund writes |
+| Historical outage/custody tables (S-05) | Existing booklet, price, verifier, entry, handover and confirmation links | Retained read-only; no current outage/custody/provisional access writes |
+| Historical closing tables (S-06) | Existing checks, snapshots, lines, differences and approvals | Retained read-only; no current closing/supplement writes |
 | Local S-07: `legacy_records`; manual pilot worksheet | immutable source proposals, claimed/explicit intervals, uncertainty, owner decisions, actual entry/sign-off; independent measurement sources | Historical access creates no financial records; alternate projection source requires approved legacy decision; [approved local protocol](S07_LOCAL_POLICY_PROPOSAL.md) and [worksheet](S07_MEASUREMENT_WORKSHEET.md) |
 
 **Current local representation:** PostgreSQL `INTEGER` centavos, exact validated JavaScript integer values and JSON numbers, bounded to PHP 0.01-PHP 21,474,836.47 for positive amounts; zero is allowed only for explicit no-movement adjustments. See the schema, money parser and finance/case schemas. `BIGINT` with explicit JSON serialization was an earlier unadopted option, not a requirement to migrate this verified bounded implementation. Never use floating-point money arithmetic. Currency remains PHP; refund/correction amounts follow approved reason/evidence rules and never overwrite the original payment row.
@@ -160,8 +164,10 @@ Use `timestamptz` for event instants. Record **actual collection time**, receipt
 
 O-07 user approval (2026-10-24): Monthly **₱800 / 30 days**, 3 Months **₱2,100 / 90 days**, 6 Months **₱4,000 / 180 days**. Days are consecutive 24-hour periods, never calendar months. Snapshot duration and integer-centavo price. New membership or late renewal starts **00:00 Asia/Manila on the verified full-payment date**. Valid outage back-entry uses midnight of the verified original collection date. Early renewal starts at the existing interval's end. Use `[start,end)`; no verified period, no normal eligibility. Payment at 18:30 never proves earlier admission. Store/evaluate UTC instants; display Asia/Manila.
 
+The outage back-entry sentence above is historical only. Current operations support online full-cash collection; no outage receipt or later recovery workflow is available.
+
 - `membership_periods` holds the original confirmed financial provenance and sold term. Corrective/refund actions preserve this history, with linked owner approval.
-- A **separate current effective entitlement projection is approved** so authorized access-shortening/termination does not delete historical paid terms. Every paid-term creation updates this projection in the same transaction; later owner-approved adjustments append correction evidence and atomically supersede affected projection rows.
+- A **separate current effective entitlement projection is approved** so the system can determine current access without rewriting historical paid terms. Every paid-term creation updates this projection in the same transaction. Existing correction evidence remains historical and read-only; no new correction/refund workflow may alter the projection.
 - Member-level `SELECT ... FOR UPDATE` locks serialize overlapping sales and read/recompute membership sequencing within one transaction. A database exclusion constraint is the final invariant if application locking is missed.
 - The exclusion constraint must cover **all current effective future/present/past** intervals as applicable, not just rows whose display label is `active` today. Avoid `CURRENT_TIMESTAMP` in a predicate: a time-dependent predicate cannot reliably represent lifetime overlap safety.
 
@@ -179,7 +185,7 @@ ALTER TABLE effective_entitlement_intervals
   ) WHERE (is_current_projection);
 ```
 
-Prerequisites: `gym_id`, `member_id`, `start_at`, `end_at` are non-null, timestamps have `CHECK(start_at < end_at)`, `is_current_projection` is trusted server-maintained data, and proper FK / RLS checks exist. The implemented supported S-04 path appends immutable approval/execution evidence and atomically updates only the guarded derived interval dates/current flag. Original paid periods, payments and receipts remain immutable. Replacement projection segments were a conceptual option, not the current schema shape; extensions or arbitrary splits remain unavailable. For consistency and because the model is now approved, **create one projection row for every S-01 confirmed paid period in the same transaction**; later correction workflows may supersede segments atomically. Actual migration/guard syntax and rollback/overlap behavior have recorded local integration checks; hosted behavior still needs separate verification. An exclusion constraint cannot determine whether a given refund is legally/policy-eligible; `PROJECT.md` refund gates remain controlling.
+Prerequisites: `gym_id`, `member_id`, `start_at`, `end_at` are non-null, timestamps have `CHECK(start_at < end_at)`, `is_current_projection` is trusted server-maintained data, and proper FK / RLS checks exist. Historical S-04 execution appended immutable approval/evidence and guarded derived interval changes; that workflow is retired. Original paid periods, payments and receipts remain immutable. Create one projection row for every S-01 confirmed paid period in the same transaction. Existing migration/guard syntax and rollback/overlap behavior have recorded local integration checks; hosted behavior still needs separate verification.
 
 Mandatory acceptance examples: contiguous terms meeting exactly at `end` are allowed; overlaps of one second are rejected; attempts by two concurrent sessions are rejected/serialized; two different gyms may each have the same member UUID only within their own namespace without colliding; approved termination/correction preserves original ledger and updates eligibility according to explicit owner decision.
 
@@ -213,28 +219,32 @@ Return same result for a retry
 
 The idempotency record, payment, period, effective entitlement where modeled, receipt and audit are one commit/rollback unit. A duplicate operation key from a competing transaction waits/resolves consistently via a unique constraint; bounded conflict/deadlock retry rules and failure mapping are required. A retry after an unknown commit first looks up the scoped operation key. **Never** create a different confirmed collection just because the server lost its response. Conversely, matching `(member, amount, date)` alone never proves duplication; distinct actual collections remain legitimate.
 
-Choose/read supported transaction API for the pinned Prisma version. For Prisma 7, use the interactive `prisma.$transaction(async tx => ...)` pattern, pass `tx` to all repositories and issue reviewed parameterized SQL for row locking / tenant context. Do not wait for emails, manual GCash verification or user input inside an open DB transaction. Confirm digital settlement evidence *before* final atomic payment/period creation. Sensitive commands require active authorization at execution time.
+Choose/read supported transaction API for the pinned Prisma version. For Prisma 7, use the interactive `prisma.$transaction(async tx => ...)` pattern, pass `tx` to all repositories and issue reviewed parameterized SQL for row locking / tenant context. Do not wait for emails or user input inside an open DB transaction. Sensitive commands require active authorization at execution time.
 
 **Isolation:** start with PostgreSQL `READ COMMITTED` + consistent member lock order + unique constraints + exclusion constraint; this is a **proposed** level, not user approval of a particular isolation level. Consider `SERIALIZABLE` with bounded retries only if tests demonstrate need. Handle potential deadlocks, statement/transaction timeouts and unknown commit results explicitly; do not automatically replay a financial command under a new operation key.
 
-**Other atomic commands (later slices):** verified digital conversion; authenticated missing-payment recovery; verified offline cash receipt conversion; owner-approved adjustment including explicit access disposition; closing review/snapshot. Every path must preserve the same identity, tenant, monetary and audit guarantees.
+**Retired command families:** digital conversion, missing-payment recovery, outage receipt conversion, owner-approved adjustments/refunds, and closing review/snapshot. Former API paths reject requests without writes. The atomicity, tenant and audit constraints remain applicable to ordinary cash collection and preserved history.
 
 ## 8. Business statuses must stay separate
 
-- **Payment:** pending verification / confirmed / flagged, with linked reversal/correction events.
+Current operations support new full-cash payments and paid periods. The historical states below remain in storage for prior records only; they do not imply an active workflow.
+
+- **Payment:** new full-cash confirmed payment; historical digital pending/flagged states and linked adjustments are read-only.
 - **Paid period:** scheduled / active / expired / adjusted-or-terminated, derived from time plus verified financial provenance and approved adjustments.
-- **Admission:** eligible / not eligible / one-visit provisional offline access. An outage receipt is **not** a durable digital paid membership by itself.
-- **Investigation:** open / under review / escalated / resolved.
+- **Admission:** eligible / not eligible based on paid periods or approved historical entitlement. Historical outage visits do not grant current access.
+- **Historical investigation:** open / under review / escalated / resolved records remain read-only.
 
-A currently active member can simultaneously have a pending digital renewal and remain eligible on the current verified period. A future scheduled period is fully paid; an unpaid or screenshot-only proposal has **no** paid period. Do not collapse these into one generic `member_status` or `pending_renewal` field.
+A future scheduled period is fully paid; an incomplete purchase has **no** paid period. Do not collapse these into one generic `member_status` or `pending_renewal` field.
 
-## 9. Outage, digital verification, refunds and closing
+## 9. Retired workflow architecture — historical context only
 
-- **Digital:** cash, GCash and bank transfer are supported methods. Only explicitly authorized verifiers with designated receiving-account access can confirm actual funds. Screenshot/reference alone never suffices. Pending digital collection cannot activate a period. Keep verifier, account-match reference, collection and confirmation times distinct; credentials for receiving accounts are never stored.
-- **Physical outage:** full cash + controlled pre-numbered paper receipt may authorize **one visit only**, documented manually. There is no offline digital sync app. Back-entry when service returns remains unconfirmed until checked against independent cash/receipt/custody evidence, with original collection date preserved for applicable late renewals. Number reuse and missing/void receipts require traceable exception states. Mandatory shift-end custody handover occurs even without reconnection.
-- **Missing payment (PROJECT FR-07):** staff may investigate/document/escalate; only the owner approves and executes independently corroborated omitted full-cash recovery. Known controlled outage sources stay in the separately designated independent S-05 verification flow; they cannot bypass independence through S-04. Digital cross-date recovery remains gated.
-- **Adjustments/refunds:** only owner approves changes to confirmed financial records, preserving original and linking explicit evidence, money disposition, access stays/ends/adjusts, rationale and effective date. Gym-specific refund eligibility/amount remains a product gate.
-- **Closing:** the user approved all three local synthetic [S-06 SOP decisions](S06_CLOSING_POLICY_PROPOSAL.md) October 25, 2026: Manila calendar day, segregated zero-float membership cash, settled refund allocation and immutable supplemental closings. Cash-capable staff prepare; fresh owner acknowledgement preserves signed differences and outstanding items. Live cash handling, named people/evidence procedures, physical rehearsal and pilot sign-off remain open.
+The S-03–S-06 mechanisms described in this section are no longer available for current operation. Their models/migrations and existing data remain preserved. No current writer or user route may mutate these records.
+
+- **Digital (retired):** historical cash, GCash and bank records, receiving-account references and verifier events remain read-only. New ordinary payments are full cash only.
+- **Physical outage (retired):** existing numbered-receipt, custody, back-entry and provisional-visit data remain preserved and read-only. No external emergency process is inferred.
+- **Missing payment (retired):** no current investigation, recovery or associated financial write is available. Historical evidence remains read-only.
+- **Adjustments/refunds (retired):** existing originals and linked evidence/settlement records are preserved. No new correction, refund or access-outcome mutation is available.
+- **Closing (retired):** existing local synthetic closing snapshots and approvals remain preserved read-only. No current closing or supplement write is available.
 
 ## 10. Security, privacy and operational controls
 
@@ -340,17 +350,19 @@ Vercel **Preview** deployments are not the same as a controlled staging environm
 | T-06 | Two distinct concurrent member renewals that would overlap | Lock / exclusion prevents overlapping currently effective intervals; additional advance sale blocked while a queued paid term exists |
 | T-07 | New/late payment at 18:30 and leap-year/month-end dates | 00:00 local effective start; fixed 30×24-hour end; exclusive end; never pre-payment access |
 | T-08 | At `end`, next paid interval begins at exactly same instant | Adjacent paid terms allowed, continuous correct eligibility |
-| T-09 | Staff executes direct refund or owner-recovery request | Denied and audited |
-| T-10 | Cash receipt after offline outage entered two days later | Original collection and entry/verification times distinct; only one provisional visit |
-| T-11 | Owner-approved early termination/refund | Original payment and sold term retained, current entitlement projection correctly updated |
+| T-09 | Owner or staff sends GET/POST/PUT/PATCH/DELETE to any retired digital, investigation, outage, or closing API | HTTP 410; no historical financial or operational record is created or changed |
+| T-10 | Existing digital, exception, outage, and closing records are linked from member/payment history | Relevant historical records remain readable with their original references and methods; no retired mutation is available |
+| T-11 | Authorized operator records a full cash payment and retrieves its receipt | One confirmed payment, paid period, receipt and current eligibility; member/payment history remains readable |
 | T-12 | Restored database in a clean environment | RLS, roles, `btree_gist`, constraints, schema version, recovery checks and audit references all valid |
 | T-13 | Brevo acceptance, rejection, timeout, rate limit or bounce | Activation/reset gates unaffected; safe retry/alert state; no token or API secret leaks |
 | T-14 | Invitation/reset email is late, replayed, or followed by disabled operator | **48-hour** invite and **30-minute** reset cutoffs enforced, used/replaced token denied; disabled user never gains access; audited without token contents |
 | T-15 | No platform sending domain is configured | Local/synthetic email capture and token tests work; real Brevo sending stays disabled with a clear configuration/readiness error; no fake sender or accidental live recipient |
 | T-16 | Invite delivery fails or owner retries a pending invitation | Invitation stays pending; authorized rate-limited resend rotates token, old link fails and fresh link has its own **48-hour** expiry |
 | T-17 | First-owner bootstrap attempted anonymously, repeatedly or without approved verification | Rejected or remains pending; no active gym/owner; authorized verified bootstrap creates only one owner; single-use 48-hour invitation and full audit proven in synthetic tests |
+| T-18 | Browser requests a retired workflow page | HTTP 404; no active navigation entry or mutation form is presented |
+| T-19 | Partial cash or non-cash collection is submitted through the ordinary payment flow | Rejected without confirmed payment, receipt, paid period, or entitlement |
 
-Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until all pilot privacy, recovery and operational gates are satisfied. Add negative tests for unavailable digital verifier, receipt mismatch and missing evidence, closing differences, and session revocation. Instrument pilot measurement timestamps honestly.
+Map each test to the applicable current `PROJECT.md` FR/AC IDs. Use synthetic data until pilot privacy, recovery, and operational gates are satisfied. Retired APIs must preserve database records; do not carry forward prior digital-verifier, outage-receipt, refund/correction, or closing-write tests as current workflow acceptance. Retain session-revocation and ordinary cash authorization tests. Instrument future pilot timestamps honestly under revised O-09.
 
 ## 13. Delivery sequence (do not redefine the seven business milestones)
 
@@ -456,11 +468,11 @@ Map each test to the applicable `PROJECT.md` FR/AC IDs. Use synthetic data until
 - Inventory validation first, then migrate one coherent workflow at a time. Preserve existing contracts, normalization, idempotency fingerprints and retry behavior. Remove obsolete validators only after equivalent checks pass; do not bulk-rewrite completed slices or reset migration history.
 - Verify valid cases and malformed/direct requests, unexpected protected fields, wrong types, null/empty values, oversized input, exact-money/date boundaries, safe configuration failures and accessible form recovery. Include existing restricted-role PostgreSQL/RLS, authorization, concurrency and lost-response retry regressions wherever touched. Record actual commands/results in IMPLEMENTATION_STATUS.md; documentation changes alone prove no integration coverage.
 
-### S-04 execution integrity - approved October 25, 2026 (AD-012/013/016/017/022)
+### S-04 execution integrity - approved October 25, 2026 (historical; retired 2026-11-01)
 
 Extend append-only investigation events for owner recovery approval, recovery, linked adjustment execution and verified external settlement. Bind execution to the exact immutable proposal and owner approval; use fresh owner reauthentication/current authorization, tenant-local transactions and member locks. Unique tenant operation keys/fingerprints, one recovery per case, one executed adjustment per payment and one settlement per execution prevent duplicate effects. Preserve original payment/receipt/period history. Only the derived entitlement projection may change to explicit approved dates/disposition, guarded by an executed linked event; preserve PostgreSQL exclusion constraints. All event, financial, projection and audit writes commit or roll back together. Store exact integer centavos, opaque independent references and separate collection/entry/verification/settlement times; never store credentials or evidence uploads. Approval never completes external settlement; no external money-transfer integration. Digital cross-date checks remain unchanged. Unsupported case procedures, discretionary cancellation terms and live evidence/privacy/account-authority/hosting/recovery gates remain blocked.
 
-### S-05 local integrity contract - approved October 25, 2026
+### S-05 local integrity contract - approved October 25, 2026 (historical; retired 2026-11-01)
 
 Apply [the user-approved local outage SOP](S05_OUTAGE_POLICY_PROPOSAL.md). Fresh owner administration registers immutable gym-unique booklet/range, assigned cash custody and the current approved price/version/duration snapshots for the paper price list; bounded ranges contain 1-200 leaves. Full paper identifiers are gym-scoped BOOKLET-NUMBER; codes are never recycled. The book must exist before collection. Existing MEMBERS/CASH checks govern entry; independent verifier designation is separate from digital authority and excludes collector/entrant even for an owner. Verify active authority at action time.
 
@@ -473,7 +485,7 @@ Reuse proposedPeriod and the existing immutable finance tables in the outage tra
 Historical price validity: entry and verification also inspect immutable price-change audit evidence between booklet registration and original collection. A change before collection makes that old paper snapshot unavailable for confirmation and requires owner investigation; a change after collection preserves the valid historical snapshot. Never substitute the current catalogue or guess a prior amount.
 
 
-### S-06 local closing integrity - approved October 25, 2026 (AD-012/013/016/017/022/033)
+### S-06 local closing integrity - approved October 25, 2026 (historical; retired 2026-11-01)
 
 `closing-schema.ts` owns strict parsed commands/day/key/recovery storage. `/api/closing` and `/closing?day=YYYY-MM-DD` use server-resolved actors/gyms. Internal CLOSING read authority reuses existing member or cash capabilities; submission/cash counts require CASH, digital checks require an explicit active receiving-account viewer grant, and new approvals require the owner plus five-minute reauthentication. This introduces no business role or broad account authority.
 

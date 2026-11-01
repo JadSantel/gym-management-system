@@ -1,6 +1,8 @@
 # S-06 closing SOP proposal — local synthetic scope only
 
-**Status: APPROVED for local synthetic S-06.** The user explicitly approved all three decisions on October 25, 2026 (Asia/Manila), answering "Approve all three for local synthetic S-06". This authorizes the scoped implementation and local verification below. Live/pilot approval remains separate.
+**Current status: SUPERSEDED 2026-11-01.** The user retired in-app daily closing, difference review, approvals and supplements. This document preserves the three decisions approved October 25, 2026 as historical context only. Do not use its steps as current operator instructions or infer a replacement process outside the CRM. Existing closing records remain preserved read-only.
+
+**Historical status:** APPROVED for local synthetic S-06. The user explicitly approved all three decisions on October 25, 2026 (Asia/Manila), answering "Approve all three for local synthetic S-06". This authorized scoped local implementation and verification only. Live/pilot approval remained separate.
 
 ## Approved decisions
 

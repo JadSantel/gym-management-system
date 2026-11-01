@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { formatPhp, pesoInput } from "@/lib/money";
 import { cashConfirmationSchema, chargePrepareSchema, financeFieldErrors, pendingCashSchema, type PendingCash } from "@/lib/finance-schema";
 import type { PlanSummary } from "./plan-settings";
-import { DigitalClaimForm } from "./digital-payments";
 
 type SavedPreview = {
   id: string; planName: string; durationDays: number; priceCentavos: number; preparerName: string;
   intendedStart: string; intendedEnd: string; preparedAt: string; priceChanged: boolean;
 };
 const pht = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, recoveryScope, accounts, canClaim, saleBlocked }: { memberId: string; memberName: string; plans: PlanSummary[]; canPrepare: boolean; saved: SavedPreview | null; recoveryScope: string; accounts: { id: string; label: string; method: string }[]; canClaim: boolean; saleBlocked: boolean }) {
+export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, recoveryScope, saleBlocked }: { memberId: string; memberName: string; plans: PlanSummary[]; canPrepare: boolean; saved: SavedPreview | null; recoveryScope: string; saleBlocked: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +20,6 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
   const [cashReceived, setCashReceived] = useState(saved ? pesoInput(saved.priceCentavos) : "");
   const [pending, setPending] = useState<PendingCash | null>(null);
   const [ready, setReady] = useState(false);
-  const [method, setMethod] = useState("CASH");
   const [reviewing, setReviewing] = useState(false);
   const [confirmed, setConfirmed] = useState<{ payment: { reference: string }; period: { startsAt: string; endsAt: string }; receipt: { reference: string } } | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
@@ -105,7 +103,7 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
       <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
         <div><dt className="text-muted-foreground">Member</dt><dd className="font-semibold">{memberName}</dd></div>
         <div><dt className="text-muted-foreground">Plan and duration</dt><dd>{saved.planName} · {saved.durationDays} elapsed days</dd></div>
-        <div><dt className="text-muted-foreground">Payment options</dt><dd>Full cash or receiving-account verified digital funds</dd></div><div><dt className="text-muted-foreground">Prepared by</dt><dd>{saved.preparerName}</dd></div>
+        <div><dt className="text-muted-foreground">Payment method</dt><dd>Full cash</dd></div><div><dt className="text-muted-foreground">Prepared by</dt><dd>{saved.preparerName}</dd></div>
         <div><dt className="text-muted-foreground">Proposed start (inclusive)</dt><dd>{pht.format(new Date(saved.intendedStart))} PHT</dd></div>
         <div><dt className="text-muted-foreground">Proposed end (exclusive)</dt><dd>{pht.format(new Date(saved.intendedEnd))} PHT</dd></div>
         <div><dt className="text-muted-foreground">Prepared at</dt><dd>{pht.format(new Date(saved.preparedAt))} PHT</dd></div>
@@ -115,16 +113,13 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
       <p className="mt-5 text-sm text-muted-foreground">These proposed dates use the current paid terms for this member. Confirmation rechecks them; if they change, prepare and review a new charge before collecting cash. A paid period does not prove admission before payment verification or its effective start.</p>
       </div><aside className="border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><h3 className="panel-title">Payment summary</h3><p className="mt-3 text-sm text-muted-foreground">{memberName}</p><p className="mt-6 text-xs text-muted-foreground">Amount due in full</p><p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{formatPhp(saved.priceCentavos)}</p><p className="mt-4 text-sm">{saved.planName} · {saved.durationDays} elapsed days</p><p className="mt-4 text-xs leading-relaxed text-muted-foreground">No installment, discount, or unpaid balance. One fully paid future term at a time.</p></aside>
     </div>}
-    {saved && canPrepare && !saleBlocked && !confirmed && !pending && <fieldset disabled={busy || !ready || reviewing} className="mt-6 border-t border-border pt-6"><legend className="px-1 text-base font-semibold">How is the member paying?</legend><div className="mt-3 flex flex-wrap gap-2">{[["CASH", "Cash"], ["GCASH", "GCash"], ["BANK", "Bank transfer"]].map(([value, label]) => <Button variant="outline" key={value} aria-pressed={method === value} className={method === value ? "border-brand bg-brand-surface" : ""} onClick={() => setMethod(value)}>{label}</Button>)}</div><p className="mt-3 text-xs text-muted-foreground">Digital claims require independent receiving-account verification. A screenshot grants no new access.</p></fieldset>}
-    {saved && canPrepare && !saleBlocked && canClaim && method !== "CASH" && !pending && !confirmed && <DigitalClaimForm key={method} chargeId={saved.id} amountCentavos={saved.priceCentavos} accounts={accounts.filter(account => account.method === method)} />}
-    {saved && method !== "CASH" && !canClaim && <p role="status" className="mt-5 text-sm text-attention">This saved charge already has a payment or digital claim. Review its status in the member payment history.</p>}
       {confirmed ? <div role="status" className="mt-6 rounded-lg border border-primary/40 bg-muted p-4" aria-live="polite">
         <h3 className="font-semibold">Full cash payment confirmed</h3>
         <p className="mt-2">Payment reference: <strong className="break-all">{confirmed.payment.reference}</strong></p>
         <p>Receipt reference: <strong className="break-all">{confirmed.receipt.reference}</strong></p>
         <p className="mt-2">Paid period: {pht.format(new Date(confirmed.period.startsAt))} PHT inclusive to {pht.format(new Date(confirmed.period.endsAt))} PHT exclusive.</p>
         <p className="mt-2 text-sm text-muted-foreground">The period is paid and recorded. Normal admission still depends on its effective start time.</p>
-      </div> : canPrepare && (pending || (saved && !saleBlocked && method === "CASH" && !saved.priceChanged && !reviewRequired)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
+      </div> : canPrepare && (pending || (saved && !saleBlocked && !saved.priceChanged && !reviewRequired)) ? <form className="mt-6 border-t border-border pt-6" aria-busy={busy} onSubmit={async event => {
         event.preventDefault(); if (!ready || busy || (!pendingRef.current && reviewRequired)) return;
         if (!pendingRef.current && !reviewing) { setReviewing(true); setError(""); return; }
         setBusy(true); setError("");

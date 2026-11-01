@@ -1,6 +1,8 @@
 # S-07 local legacy and measurement protocol proposal
 
-**Status: APPROVED for local synthetic S-07.** October 26, 2026 (Asia/Manila).
+**Current status: HISTORICAL; REVISE BEFORE ANY PILOT (2026-11-01).** O-09 measures and fixtures below assumed digital collections, Exceptions, outage receipts/custody and closing, now retired. Do not use them as current pilot procedures or infer an external emergency process. The prior decisions and synthetic evidence remain preserved; a revised cash-only protocol requires separate review before a pilot.
+
+**Historical status: APPROVED for local synthetic S-07.** October 26, 2026 (Asia/Manila).
 The user answered: "Approve both local decisions as written" to the combined
 O-08/O-09 decision question. This does not approve live operations.
 Applies only to synthetic local implementation and rehearsal of FR-11/12,

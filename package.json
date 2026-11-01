@@ -17,7 +17,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "bootstrap:synthetic": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/bootstrap-synthetic.ts",
-    "test:browser": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/test-identity-browser.ts",
+    "test:http": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/test-cash-only-http.ts",
+    "test:browser": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local scripts/test-prototype-browser.ts",
     "test": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.migration.local --test --test-concurrency=1 tests/*.test.ts"
   },
   "dependencies": {

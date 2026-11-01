@@ -12,8 +12,6 @@ import { db } from "../src/lib/db";
 import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
-import { digitalCommand } from "../src/lib/digital";
-import { investigationCommand } from "../src/lib/investigations";
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
   const url = new URL(process.env[key]!);
@@ -70,18 +68,13 @@ try {
   }
   const next = await prepareCharge(owner, fixture[2].id, monthly.id);
   await confirmCash(owner, next.id, "800.00", randomUUID());
-  await digitalCommand(owner, { action: "account", label: "Synthetic receiving account", method: "GCASH" });
-  const account = await admin.receivingAccount.findFirstOrThrow({ where: { gymId } });
-  const digitalCharge = await prepareCharge(owner, fixture[1].id, monthly.id);
-  await digitalCommand(owner, { action: "claim", chargeId: digitalCharge.id, accountId: account.id, amount: "800.00", transactionReference: `PENDING-${suffix}`, reportedReceivedAt: new Date(Date.now() - 2000).toISOString() });
-  await investigationCommand(owner, { action: "open", memberId: fixture[1].id, reason: "MISSING_PAYMENT", summary: "Unverified transfer claim requires evidence review", method: "GCASH", evidenceReference: `SYNTHETIC-${suffix}` }, randomUUID());
   await inviteStaff(owner, { name: "Prototype Staff", username: `prototype_${suffix}`, email: `prototype-staff-${suffix}@example.test` }, sender);
   await completeSetup(token, password);
   const staff = await admin.operator.findFirstOrThrow({ where: { gymId, role: "STAFF" } });
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: false });
   browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Alex Prototype");
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
-  const paths: string[][] = [["overview", "/"], ["operate", "/operate"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["exceptions", "/investigations"], ["closing", "/closing"], ["digital", "/digital"], ["team", "/team"], ["plans", "/plans"], ["outage", "/outage-receipts"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`], ["case", `/investigations/${(await admin.investigationCase.findFirstOrThrow({ where: { gymId } })).id}`]];
+  const paths: string[][] = [["overview", "/"], ["operate", "/operate"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
     browser("select", 'select[aria-label="Appearance"]', theme);
     for (const [name, path] of paths.filter(([name]) => !process.argv.includes("--review-only") || ["profile", "payment"].includes(name))) {
@@ -101,17 +94,22 @@ try {
       console.log(`${theme} ${name}: desktop/tablet/phone, overflow, axe PASS`);
     }
   }
+  for (const path of ["/digital", "/investigations", "/investigations/retired", "/outage-receipts", "/closing"]) {
+    browser("open", `${origin}${path}`);
+    assert.equal(evaluate("document.body.innerText.includes('404') || document.body.innerText.includes('This page could not be found')"), true, `${path} is retired`);
+  }
   browser("set", "viewport", "1440", "1000"); browser("open", `${origin}${paths.find(([name]) => name === "payment")![1]}`);
   text("Saved charge preview");
   assert.equal(await admin.payment.count({ where: { memberId: fixture[5].id } }), 0);
   click("Review cash payment"); text("Confirm only after receiving the full cash amount.");
   assert.equal(await admin.payment.count({ where: { memberId: fixture[5].id } }), 0, "Review never records a collection");
   audit("Cash review before confirmation"); browser("screenshot", resolve(output, "dark-cash-review-desktop.png"));
-  click("Back to payment"); click("GCash"); text("Record transfer claim"); audit("Digital claim method selection");
-  browser("screenshot", resolve(output, "dark-digital-claim-desktop.png"));
-  browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); click("Pending verification"); text(`PENDING-${suffix.toUpperCase()}`);
-  assert.equal(evaluate("document.querySelectorAll('tbody tr').length"), 1);
-  browser("fill", "#transaction-search", "No matching transaction"); text("No transactions match this view."); audit("Empty transaction filter");
+  click("Back to payment");
+  assert.equal(evaluate("document.querySelector('main').innerText.includes('GCash') || document.querySelector('main').innerText.includes('Bank transfer')"), false, "payment preview offers cash only");
+  browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); text("Payment history");
+  browser("fill", "input[name=member]", "Maria Santos"); click("Search history"); text("Maria Santos");
+  assert.equal(evaluate("document.querySelector('main').innerText.includes('Pending verification')"), false);
+  browser("fill", "#transaction-search", "No matching transaction"); text("No payment record(s) shown."); audit("Empty transaction filter");
   browser("open", `${origin}/members`); browser("fill", "#search-name", "Nobody with this name"); click("Search"); text("No matching members."); audit("Empty member search");
   browser("fill", "#search-name", "Ana Cruz"); click("Search"); text("Paid next term scheduled"); click("Expired"); text("No members match this filter.");
   browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");

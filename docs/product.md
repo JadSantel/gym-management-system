@@ -1,9 +1,13 @@
 # Product Definition — Independent Gym CRM (MVP)
 
-**Status:** Product policies approved for MVP planning; limited operational details and pilot validation remain open  
-**Last updated:** 2026-10-25 (aligned with PROJECT.md; approved S-02-S-04 decisions and remaining operational gates)
+**Status:** Cash-only MVP scope approved; limited operational details and future pilot validation remain open
+**Last updated:** 2026-11-01 (aligned with PROJECT.md cash-only scope revision; prior S-03-S-06 approvals retained as historical context)
 **Document owner:** Product team (to assign)  
 **Purpose:** Describe the customer problem, proposed value, business constraints, MVP boundaries, and pilot evidence supporting the delivery specification.  
+
+### Current product scope — user-approved 2026-11-01
+
+Ordinary online membership collection is full cash only. Digital claims/verification, Exceptions (investigations, omitted-payment recovery, corrections/refunds), outage receipts/custody/provisional visits, and daily closing are retired. Existing records, policy approvals, and links remain preserved as read-only historical evidence. No process outside the CRM is inferred as an emergency fallback. This scope revision supersedes active workflows below where they conflict; `PROJECT.md` is the controlling specification.
 **Source of truth:** [PROJECT.md](PROJECT.md) governs current MVP requirements, approved behavior, and implementation gates. This product definition is maintained to match it; resolve conflicts in PROJECT.md first, then synchronize this document.  
 **Technology decisions:** Intentionally excluded.
 
@@ -20,7 +24,7 @@ Do not interpret reported figures as representative of independent gyms generall
 
 ### Product concept
 
-A focused operational tool for small independent gyms to record and verify full membership payments, maintain accurate membership dates and eligibility, investigate payment disagreements, and reconcile collections at closing.
+A focused operational tool for small independent gyms to record full cash membership payments, retrieve receipts and member/payment history, and maintain accurate membership dates and eligibility. Previously supported digital, exception, outage/custody and daily closing workflows are retired; existing records remain preserved and read-only.
 
 The MVP is **not** intended to be a broad marketing, sales, or enterprise gym-management suite. Its initial value hypothesis is dependable payment accountability and membership status, with less after-hours administrative work.
 
@@ -115,23 +119,25 @@ This is **not** a claim that software alone prevents unrecorded cash. The pilot 
 | BR-02 | A renewal requires **full payment upfront** before its new period becomes active. | Agreed product policy |
 | BR-03 | **Partial payments, installments, and outstanding membership balances are not permitted** for new memberships or renewals. | Agreed product policy |
 | BR-04 | Owner and staff may both accept payments; payment handling must be attributable to the actual operator. | Reported arrangement; proposed system control |
-| BR-05 | A member claiming to have paid must present available supporting evidence; the claim is not accepted as a payment until verified. | Agreed policy; verification procedure open |
-| BR-06 | An unpaid or expired membership period cannot be used for normal check-in; a documented full-cash outage receipt may authorize **temporary access** under BR-11. | Agreed product policy; current-visit outage exception defined |
+| BR-05 | Existing claim and investigation records are retained for audit; the CRM no longer supports new claims, investigation or omitted-payment recovery. | Historical exception policy; superseded 2026-11-01 |
+| BR-06 | Only an effective fully paid period or approved historical entitlement grants normal eligibility. No provisional outage access workflow is supported. | Current product policy; outage exception retired 2026-11-01 |
 | BR-07 | When a member renews before expiration, the next paid membership period starts **at the exact end** of the currently paid period; early renewal must not shorten existing access. | Agreed product policy; adjacent fixed-duration periods |
-| BR-08 | Supported payment methods are **cash, GCash, and bank transfer**. Acceptance is distinct from verification: digital funds must be verified in the receiving account before final confirmation. | Agreed methods; proposed confirmation control |
-| BR-09 | Refunds and corrections follow **transaction-dependent policies**, not a single blanket rule. Eligibility, approval, and consequences for membership periods require a documented decision matrix. | Agreed product policy; reason-based case approval required |
-| BR-10 | During connectivity outages, staff use **pre-numbered temporary receipts**, then enter and verify the original transactions after service returns. Full cash payment with a numbered receipt may authorize provisional access according to BR-11; synchronization remains outstanding. | Agreed fallback process; one-visit access and back-entry rules defined |
-| BR-11 | During an outage, an owner or authorized staff member may grant **temporary access** only after receiving the entire membership price **in cash** and issuing a numbered receipt. This is a documented provisional entitlement, not a synchronized CRM confirmation. | Agreed product policy; temporary access limited to current visit |
-| BR-12 | A new membership or late renewal (previous membership already expired) begins at **00:00 Asia/Manila on the local date of the verified full payment**. A valid late full-cash outage renewal uses the original verified collection date. An early renewal begins immediately after the existing paid period ends; before accepting it, display remaining active days and recommend advance renewal. | Agreed product policy |
+| BR-08 | New ordinary membership payments are **full cash only**. Historical digital payments retain their recorded method and remain read-only. | Current product scope; digital collections retired 2026-11-01 |
+| BR-09 | Existing correction/refund decisions and records are retained read-only; the CRM supports no new request, approval, execution or settlement action. | Historical product policy; superseded 2026-11-01 |
+| BR-10 | Outage receipt, back-entry and custody workflows are retired. Existing records are retained read-only; no external fallback is inferred. | Historical fallback policy; superseded 2026-11-01 |
+| BR-11 | No provisional outage access workflow is supported. Historical visit records do not grant current access. | Historical product policy; superseded 2026-11-01 |
+| BR-12 | A new membership or late renewal begins at **00:00 Asia/Manila on the local date of the confirmed full cash payment**. An early renewal begins at the existing paid period's exact end. | Current product policy |
 | BR-13 | Approved plans: Monthly **30 days / ₱800**, 3 Months **90 days / ₱2,100**, 6 Months **180 days / ₱4,000** (user approval, 2026-10-24). Each day is 24 hours; intervals are start-inclusive/end-exclusive. Never advance by calendar month or clamp month end. | Agreed duration, initial pricing and midnight-start policy |
-| BR-14 | For GCash and bank transfers, staff must verify **actual receipt of funds in the designated receiving account** before confirming payment. A screenshot or transaction reference alone is insufficient. | Agreed product policy |
-| BR-15 | Refunds and corrections require **owner approval** and an explicit rule per transaction type. Whether a refund terminates, shortens, or preserves access depends on the documented refund reason, never an implicit default. | Agreed authority/principle; per-reason access disposition mandatory |
-| BR-16 | Offline receipts are entered upon reconnection, with mandatory shift-end custody/count/handover of any outstanding receipts. Voids, gaps, and missing numbers must remain traceable. | Agreed policy |
-| BR-17 | Staff prepare day-end reconciliation; the owner approves unresolved differences. | Agreed policy |
+| BR-14 | Digital verification is retired. Historical digital payment evidence remains read-only; screenshots or claims do not grant current access. | Historical product policy; superseded 2026-11-01 |
+| BR-15 | Owner-controlled correction/refund workflows are retired. Existing original and linked records are preserved read-only. | Historical authority policy; superseded 2026-11-01 |
+| BR-16 | Outage custody/count/handover workflows are retired. Existing custody records remain preserved read-only. | Historical policy; superseded 2026-11-01 |
+| BR-17 | In-app daily reconciliation and closing approval are retired. Existing closing records remain preserved read-only. | Historical policy; superseded 2026-11-01 |
 | BR-18 | MVP uses simple time-based plans and owner-controlled prices; existing member records are migrated only after verification. Unsupported/uncertain historical payments remain flagged, not invented. | Agreed product boundary |
-| BR-19 | Owner and authorized staff may investigate/document/escalate **missing-payment claims**. Only the owner may approve and execute omitted-payment recovery with independent corroboration of actual collection. Staff cannot approve/execute recovery or alter confirmed finances (approved October 25, 2026). | Agreed exception policy |
+| BR-19 | New missing-payment investigations and recovery are retired. Historical case records and original financial links remain read-only. | Historical exception policy; superseded 2026-11-01 |
 
 ### 6.1a Approved policy clarifications (2026-10-23; date rules superseded 2026-10-24)
+
+**Historical policy record:** The outage, digital verification, investigation/recovery, correction/refund, custody and closing clarifications in this subsection record approvals made before 2026-11-01. They are retained to explain existing records and prior synthetic verification. They are superseded for current CRM operation and do not authorize new actions. Current cash-only scope in this document's opening note and `PROJECT.md` controls.
 
 1. **Fixed-30-day membership dates (superseding clarification, 2026-10-24):** Follow PROJECT.md FR-05: the monthly-labeled plan lasts exactly **30 consecutive 24-hour days**, replacing the earlier calendar-month rule. Represent a paid membership as a start-inclusive, end-exclusive interval, with end = start + 30 elapsed days. A new membership or late renewal starts at **00:00 Asia/Manila on the local date of the verified full payment**; a valid late full-cash outage renewal uses the original verified cash-collection date. A payment at 18:30 therefore has a midnight effective start that day and less than 30 × 24 hours of prospective access. An interval beginning 2027-01-31 00:00 ends 2027-03-02 00:00; one beginning 2028-01-31 00:00 ends 2028-03-01 00:00; one beginning 2027-04-15 00:00 ends 2027-05-15 00:00. Consecutive fully paid renewals begin at the previous interval's exact end, without gaps or overlap. User approval on 2026-10-25 settles the S-02 display and advance limit: exact PHT expiry plus whole 24-hour days and whole hours rounded down at the displayed server check time, or "less than 1 hour" below one hour, for the current active term only. Allow one queued paid term; block another sale until it starts while preserving committed same-key recovery. October 25, 2026 approval resolves independently verified omitted full-cash recovery dates under PROJECT.md FR-07. Uncertain/conflicting cash dates/prices and all cross-date digital confirmation remain gated.
 2. **Offline temporary access:** When an authorized owner/staff collector receives the *entire price in cash* and issues a controlled numbered temporary receipt, they may grant **access for that visit only**. This is a documented exception, not normal digital membership activation and not blanket access for subsequent visits. Subsequent visits require normal verified eligibility or a separately documented, authorized outage exception if service is still unavailable. Any invalid, missing, or disputed receipt is flagged for owner review; never silently erase the receipt or associated access record.
@@ -146,7 +152,9 @@ These are **approved product-level directions**. Precise refund eligibility, sup
 
 **Important distinction:** No outstanding *membership charges* does not imply there can never be refunds, disputed cash, accounting differences, or legacy data to reconcile. Such exceptions must be tracked without creating installment balances.
 
-### 6.2 Proposed controls to validate with pilot gyms
+### 6.2 Historical proposed controls; current scope is cash-only
+
+PR-01–06 and PR-08–10 below describe retired workflows or an earlier pilot scope and are retained as historical context. PR-03 (idempotent ordinary cash collection) and PR-07 (queued paid term) remain current. No retired process below is authorized for current CRM use.
 
 | ID | Proposed rule | Rationale |
 |---|---|---|
@@ -161,23 +169,27 @@ These are **approved product-level directions**. Precise refund eligibility, sup
 | PR-09 | Re-entered outage transactions are marked as pending verification until matching receipt, cash/digital receipt, and owner/staff reconciliation requirements are met. | Avoid treating back-entry as independent evidence |
 | PR-10 | Refunds and corrections retain the original entry and reason; a refund's effect on any active or future membership is explicitly determined under an approved case policy. | Auditability and eligibility consistency |
 
-### 6.3 Conceptual workflows (implementation-independent)
+### 6.3 Current and historical workflows
 
-**New membership:** Select/create member → choose an approved plan and display exact price and intended 30/90/180-day period → receive and verify full payment → record confirmed transaction → issue reference/receipt → activate the selected period starting at 00:00 Asia/Manila on the verified payment date. Insufficient/unverified payment never activates access or posts a partial membership payment.
+New membership, renewal and normal eligibility below describe current supported behavior. Payment dispute, daily closing, outage fallback, and refund/correction text is superseded historical context and does not authorize new actions.
 
-**Renewal:** Locate member → show expiration, remaining active days without overstating eligibility, and full price → recommend optional **advance renewal** when active → receive and verify full payment → record transaction and receipt. Early renewal schedules the selected plan-duration period at the current term's exact end; late renewal starts at 00:00 Asia/Manila on its confirmed payment date, with the verified original-collection-date rule for valid outages. Per user approval on 2026-10-25, do not offer another advance sale while a future paid period exists; allow another once that term starts. Preserve committed same-key recovery.
+**New membership:** Select/create member → choose an approved plan and display exact price and intended 30/90/180-day period → collect the full amount in cash → record the confirmed transaction → issue its receipt → apply the paid-period eligibility rules. Partial or non-cash payment does not create confirmed membership access.
+
+**Renewal:** Locate member → show eligibility, paid-period dates, and full price → collect full cash only → record payment and receipt. Early renewal schedules the selected term at the current term's exact end; late renewal starts at 00:00 Asia/Manila on its confirmed cash-payment date. Do not offer another advance sale while a future paid period exists. Preserve committed same-key recovery.
 
 **Normal check-in:** Identify member → determine whether a fully paid membership period is currently effective → admit or show clear inactive/expired outcome → record check-in if enabled. Eligibility must not be inferred from a payment screenshot or unresolved dispute.
 
-**Payment dispute:** Search history; owner or authorized staff investigates/documents/escalates. Only owner approves and executes independently proven omitted cash recovery with original-date rules. Existing confirmed corrections/refunds remain owner-only; approval and verified external settlement are separate. Claims alone never activate access (approved October 25, 2026).
+**Historical S-04 exception practices (superseded):** The October 25, 2026 investigation, omitted-payment recovery, correction, and refund approvals remain recorded in the superseded project/SOP history. No current Exceptions action is supported.
 
-**Daily closing:** Staff prepare method/collector totals, count cash, check verified digital receipts, and reconcile every offline receipt (including void/missing numbers) → owner reviews and approves unresolved differences; open discrepancies remain visible and are not silently cleared. For local synthetic S-06, the user approved all three [closing SOP decisions](S06_CLOSING_POLICY_PROPOSAL.md) on October 25, 2026: Manila midnight cutoff, zero opening membership float with segregated/evidenced cash portions, settled refund outflows on settlement day, executed false-record exclusions and immutable originals with explicit supplements. Staff preparation uses existing cash authority; digital actuals require designated account viewers; owner acknowledgement requires fresh reauthentication and creates no money movement. Live cash handling, physical rehearsal, named authorities/evidence custody and O-09 pilot approval remain separate gates.
+**Historical S-06 closing decisions (superseded):** The October 25, 2026 local synthetic decisions remain in the [superseded closing SOP](S06_CLOSING_POLICY_PROPOSAL.md). No in-app daily closing is currently supported.
 
-**Connectivity outage (agreed manual fallback):** Accept **full cash payment only** during the fallback → an owner or authorized staff member counts cash and issues a controlled, pre-numbered receipt showing member, plan, full amount, actual collection time, staff collector, and number → may grant **documented temporary training access** pending synchronization → when connectivity returns, enter the original transaction using its receipt number and original collection time and verify it without duplication → account for used, unused, void, and missing receipts during mandatory shift-end handover, even when connectivity has not returned. Offline GCash/bank payments must await independent confirmation; receipt issuance alone never verifies a digital transfer. Provisional access is limited to the current visit. Back-entered receipts remain pending verification until matched to physical cash and receipt records; suspicious or invalid entries escalate to the owner.
+**Historical S-05 outage decisions (superseded):** The October 25, 2026 approved outage details remain in the [superseded outage SOP](S05_OUTAGE_POLICY_PROPOSAL.md). No CRM outage receipt/custody or provisional-access workflow is supported; no outside-CRM emergency process is inferred.
 
-**Refund or incorrect entry:** Classify the case (wrong amount, duplicate ledger entry, two actual collections, cancellation, transfer reversal, etc.) → preserve original records → obtain **owner approval** for any refund, reversal, or correction of an existing confirmed transaction → record reason, supporting evidence, amount, method, and an explicit access outcome based on the **refund reason**. Staff may separately resolve a verified previously omitted payment claim without altering an existing confirmed transaction. Owner-approved refund reason, money movement, and membership-access outcome are required for each case; gym-specific refund eligibility and amount rules must be documented before those cases are supported.
+**Historical correction/refund decisions (superseded):** Approved and unresolved October 25, 2026 details remain in the prior project/SOP record. No investigation, recovery, correction, refund, or case-resolution action is currently supported.
 
 ### 6.4 Status vocabulary
+
+The current UI supports cash confirmation and paid-period states. Pending digital, provisional outage and exception states below are historical labels only.
 
 Use the separate dimensions defined in PROJECT.md Section 6:
 
@@ -192,14 +204,16 @@ Use **uncompleted purchase request** for an unpaid transaction and **scheduled p
 
 ## 7. Product goals and measurable success criteria
 
-### Primary outcomes
+The thresholds and adoption measures below were approved for an earlier pilot protocol that assumed digital collections, Exceptions, outage and closing workflows. They are historical; revise O-09 for cash-only operations before any pilot. No pilot is currently authorized.
 
-1. **Payment accuracy:** Fewer missing, wrong-amount, delayed, or disputed membership records.
-2. **Operational time:** Less time spent reconciling after operating hours.
-3. **Eligibility accuracy:** Staff can reliably distinguish active from expired or unpaid memberships.
-4. **Accountability:** Collections and exceptions can be traced to specific records and operators.
+### Cash-only outcome areas for a future pilot (targets unset)
 
-### Proposed pilot thresholds — not validated benchmarks
+1. **Cash record accuracy:** Compare CRM cash entries and receipts with independently verified actual cash collections.
+2. **Eligibility accuracy:** Measure correct interpretation of currently effective paid periods.
+3. **Traceability:** Confirm operators can retrieve the cash payment, receipt, and linked member history.
+4. **Task time:** Measure ordinary cash collection and eligibility-history lookup only if revised O-09 defines a baseline and method.
+
+### Historical pilot thresholds (superseded 2026-11-01; not current targets)
 
 | Metric | Reported baseline | Proposed target | Measurement method |
 |---|---|---|---|
@@ -209,17 +223,17 @@ Use **uncompleted purchase request** for an unpaid transaction and **scheduled p
 | Expired-member admissions | Occurs; rate unknown | **0 mistaken admissions during pilot** | Sampled check-in logs plus documented incidents |
 | Time to verify membership eligibility | Unknown | **≤15 seconds**, exploratory | Timed common check-in tasks; establish baseline first |
 
-**Measurement safeguards:** Distinguish true discrepancy reduction from underreporting. Do not count a decrease as success if staff stop recording exceptions, cash discrepancies remain unexplained, or legitimate memberships are incorrectly rejected. Report absolute counts **and rates per transaction** so month-to-month volume changes do not distort results.
+**Historical measurement safeguard:** These earlier thresholds assumed exception and reconciliation workflows. Do not apply them to a cash-only pilot; retain them as historical context. Revised O-09 must set current definitions, denominators, independent evidence, and targets before pilot authorization.
 
-### Additional pilot adoption measures — approved
+### Historical pilot adoption measures (superseded 2026-11-01)
 
-Track the measures approved in PROJECT.md Section 10:
+The following measures belonged to the prior protocol, which assumed outage and parallel-ledger workflows:
 
 1. **Point-of-collection entry rate:** CRM entry during collection rather than deferred entry; report authorized offline receipts separately.
 2. **Staff adoption across shifts:** Proportion of applicable shifts/operators using the approved workflow.
 3. **Unapproved parallel recordkeeping:** Occurrences of paper/spreadsheet shadow ledgers outside the authorized outage fallback.
 
-Define denominators and independent verification in O-09. These measures help explain outcomes; numerical targets remain unset until baseline evidence is collected.
+Do not apply these measures as current pilot requirements. Define cash-only adoption measures and denominators in revised O-09 before any pilot.
 
 ### Pilot quality gates
 
@@ -234,12 +248,10 @@ Define denominators and independent verification in O-09. These measures help ex
 
 1. **Member records:** Search/create members; associate membership plan, paid period, and current status.
 2. **Plans and exact charges:** Show defined full prices and payment obligations before confirming a new membership or renewal.
-3. **Full-payment transaction recording:** Capture method, verified amount, authenticated collector, time, and transaction reference; issue retrievable confirmation.
-4. **Membership eligibility:** Determine whether the member has a currently effective, fully paid period and support a basic check-in status check.
-5. **Payment history and corrections:** Search transactions; record disputes, evidence references, and authorized corrections with an audit trail.
-6. **Daily reconciliation:** Group expected collections by method/operator, capture actual totals, and record discrepancies.
-7. **Basic owner/staff access:** Appropriate permission boundaries and accountability for sensitive actions.
-8. **Connectivity fallback support:** Track pre-numbered temporary receipts entered after recovery, prevent repeated receipt reference use, and expose unreconciled outage transactions for owner review. Printing or issuing physical receipts occurs outside the application while offline; a fully offline digital application is out of scope.
+3. **Full-cash transaction recording:** Record the full amount received, authenticated collector, time, and transaction reference; issue a retrievable receipt.
+4. **Membership eligibility:** Determine whether the member has a currently effective, fully paid period and support a basic eligibility check.
+5. **Read-only payment history:** Search confirmed payments, retrieve linked receipts, and preserve relevant historical member/payment records.
+6. **Basic owner/staff access:** Enforce current capability boundaries for member access and full-cash collection.
 
 ### Explicitly out of scope for initial MVP
 
@@ -249,9 +261,10 @@ Define denominators and independent verification in O-09. These measures help ex
 - Sophisticated attendance analytics, biometric entry, turnstile integrations, or hardware automation.
 - A member-facing mobile app or self-service portal.
 - Multi-branch enterprise administration, franchise management, and complex financial accounting.
-- Automated payment gateway or POS integration **unless evidence shows manual verification cannot meet the pilot goal**.
+- Automated payment gateway or POS integration. Any future non-cash collection requires a separate explicit scope and policy decision.
 - Automated renewal reminders until their necessity and channel preferences are validated.
-- Local-first offline digital payment capture, device-to-device sync, or automatic offline activation; the selected fallback is physical numbered receipts followed by verification and re-entry.
+- Digital collection and verification; Exceptions, omitted-payment recovery, corrections and refunds; outage receipt/custody and provisional access; daily closing and in-app reconciliation. Existing records remain retained and read-only. No emergency process outside CRM is inferred; it requires a separate operational decision.
+- Local-first offline digital payment capture, device-to-device sync, or automatic offline activation.
 
 ### Scope guardrail
 
@@ -261,28 +274,31 @@ A feature belongs in the MVP only if it materially improves payment correctness,
 
 ### Key assumptions to test
 
-- A small gym will consistently use a single digital transaction workflow at the time of payment.
-- The biggest source of reconciliation work is missing/incorrect transaction records rather than unrelated bookkeeping tasks.
-- Owners will review and act on exceptions at closing.
+- A small gym can consistently use the cash-only CRM workflow at the time of payment.
+- The main sources of record errors in the supported cash workflow still need discovery and independent baseline evidence.
 - Staff can perform the flow quickly enough during busy periods.
 - The full-payment-upfront rule reflects the policy that pilot owners are actually willing to enforce, including any grandfathered memberships.
 - A lightweight eligibility check provides enough attendance control without additional hardware.
 
+The former digital, Exceptions, outage, closing, and parallel-ledger assumptions belong to the superseded O-09 protocol and are not current pilot assumptions.
+
 ### Material risks
 
-- **Offline or unreliable connectivity:** authorized temporary access is allowed for full-cash numbered receipts, but the provisional entitlement, physical custody, back-entry, and reconciliation require stringent controls.
-- **False verification:** transfer screenshots or staff mistakes can be mistaken for settled payments.
+- **Offline or unreliable connectivity:** no CRM outage receipt, custody, back-entry, or provisional-access workflow exists. Any emergency process requires a separate operational decision.
+- **Historical digital verification:** prior screenshot/transfer risk remains context for retained records; no digital payment verification is supported in current scope.
 - **Unrecorded cash:** software cannot prove a cash collection happened if nobody records it.
 - **Shared accounts or weak permissions:** collector attribution becomes unreliable.
 - **Migration and legacy disputes:** old spreadsheets may include debts or unclear renewals incompatible with the new no-balance rule.
 - **Operational burden:** excessive confirmation steps could cause employees to bypass the system.
 - **Privacy and security:** member data, staff accounts, and financial records require appropriate safeguards and retention policies.
 
-### Decisions confirmed on 2026-10-23, reconciled with PROJECT.md on 2026-10-24
+### Historical decisions confirmed on 2026-10-23, reconciled with PROJECT.md on 2026-10-24
+
+The decision record below is preserved. D-01 (cash-date portion only), D-02, and D-08 remain relevant to current scope; D-03 through D-07 are superseded for current operations by the 2026-11-01 cash-only scope revision. Follow PROJECT.md for current requirements.
 
 | ID | Decision | Agreed policy |
 |---|---|---|
-| D-01 | Early and late renewals | For an active membership, show remaining days and offer optional advance renewal; its next term begins at the paid current term's exact end. An expired membership's new term starts at **00:00 Asia/Manila on the confirmed payment date**; a valid full-cash outage renewal uses the verified original collection date. |
+| D-01 | Early and late renewals | For an active membership, show remaining days and offer optional advance renewal; its next term begins at the paid current term's exact end. An expired membership's new cash term starts at **00:00 Asia/Manila on the confirmed payment date**. The former outage renewal date clause is historical and superseded. |
 | D-02 | Duration and effective start | The monthly-labeled term is **exactly 30 consecutive 24-hour days**. New memberships and late renewals use the approved midnight start; advance renewals begin at the preceding paid period's exact end. This supersedes the earlier calendar-month policy. |
 | D-03 | Payment methods and verification | Cash, GCash, and bank transfer; independently verify actual funds before confirming digital payments. |
 | D-04 | Refunds/corrections | **Owner approval**, transaction-type-specific handling, and reason-dependent impact on membership access. |
@@ -291,7 +307,9 @@ A feature belongs in the MVP only if it materially improves payment correctness,
 | D-07 | Outage fallback | Full cash payment may be accepted with controlled numbered receipts and **authorized temporary access**; enter/verify after reconnection and account for open receipts at shift end. |
 | D-08 | Plans and legacy records | Simple time-based plans, controlled pricing, and verified migration. |
 
-### Remaining material decisions (do not allow implementation to improvise)
+### Historical decisions and remaining material gates
+
+The 2026-11-01 user-approved scope revision supersedes O-02 through O-06 for current operations; their entries below preserve prior decisions only. O-09's earlier pilot protocol is historical and must be revised before any future pilot. Do not re-enable these workflows without new authorization.
 
 | ID | Open detail | Proposed resolution to evaluate | Priority |
 |---|---|---|---|
@@ -305,9 +323,11 @@ A feature belongs in the MVP only if it materially improves payment correctness,
 | O-08 | Migration acceptance: who verifies historical expiration, how to handle contradictory evidence or legacy unpaid balances, and cutoff for pilot metrics. | Owner sign-off on imported entitlements; unresolved legacy records are flagged and excluded from new-payment metrics until resolved. | P1 |
 | O-09 | Pilot definition and measurement: participating gyms, baseline dates, trial duration, outages and partial days, independent evidence, collection timestamp, and denominators/verification for approved adoption measures. | Define pilot protocol and track **time of collection**, **receipt issuance**, **CRM entry**, and **verification** separately; define point-of-collection entry, shift adoption, and unapproved parallel-recordkeeping observations. | P1 |
 
-PROJECT.md Section 9 resolves independently verified recovered cash dates as of October 25, 2026; uncertain cash dates and delayed digital confirmations across dates remain gated, alongside live cash handling and pilot adoption of the approved local closing SOP; and member/evidence data stewardship, retention, and backup/restore responsibilities. The one-queued-term rule was approved on 2026-10-25. Preserve evidence and timestamps, and block or escalate the remaining affected journeys until their decisions are recorded.
+Current cash-only late renewal uses the confirmed cash-payment date and preserves actual collection, entry, and verification timestamps. The prior recovery, cross-date digital, outage, exception, and closing gates are historical and do not define current journeys. The one-queued-term rule remains current. Live data stewardship, retention, backup/restore, and a revised O-09 remain open gates.
 
-### Cross-policy conflict audit
+### Historical cross-policy conflict audit (superseded 2026-11-01)
+
+The entries below preserve the earlier multi-method and outage scope. They do not authorize current CRM actions; follow PROJECT.md for cash-only behavior.
 
 1. **Offline access vs. confirmed-payment activation:** Provisional access after full cash/numbered receipt is an explicit *operational exception*, not a fully synchronized membership. It must be labeled provisional and reconciled. Temporary access lasts one visit; suspicious or invalid receipts trigger owner review and do not create an automatically verified digital entitlement.
 2. **Owner-only corrections vs. staff resolving missing-payment claims:** Both roles may investigate an *omitted* payment, but only owners may approve/execute recovery, change, void, reverse, or refund confirmed finances (October 25, 2026). A newly recorded recovered payment must include evidence, reviewer, original collection timestamp, and duplicate safeguards (O-05).
@@ -320,40 +340,42 @@ PROJECT.md Section 9 resolves independently verified recovered cash dates as of 
 
 ## 10. MVP validation strategy
 
-### Stage A — confirm discovery and baselines
+The prior S-03–S-06 workflow validation plan below is superseded by the 2026-11-01 scope revision. Any future pilot must evaluate only currently supported full-cash collection, receipt/history and eligibility unless the user separately authorizes another workflow. Revised O-09 must define its measures, participants, baseline and procedures before pilot launch. Do not infer an out-of-CRM emergency process.
+
+### Stage A — cash-only discovery and baselines (before any pilot)
 
 - Recruit pilot gyms matching the intended segment; document recruitment and participant count.
-- Observe actual join, renewal, check-in, disputed-payment, and closing procedures.
+- Observe join, renewal, ordinary cash collection, receipt retrieval, and eligibility review. Any process outside CRM scope needs a separate operational decision.
 - Collect 2–4 weeks of baseline data if feasible, with explicit dates and definitions.
-- Categorize each payment discrepancy and measure independently verified transaction counts, closing duration, and expired-member admission incidents.
-- Confirm the full-payment policy and validate the remaining pilot-specific operational details, especially O-03 and O-06 through O-09, with participating gyms.
+- Define independent evidence and measures for full-cash record accuracy, receipt/history retrieval, and eligibility; do not reuse retired exception or daily-closing targets.
+- Confirm the full-cash policy and revise O-09 with participants, dates, reviewers, training, evidence custody, and incident handling before pilot authorization.
 
-### Stage B — low-fidelity workflow validation
+### Stage B — low-fidelity workflow validation (historical scope; revise before use)
 
 - Test sample workflows with owner and staff before development: full cash payment, verified GCash/bank renewal, early renewal, expired check-in, disputed cash claim, incorrect entry, closing mismatch, and numbered offline-receipt re-entry.
 - Confirm that displayed terms, transaction details, and exception handling match the gym's real-world process.
 - Measure task time and identify where staff might defer recording.
 
-### Stage C — limited operational pilot
+### Stage C — limited operational pilot (not authorized by this document)
 
 - Roll out to a small number of participating gyms (exact count TBD).
-- Agree on a clear pilot start date, responsible reviewer, fallback process, and incident protocol.
+- Agree on a clear pilot start date, responsible reviewer, and incident protocol; separately document any required process outside CRM.
 - Record the metrics in Section 7 weekly; review discrepancies by cause rather than only total count.
 - Capture staff workarounds, outages, incorrect membership denials, and user confidence in records.
 
 ### Stage D — go/no-go review
 
-Proceed to broaden scope only if the product demonstrates meaningful improvement in discrepancies and reconciliation time, supports accurate paid-period eligibility, and has no unresolved critical integrity issues. If outcomes are weak, diagnose whether the cause is product design, unrecorded transactions, business-policy mismatch, training, or unreliable measurement before adding features.
+No pilot is authorized until revised O-09 and all launch gates are accepted. Any later go/no-go review must use predeclared cash-only measures and evidence; the historical discrepancy/reconciliation targets above do not authorize feature expansion or establish success.
 
 ## Appendix A — Glossary and proposed measurement definitions
 
-- **Confirmed payment:** Payment whose receipt has been verified using the gym's approved method and committed to the transaction record. A cash outage receipt can support **authorized provisional training access** but is not automatically a synchronized, reconciled CRM transaction.
+- **Confirmed payment:** Full cash received and recorded with its linked receipt and paid period. Digital and outage payment statuses remain historical; a provisional outage record does not grant current CRM access.
 - **Membership period:** A start-inclusive, end-exclusive interval tied to a fully paid membership charge, or verified historical entitlement accepted through migration. The MVP monthly-labeled term lasts exactly 30 consecutive 24-hour days.
 - **Uncompleted purchase request:** An intended join/renewal without confirmed full payment; it creates no paid period, outstanding debt, or part-payment plan.
 - **Scheduled paid period:** A fully paid advance renewal whose start is in the future; distinct from an unpaid request or pending verification.
-- **Payment discrepancy:** A material difference between the transaction record and independently checked facts, including missing entry, wrong amount, duplicate, disputed evidence, or delayed entry. Categories must be reported separately.
-- **Reconciliation time:** Active time used to match recorded payments with actual collections and investigate differences after a defined daily cutoff; excludes unrelated cleaning or operations.
-- **Unauthorized expired-member admission:** A documented instance of gym access when no eligible membership period or approved exception existed.
+- **Payment discrepancy:** Historical pilot term for a material difference between a transaction record and independently checked facts. No in-app Exceptions or daily reconciliation workflow is currently supported.
+- **Reconciliation time:** Historical pilot term for matching recorded payments with actual collections after a daily cutoff. Daily in-app closing/reconciliation is retired.
+- **Unauthorized expired-member admission:** A documented instance of access without an eligible paid period. A retired outage exception is not a current authorization path.
 
 ## Appendix B — Relationship to `PROJECT.md` and readiness gates
 
@@ -373,11 +395,11 @@ source custody/retention, real training and pilot sign-off remain separate gates
 
 [PROJECT.md](PROJECT.md) is the **source of truth** for current MVP requirements, implementation slices, acceptance criteria, and decision gates. This document supplies aligned product context and policy references. Record approved changes in PROJECT.md first, then synchronize the affected BR/D/O entries, workflows, glossary, and pilot measures here.
 
-Settled invariants may be implemented and tested with synthetic data while conditional paths remain gated. Confirm written discretionary cancellation eligibility/amount/evidence/access terms (O-03); the narrow full unintended duplicate-excess refund is already approved. Confirm operational SOP details (O-06 through O-09), baseline measurement sources, and the derived readiness details in PROJECT.md Section 9 before enabling the affected live behavior. Fixed 30/90/180-day terms, verified cash original-date rules and midnight starts are settled; remaining operational decisions must stay visible and must not be invented during implementation.
+The approved 2026-11-01 scope retires O-02 through O-06 actions; their prior SOP details are historical rather than live enablement gates. Current implementation may use synthetic data for cash collection, history, and eligibility. O-08 source verification, revised O-09 cash-only measurement, live data stewardship, and hosting/recovery readiness remain separate gates. Fixed 30/90/180-day terms and cash-payment-date start rules remain current; do not invent an outside-CRM emergency process.
 
-## Appendix C — Approved exception scenarios and authority
+## Appendix C — Historical approved exception scenarios and authority (superseded 2026-11-01)
 
-These scenarios record the product team's agreed operating direction; exact evidence thresholds and time-bound effects remain governed by Section 9's open decisions.
+These scenarios preserve the former product direction as historical context only. The 2026-11-01 scope revision retires all CRM exception actions; they do not authorize current investigation, recovery, correction, refund, outage, or closing operations.
 
 | Scenario | Approved handling | Who may resolve |
 |---|---|---|

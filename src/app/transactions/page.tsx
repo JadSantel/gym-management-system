@@ -1,24 +1,28 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { paymentHistory } from "@/lib/investigations";
-import { digitalOverview } from "@/lib/digital";
+import { paymentHistory } from "@/lib/payment-history";
 import { IdentityError } from "@/lib/identity";
 import { TransactionList, type TransactionRow } from "@/components/transaction-list";
 import { WorkspaceIcon } from "@/components/workspace-icon";
 export const dynamic = "force-dynamic";
-export default async function TransactionsPage() {
+type Search = Record<string, string | string[] | undefined>;
+const one = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value ?? "";
+export default async function TransactionsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const requestHeaders = await headers();
-  const data = await paymentHistory(requestHeaders, {}).catch(error => { if (error instanceof IdentityError) redirect("/team"); throw error; });
-  const digital = await digitalOverview(requestHeaders);
-  const rows: TransactionRow[] = data.payments.map(payment => ({ id: payment.id, reference: payment.reference, memberId: payment.memberId, member: payment.member.fullName, method: payment.method === "BANK" ? "Bank transfer" : payment.method === "GCASH" ? "GCash" : "Cash", amount: payment.amountCentavos, at: payment.collectedAt.toISOString(), status: "Confirmed", href: payment.receipt ? `/receipts/${payment.receipt.id}` : `/members/${payment.memberId}` }));
-  for (const claim of digital.claims.filter(row => !digital.settlements.some(settlement => settlement.claimId === row.id))) {
-    const charge = digital.charges.find(row => row.id === claim.chargeId)!;
-    rows.push({ id: claim.id, reference: claim.transactionReference, memberId: charge.member.id, member: charge.member.fullName, method: digital.accounts.find(row => row.id === claim.accountId)?.method === "BANK" ? "Bank transfer" : "GCash", amount: claim.amountCentavos, at: claim.enteredAt.toISOString(), status: "Pending verification", href: `/digital#claim-${claim.id}` });
-  }
-  rows.sort((a, b) => b.at.localeCompare(a.at));
-  return <><div className="page-heading"><div><h1>Transactions</h1><p>A traceable record of collections, verification, and pending payments.</p></div><Link href="/operate" className="action-link"><WorkspaceIcon name="plus" />Record membership</Link></div>
-    <div className="mb-4 flex flex-wrap gap-2"><span className="rounded-md border border-border bg-card px-3 py-2 text-xs"><strong>{data.payments.length}{data.morePayments ? "+" : ""}</strong> confirmed records in this view</span><span className="rounded-md border border-border bg-card px-3 py-2 text-xs"><strong>{rows.filter(row => row.status === "Pending verification").length}</strong> pending verification</span><Link href="/investigations" className="text-link self-center px-2">Search full payment history</Link></div>
-    <TransactionList rows={rows} /><p className="mt-4 text-xs leading-relaxed text-muted-foreground">Original confirmed transactions remain immutable. Corrections and refunds use linked owner-approved cases. Pending claims grant no new paid access.</p>
+  const filters = Object.fromEntries(Object.entries(await searchParams).map(([key, value]) => [key, one(value)]));
+  const data = await paymentHistory(requestHeaders, filters).catch(error => { if (error instanceof IdentityError) { if (error.status === 400) redirect("/transactions"); redirect("/team"); } throw error; });
+  const rows: TransactionRow[] = data.payments.map(payment => ({ id: payment.id, reference: payment.reference, memberId: payment.memberId, member: payment.member.fullName, method: payment.method === "BANK" ? "Bank transfer (historical)" : payment.method === "GCASH" ? "GCash (historical)" : "Cash", amount: payment.amountCentavos, at: payment.collectedAt.toISOString(), href: payment.receipt ? `/receipts/${payment.receipt.id}` : `/members/${payment.memberId}` }));
+  return <><div className="page-heading"><div><h1>Payment history</h1><p>Search confirmed collections, receipts, methods, collectors, and member links.</p></div><Link href="/operate" className="action-link"><WorkspaceIcon name="plus" />Record cash payment</Link></div>
+    <form method="get" role="search" aria-label="Search payment history" className="panel mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <label className="text-sm">Member name<input name="member" defaultValue={one(filters.member)} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2" /></label>
+      <label className="text-sm">Reference<input name="reference" defaultValue={one(filters.reference)} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2" /></label>
+      <label className="text-sm">Collection date<input name="date" type="date" defaultValue={one(filters.date)} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2" /></label>
+      <label className="text-sm">Original method<select name="method" defaultValue={one(filters.method)} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2"><option value="">All methods</option><option value="CASH">Cash</option><option value="GCASH">GCash (historical)</option><option value="BANK">Bank transfer (historical)</option></select></label>
+      <label className="text-sm">Collector<select name="collectorId" defaultValue={one(filters.collectorId)} className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2"><option value="">All collectors</option>{data.operators.map(operator => <option key={operator.id} value={operator.id}>{operator.user.name}</option>)}</select></label>
+      <div className="flex items-end gap-3 xl:col-span-5"><button type="submit" className="action-link">Search history</button><Link href="/transactions" className="text-link">Clear</Link></div>
+    </form>
+    <p className="mb-3 text-xs text-muted-foreground">Showing up to 50 matching confirmed payments{data.morePayments ? "; narrow the search to see older records" : ""}. Earlier digital payments remain identified by their original method. Digital collections, Exceptions, outage receipt/custody, and daily closing workflows are retired; historical records are read-only.</p>
+    <TransactionList rows={rows} /><p className="mt-4 text-xs leading-relaxed text-muted-foreground">Ordinary collection accepts full cash only. Existing payment, receipt, investigation, correction/refund, outage, and closing records are retained and are not changed by this history view.</p>
   </>;
 }

@@ -21,6 +21,7 @@ import { POST as paymentPost } from "../src/app/api/payments/route";
 import { proposedPeriod } from "../src/lib/charges";
 import { parsePesos, formatPhp } from "../src/lib/money";
 import { assessEligibility, remainingActiveTime } from "../src/lib/eligibility";
+import { paymentHistory } from "../src/lib/payment-history";
 
 assertSynthetic();
 const admin = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL, options: "-c timezone=UTC" }) });
@@ -724,15 +725,15 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const overview = await workspaceOverview(owners[0]);
     const start = new Date(overview.days.at(-1)!.date);
     const end = new Date(start.getTime() + 86_400_000);
-    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0], collectedAt: { gte: start, lt: end } }, _sum: { amountCentavos: true }, _count: true });
+    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0], method: "CASH", collectedAt: { gte: start, lt: end } }, _sum: { amountCentavos: true }, _count: true });
     assert.equal(overview.days.at(-1)!.amount, expected._sum.amountCentavos ?? 0);
     assert.equal(overview.days.at(-1)!.count, expected._count);
     assert.equal(overview.days.length, 7);
     assert.equal(overview.activeMembers, await admin.member.count({ where: { gymId: gyms[0], entitlements: { some: { isCurrentProjection: true, startsAt: { lte: overview.checkedAt }, endsAt: { gt: overview.checkedAt } } } } }));
     assert.ok(overview.payments.length > 0);
     assert.ok(overview.payments.every(payment => payment.gymId === gyms[0]));
-    assert.equal(overview.caseCount, await admin.investigationCase.count({ where: { gymId: gyms[0] } }));
-    assert.equal(overview.pending, 0);
+    assert.equal("caseCount" in overview, false);
+    assert.equal("pending" in overview, false);
     const other = await workspaceOverview(owners[1]);
     assert.ok(other.payments.every(payment => payment.gymId === gyms[1]));
     await assert.rejects(workspaceOverview(staffHeaders), { status: 403 });
@@ -743,6 +744,10 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
       assert.equal(member.gymId, gyms[0]);
       assert.deepEqual(member.entitlements.map(interval => interval.startsAt.toISOString()).sort(), (await admin.effectiveEntitlement.findMany({ where: { memberId: member.id, gymId: gyms[0], isCurrentProjection: true } })).map(interval => interval.startsAt.toISOString()).sort());
     }
+    const historyMember = directory[0];
+    const history = await paymentHistory(owners[0], { memberId: historyMember.id });
+    assert.ok(history.payments.some(payment => payment.method === "CASH" && payment.receipt?.paymentId === payment.id));
+    assert.ok(history.payments.every(payment => payment.memberId === historyMember.id));
   });
 
 });

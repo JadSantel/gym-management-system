@@ -18,15 +18,9 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
       { href: "/members", label: "Members", icon: "members" as const },
       { href: "/transactions", label: "Transactions", icon: "receipt" as const },
     ] : []),
-    ...(actor.owner || actor.cash || actor.members ? [{ href: "/closing", label: "Daily closing", icon: "closing" as const }] : []),
-    ...(members ? [{ href: "/investigations", label: "Exceptions", icon: "alert" as const }] : []),
   ] : [];
   const administration: Destination[] = actor ? [
-    ...(members ? [
-      { href: "/digital", label: "Digital collections", icon: "wallet" as const },
-      { href: "/outage-receipts", label: "Outage receipts and custody", icon: "receipt" as const },
-      { href: "/pilot", label: "Pilot evidence review", icon: "shield" as const },
-    ] : []),
+    ...(members ? [{ href: "/pilot", label: "Historical pilot evidence", icon: "shield" as const }] : []),
     ...(actor.owner ? [{ href: "/plans", label: "Plans and pricing", icon: "plans" as const }] : []),
     { href: "/team", label: actor.owner ? "Team & access" : "Your account", icon: "team" as const },
   ] : [];
@@ -39,7 +33,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
     </div>
     </header>
     <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>
-    {actor && workspace.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{workspace.filter(item => item.href !== "/").slice(0, 5).map(item => <Link key={item.href} href={item.href} aria-current={current(item.href) ? "page" : undefined} className={current(item.href) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label === "Transactions" ? "Payments" : item.label === "Daily closing" ? "Closing" : item.label}</span></Link>)}</nav>}
+    {actor && workspace.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{workspace.filter(item => item.href !== "/").slice(0, 5).map(item => <Link key={item.href} href={item.href} aria-current={current(item.href) ? "page" : undefined} className={current(item.href) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label === "Transactions" ? "Payments" : item.label}</span></Link>)}</nav>}
   </div>;
   return actor ? <SidebarProvider style={{ "--sidebar-width": "19rem" } as React.CSSProperties}>
     <AppSidebar actor={actor} groups={[{ title: "Workspace", items: workspace }, { title: "Management", items: administration }]} current={current} />

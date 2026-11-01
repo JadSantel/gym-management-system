@@ -3,12 +3,11 @@ import { db } from "./db";
 import { setGymContext } from "./binding";
 import { getActor, IdentityError } from "./identity";
 
-export type Capability = "MEMBERS" | "CASH" | "CLOSING" | "OWNER";
+export type Capability = "MEMBERS" | "CASH" | "OWNER";
 export function authorize(operator: { role: string; canManageMembers: boolean; canCollectCash: boolean }, capability: Capability) {
   if (operator.role === "OWNER") return;
   if (capability === "MEMBERS" && operator.canManageMembers) return;
   if (capability === "CASH" && operator.canCollectCash) return;
-  if (capability === "CLOSING" && (operator.canManageMembers || operator.canCollectCash)) return;
   throw new IdentityError(403, "Your account does not have permission for this action.");
 }
 

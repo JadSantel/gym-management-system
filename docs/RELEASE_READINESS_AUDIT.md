@@ -7,6 +7,8 @@
 
 **Actionable remaining gates:** [prioritized production and pilot readiness checklist](PRODUCTION_READINESS_CHECKLIST.md). It assigns proposed accountable roles, dependencies, next actions and closure evidence across all 14 original R-05 gates, separates pilot entry from later business evaluation, and retains the local-only runtime guard. Sequencing is a proposed work order, not approval of open policy or external actions.
 
+**Scope update — 2026-11-01:** This audit records an earlier product scope. The user has since retired digital collections, Exceptions, outage receipts/custody and daily closing while preserving historical records. Current requirements are in [PROJECT.md](PROJECT.md); this audit's S-03–S-06 evidence remains historical and does not authorize active workflows. No external emergency procedure is inferred. Revise O-09 for cash-only operations before any pilot; live readiness remains blocked pending its separate evidence.
+
 **Subsequent S-07 local verification, October 26, 2026:** User-approved local O-08/O-09 protocol, reviewed legacy access with no fabricated finance, measurement worksheet/fixed sources, training/incident procedure and complete synthetic owner/staff rehearsal now have evidence in the [ledger](IMPLEMENTATION_STATUS.md). Final checks: 154/154 tests, zero skips; typecheck/lint/build/migrations and configured compiled-app browser acceptance PASS. These supersede S-07 local source-absence findings only. This is not a resumed R-04 audit, an operational pilot, validated baseline/improvement, real training/physical rehearsal or live readiness approval. All unsupported/operational gates remain visible; R-04 stays deferred.
 
 ## Current repair reconciliation (reconciled 2026-10-26)

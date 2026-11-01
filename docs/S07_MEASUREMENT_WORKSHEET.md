@@ -1,5 +1,7 @@
 # S-07 measurement worksheet and fixed synthetic example
 
+**Current status: HISTORICAL ONLY (2026-11-01).** This worksheet and its synthetic fixture use the earlier S-03–S-06 operating scope. Those workflows are retired. Do not use these measures as current cash-only pilot results; revise O-09 before any pilot. Preserve this worksheet as historical evidence.
+
 **Protocol:** [approved local O-09 decision](S07_LOCAL_POLICY_PROPOSAL.md#decision-2--o-09-reproducible-manual-measurement-protocol).
 **Use:** copy the blank fields for each review and retain numbered revisions.
 No real observations, baseline or business improvement are established here.

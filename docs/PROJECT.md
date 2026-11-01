@@ -1,14 +1,18 @@
 # Independent Gym Management System — MVP Delivery Specification
 
 **Status:** Working delivery specification; conditional requirements remain gated by the decisions in Section 9.  
-**Date:** 2026-10-25 (documentation reconciliation; approval dates remain recorded with each decision)
+**Date:** 2026-11-01 (user-approved cash-only scope revision; earlier approval dates remain recorded with each decision)
 **Authority:** This document is the source of truth for current MVP requirements, approved behavior, and implementation gates. [product.md](product.md) provides aligned product context and policy references.  
 **Accountable product owner:** To assign. Pilot gym owners and operational reviewers: to assign.  
-**Implementation status:** S-01-S-03, supported S-04 recovery/correction/refund-settlement paths, S-05 outage recovery, S-06 daily closing and S-07 legacy onboarding/measurement/training artifacts have recorded local synthetic verification as of 2026-10-26, including supported S-04 closing integration and the executable owner/staff rehearsal. Real physical operating rehearsal, actual pilot operation, baseline validation, measured improvement and live readiness remain unverified. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact evidence and conditional limits; this requirements document does not certify release readiness.
+**Implementation status:** S-01-S-03, supported S-04 paths, S-05, S-06 and S-07 have historical local synthetic evidence. On 2026-11-01 the user approved retiring new use of digital collections, Exceptions/investigations/corrections/refunds, outage receipts/custody, and daily closing. Those workflows and their mutation APIs are retired; existing records and links remain preserved for audit and relevant history. Ordinary full-cash collection, receipt retrieval, paid periods and eligibility remain supported. This scope is locally implemented and database/API checked; the configured visual browser matrix could not start in this environment. No historical schema or migration was removed. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact evidence and remaining gates; this specification does not certify release readiness.
 
 ## 1. Authority, outcome, and interpretation
 
-Deliver a focused operational system for independent gyms serving approximately 80–150 members. Owners and staff must be able to record verified full membership payments, determine paid access accurately, investigate discrepancies, and reconcile collections without relying on delayed spreadsheet transcription.
+Deliver a focused operational system for independent gyms serving approximately 80–150 members. Owners and authorized staff record full cash membership payments, retrieve receipts and history, and determine paid access accurately. Digital collections, Exceptions, outage receipt/custody, and daily closing workflows are retired as of 2026-11-01. Their historical records remain preserved and readable where linked to member/payment history.
+
+### Approved scope revision — 2026-11-01
+
+The user approved cash-only ordinary collection and retirement of the four named workflows. This supersedes active use of FR-04 and FR-07 through FR-10, the related S-03 through S-06 operator workflows, and the prior local synthetic policy decisions for those workflows. Their identifiers, accepted decisions, SOPs, schema, and records remain as historical context; no existing financial or operational record may be deleted or rewritten. New writes and edits through retired APIs must be rejected. No emergency procedure outside the CRM is implied or approved here. Any such procedure requires a separate operational decision. Historical payment methods and member/payment links remain visible for audit.
 
 This document governs current MVP policy and delivery requirements. If a conflict with `product.md` appears, follow this specification and synchronize the product definition before implementing the affected behavior. New business policies still require an explicit recorded decision. Discovery estimates remain unverified, and pilot targets remain hypotheses.
 
@@ -28,14 +32,11 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 |---|---|---|
 | Individual owner/staff access | Authenticated operators, explicit authority, attributable actions | FR-01 |
 | Member and plan records | Search/create member, show paid periods and status, owner-controlled exact prices | FR-02 |
-| Full-payment collection | Cash, GCash, and bank-transfer records; verified confirmation; retrievable receipt/reference | FR-03, FR-04 |
+| Full-payment collection | Full cash only; retrievable receipt/reference | FR-03 |
 | Membership lifecycle | Approved fixed 30/90/180-day periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
-| Payment investigation | Searchable history, evidence-backed missing-payment recovery, escalation | FR-07 |
-| Owner-controlled corrections | Preserved originals, classified reason, approval, explicit money and access outcomes | FR-08 |
-| Outage recovery | Physical numbered-receipt procedure, one-visit exceptions, back-entry and custody reconciliation | FR-09 |
-| Daily closing | Expected/actual totals, differences, owner review, outstanding-item visibility | FR-10 |
+| Historical financial/operational evidence | Preserve existing digital, investigation/correction/refund, outage/custody, and closing records and their member/payment links; show relevant history read-only | Retired FR-04, FR-07–10 |
 | Verified migration | Traceable historical entitlements and unresolved legacy flags | FR-11 |
-| Pilot evidence | Defined collection/entry timestamps, categorized incidents, closing-time and eligibility measurements | FR-12 |
+| Pilot evidence | Future cash-only collection, receipt/history and eligibility measures; revise O-09 before use | FR-12 |
 
 **O-07 approved by the user on 2026-10-24:** Monthly — **₱800 / 30 elapsed days**; 3 Months — **₱2,100 / 90 elapsed days**; 6 Months — **₱4,000 / 180 elapsed days**. Each day is exactly 24 hours; none uses calendar-month arithmetic. These initial catalogue prices remain owner-controlled for later changes, preserving historical snapshots. No other duration, promotion, discount, guest pass, or grandfathered contract is approved.
 
@@ -47,13 +48,13 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 - Advanced attendance analytics, biometric entry, turnstiles, and hardware automation.
 - Member self-service portal or mobile app.
 - Multi-branch/franchise administration and complex financial accounting.
-- Automated payment gateways or POS integration; reconsider only if pilot evidence shows manual verification cannot meet the goal.
+- Automated payment gateway or POS integration. Any future non-cash collection requires a separate explicit scope and policy decision; evidence alone does not re-enable digital collection.
 - Automated renewal reminders until need and communication preferences are validated.
 - Fully offline digital capture, local-first synchronization, device-to-device synchronization, and automatic offline membership activation.
 
-Basic eligibility checks and incident evidence are included; a comprehensive attendance product is not. Outage receipt issuance and access authorization happen manually while disconnected. Recovery support is in the application after connectivity returns.
+Basic eligibility checks are included; a comprehensive attendance product is not. Incident evidence for the retired workflows remains historical and read-only.
 
-Additions require evidence that they improve payment correctness, eligibility, traceability, or closing. Record them in a later backlog until product scope is explicitly revised.
+The 2026-11-01 retirement is a user-approved scope revision. Do not re-enable retired workflows without new explicit authorization. Preserve historical policy documents as superseded context. No CRM emergency fallback is defined by this revision.
 
 ## 3. User stories and traceability
 
@@ -62,44 +63,35 @@ Additions require evidence that they improve payment correctness, eligibility, t
 | US-01 | As an owner, I can give each operator only the authority needed so collections and sensitive actions remain attributable. | FR-01; AC-01a–c | BR-04, BR-15, BR-19; Section 6.1a.4 |
 | US-02 | As an operator, I can find or create a member and show the exact plan price before collecting funds. | FR-02; AC-02a–c | BR-18; Section 8 |
 | US-03 | As a collector, I can record a full cash payment once and provide a durable reference so the member's payment is recognized. | FR-03; AC-03a–d | BR-01–04; PR-01–04 |
-| US-04 | As an account-authorized verifier, I can confirm GCash/bank funds against the receiving account so screenshots cannot activate access. | FR-04; AC-04a–d | BR-08, BR-14; Section 6.1a.4 |
+| US-04 | Retired 2026-11-01: digital collection/verification is no longer supported. | Historical FR-04; read-only records retained | BR-08, BR-14 remain historical context |
 | US-05 | As a collector, I can renew early without losing paid time or renew after expiry from the correct payment date. | FR-05; AC-05a–e | BR-02, BR-07, BR-12–13; Section 6.1a.1, .6 |
-| US-06 | As front-desk staff, I can quickly distinguish active, scheduled, unpaid, expired, and provisional cases before admission. | FR-06; AC-06a–c | BR-06, BR-11; Section 6.3 |
-| US-07 | As an owner, I can approve and recover an independently proven omitted payment without changing an existing confirmed transaction. | FR-07; AC-07a–d | BR-05, BR-19; Section 6.1a.5 |
-| US-08 | As an owner, I can approve a reason-specific correction/refund and its access consequences while preserving the original record. | FR-08; AC-08a–d | BR-09, BR-15; Section 6.1a.3 |
-| US-09 | As an outage collector, I can issue a numbered full-cash receipt, document one visit, and account for it after recovery and at handover. | FR-09; AC-09a–f | BR-10–11, BR-16; Section 6.1a.2, .6 |
-| US-10 | As closing staff, I can compare actual collections with recorded totals; as owner, I can review unresolved differences without hiding them. | FR-10; AC-10a–d | BR-17; PR-06; Appendix C |
+| US-06 | As front-desk staff, I can quickly distinguish active, scheduled, unpaid, and expired cases before admission. | FR-06; AC-06a–b | BR-06; Section 6.3 |
+| US-07 | Retired 2026-11-01: claim investigation and omitted-payment recovery are no longer supported; historical records remain readable. | Historical FR-07; mutation denied | BR-05, BR-19 remain historical context |
+| US-08 | Retired 2026-11-01: corrections/refunds are no longer supported; original and linked historical records remain readable. | Historical FR-08; mutation denied | BR-09, BR-15 remain historical context |
+| US-09 | Retired 2026-11-01: outage receipt/custody workflow is no longer supported; existing records remain preserved. | Historical FR-09; mutation denied | BR-10–11, BR-16 remain historical context |
+| US-10 | Retired 2026-11-01: in-app daily closing is no longer supported; existing closing records remain preserved. | Historical FR-10; mutation denied | BR-17; PR-06; Appendix C remain historical context |
 | US-11 | As a pilot owner, I can approve verified historical access and isolate uncertain legacy records without fabricating payments or balances. | FR-11; AC-11a–c | BR-18; O-08 |
-| US-12 | As a pilot reviewer, I can measure discrepancies, closing work, recording delays, and incorrect admissions using defensible evidence. | FR-12; AC-12a–c | Sections 7, 10; O-09 |
+| US-12 | Future pilot reviewers can measure cash collection accuracy, receipt/history retrieval, recording delay, and eligibility under revised O-09. | FR-12; AC-12a–c | Sections 7, 10; O-09 |
 
 Gym members benefit from accurate dates and retrievable payment confirmation. They do not require an application login in this MVP.
 
 ## 4. Permission rules
 
-Owner and staff are the two product roles. Staff capabilities below are explicit authorizations, not additional business roles. The exact assignment procedure is a proposed control to validate with each pilot. An owner also needs designated receiving-account access before verifying digital settlement.
+Owner and staff are the two product roles. Staff capabilities below are explicit authorizations, not additional business roles. Owners and authorized staff may record full cash and retrieve relevant member/payment history. Capabilities and APIs for retired workflows confer no permission to write; direct requests are rejected regardless of role.
 
 | Action | Owner | Staff | Basis / restriction |
 |---|---|---|---|
 | Search/create members; inspect eligibility and relevant payment history | Yes | Authorized operational staff | Source minimum capabilities; proposed least-privilege boundary |
 | Set plan prices and supported plan definitions | Yes | No | Owner-controlled pricing, BR-18 |
 | Accept and confirm full cash collection | Yes | Authorized collectors | Actual collector must be recorded, BR-04 |
-| Record a pending digital payment | Yes | Authorized collectors | Pending entry does not verify receipt or activate membership |
-| Confirm GCash/bank settlement | Only with designated account-view authorization | Only with designated account-view authorization | Must inspect actual receiving-account funds, BR-14 |
+| Create or verify a digital payment claim | No | No | Retired 2026-11-01; historical records are read-only |
 | Record a paid early/late renewal | Yes | Authorized collectors, subject to verification authority | BR-02, BR-07, BR-12 |
-| Record a claim or report a discrepancy | Yes | Authorized operational staff | Reporting does not confer resolution/approval authority |
-| Resolve a verified omitted-payment claim | Owner-only approval and execution | Investigate/document/escalate only | Independent actual collection evidence; October 25, 2026 approval; digital verification still needs designated account authority |
-| Reverse, refund, void, or correct an existing confirmed financial transaction | Owner approval required | No | Staff may submit a request, never approve or execute the financial change |
-| Decide a correction/refund's access outcome | Owner approval required | No | Reason, rationale, effective date, and affected periods required |
-| Register physical booklet/range and designate/revoke outage verifiers | Freshly reauthenticated owner only | No | O-06 local approval October 25, 2026; preserve assigned custody and approved paper price snapshot |
-| Grant current-visit outage access | With assigned custody, full cash and numbered receipt | Cash-authorized assigned outage custodians, with the same evidence | One manual visit only; BR-11; no automatic repeat admission |
-| Back-enter assigned outage receipts and prepare custody counts | Yes | Member-management and cash capabilities required | Actual collector remains distinct from later entrant; cannot self-certify missing evidence by typing it into CRM |
-| Independently verify recovered outage full cash | Explicit designation required; cannot be collector or entrant | Same explicit designation and independence required | Match receipt/cash/signed custody evidence; owner role alone grants no verification authority |
-| Resolve a missing/invalid/disputed receipt exception | Yes | Investigate and escalate | Owner resolution; retain number and history |
-| Prepare daily reconciliation | Yes | Authorized closing staff | BR-17 |
-| Approve unresolved closing differences | Yes | No | Approval retains the unresolved amount and status |
+| Create or alter investigation/correction/refund records | No | No | Retired 2026-11-01; preserved historical records are read-only |
+| Create or alter outage receipt, custody, or provisional access records | No | No | Retired 2026-11-01; preserved historical records are read-only |
+| Create or alter daily closing records or approvals | No | No | Retired 2026-11-01; preserved historical records are read-only |
 | Approve imported historical entitlement | Proposed owner sign-off | May prepare records; no approval by default | Conditional on O-08 |
 | Assign/revoke operator capabilities | Proposed owner-only administration | No | Implementation control; validate pilot responsibility |
-| Silently overwrite/delete confirmed financial history | No | No | Original plus linked corrective events, PR-02, PR-10 |
+| Silently overwrite/delete confirmed financial or retained operational history | No | No | Original records and historical links remain preserved |
 
 Permission checks apply to each underlying operation, including direct requests; hiding a button is insufficient. Back-entry records the actual collector separately from the authenticated entrant and verifier. Shared accounts cannot satisfy collector attribution. Members and unauthenticated users have no operational access.
 
@@ -112,8 +104,8 @@ Permission checks apply to each underlying operation, including direct requests;
 Provide individual authentication and explicit capabilities from Section 4. Attribute records to authenticated actors, with separate collector/entrant/verifier fields where the workflow requires them. Prevent staff from changing confirmed financial history through any entry point.
 
 - **AC-01a:** Given an authenticated collector, when they confirm a cash payment, then the transaction and history identify that collector; a back-entry also identifies the different entrant when applicable.
-- **AC-01b:** Given staff without correction approval authority, when they attempt to reverse, refund, void, alter a confirmed payment, or approve a closing difference through UI or direct request, then the operation is rejected and financial/access records remain unchanged.
-- **AC-01c:** Given an operator without receiving-account authorization, when they attempt digital confirmation, then confirmation is rejected even if they can collect cash or investigate claims. Revoking a capability prevents subsequent protected actions.
+- **AC-01b:** Given any operator, when they attempt to alter a confirmed payment or linked history through an ordinary endpoint, then the operation is rejected and financial/access records remain unchanged.
+- **AC-01c:** Given an operator who calls a retired digital, investigation/correction/refund, outage/custody, or closing API, then the request returns the documented retired response and changes no records.
 
 ### FR-02 — Members, plans, and exact charges
 
@@ -121,7 +113,7 @@ Provide individual authentication and explicit capabilities from Section 4. Attr
 
 Search/create members, associate their transaction history and paid periods, and show the selected plan's duration, full price, and intended period before collection. Define only necessary member fields after operational validation. Preserve the charged plan/price/duration on historical transactions so later plan changes do not rewrite history. Staff cannot introduce ad hoc prices or discounts.
 
-- **AC-02a:** Given a selected member and plan, when preparing a join/renewal, then the operator sees the full charge, method, and proposed period before confirming payment.
+- **AC-02a:** Given a selected member and plan, when preparing a join/renewal, then the operator sees the full cash charge and proposed period before confirming payment.
 - **AC-02b:** Given a prior confirmed payment, when the owner changes the plan price for later sales, then its historical amount, receipt, and paid period remain unchanged.
 - **AC-02c:** Given staff or an unsupported plan/discount request, when attempting to change pricing or sell an unapproved duration, then the action is blocked; the approved O-07 catalogue is not silently replaced by an unsupported plan, discount or duration.
 
@@ -129,106 +121,73 @@ Search/create members, associate their transaction history and paid periods, and
 
 **Classification:** Policy for full payment; proposed durable records and duplicate/failure controls. **Sources:** BR-01–04; PR-01–04; Sections 5, 6.3.
 
-Confirm a membership charge only when the entire required amount has been received and verified. Reject a short payment without posting a partial membership payment, installment balance, or entitlement. An unresolved mismatch/excess collection is an exception; do not invent an overpayment, change, or credit policy. A confirmed record includes unique ID/reference, member, plan/charge snapshot, full amount, method, actual collector, collection time, entry time, verification actor/time, and related period/receipt. The confirmation must be retrievable without dependence on a notification channel.
+Confirm a membership charge only when the entire required amount has been received in cash by an authorized collector. Reject non-cash methods and short payments without posting a partial membership payment, installment balance, or entitlement. Ordinary online cash confirmation creates a unique ID/reference, member, plan/charge snapshot, full amount, CASH method, actual collector, collection and entry times, and linked paid period/receipt. The confirmation and relevant member/payment history remain retrievable. Digital, recovery, correction/refund, outage, and closing workflows are retired under the 2026-11-01 scope revision; any related old record stays read-only.
 
 - **AC-03a:** Given a required charge of 1,000 and verified receipt of 900, when confirmation is attempted, then no confirmed membership payment, debt balance, or paid period is created. The operator receives a clear full-payment requirement.
 - **AC-03b:** Given the full verified cash amount and an authorized collector, when confirmation succeeds, then one confirmed transaction, its linked period, and retrievable reference exist; history shows the actor, amount, method, and timestamps.
 - **AC-03c:** Given a successful request whose response was lost, when the same request is retried or concurrently repeated, then it returns/references the existing result without a second collection record or period. A new real collection is handled separately and is not discarded merely because its amount matches.
 - **AC-03d:** Given failure during confirmation, then the operation cannot leave a spendable paid period without its confirmed payment or an apparently completed payment with its required linked period missing. Recovery/retry has a determinate result. Reopening the reference retrieves that same result.
 
-### FR-04 — GCash and bank verification
+### FR-04 — Digital collections (RETIRED 2026-11-01)
 
-**Classification:** Policy with proposed evidence capture. **Sources:** BR-08, BR-14; PR-04; Section 6.1a.4; O-04.
+Digital claims and verification are no longer supported. No role may create, verify, flag, or otherwise mutate digital collection records through the CRM. Existing claims and payments remain preserved and readable as historical evidence. Requests to the former mutation APIs must be rejected without writes. The 2026-10-25 S-03 local design approval and O-04 verifier decisions are retained as historical context and no longer authorize current operations.
 
-Support GCash and bank transfer as manually verified methods. Keep pending/delayed/mismatched transfers distinct from confirmed payments. A designated verifier checks actual funds in the designated receiving account and records receiving-account match, appropriate reference, reviewer, and confirmation time. Never store banking login credentials. No payment gateway is required.
-
-**S-03 local synthetic approval (user, 2026-10-25):** owner-managed receiving-account labels/methods and explicitly named owner/staff verifiers; owners have no automatic settlement bypass. Record matched designated account, exact full amount, transaction reference and an opaque account-activity evidence reference, plus collector, entry, actual funds-received and verifier/time attribution. Account/grant changes require fresh owner reauthentication. Existing member/cash collectors may record pending claims; member-authorized operators may flag confirmed digital payments for owner review. Unavailable verifier: keep pending and contact the owner. No credentials or evidence uploads. This settles the local synthetic test configuration only, not real account/viewer assignments or a live evidence-retention SOP. **Cross-date digital confirmation remains blocked:** both the reported and actual funds-received Manila date must equal the confirmation date; preserve claims for owner review rather than infer an effective date. Same-date new/late terms use that date's Manila midnight; early terms preserve exact adjacency and the one-queued-term limit. Dispute flags append review events without changing original confirmation, refunds or access.
-
-- **AC-04a:** Given only a screenshot, reference, pending transfer, or mismatched account/amount, when an operator records it, then it remains unconfirmed or is flagged for review and grants no new normal access.
-- **AC-04b:** Given actual full funds in the designated receiving account and an authorized verifier, when confirmation is recorded, then the audit captures the reference, account match, reviewer/time, collector, and one linked paid period.
-- **AC-04c:** Given the verifier is unavailable, then another collector can preserve the pending case but cannot bypass verification. Existing independently paid access remains evaluated on its own merits.
-- **AC-04d:** Given a previously confirmed transfer is later disputed/reversed or found absent, then it is flagged for owner review; staff cannot silently rewrite it, and no universal access outcome is inferred. FR-08 governs disposition.
+- **AC-04a:** A former digital collection mutation route/API is unavailable or rejects the request; persisted historical records remain unchanged.
+- **AC-04b:** Relevant prior digital payment/claim information remains retrievable in read-only member/payment history.
 
 ### FR-05 — Membership periods and renewal
 
 **Classification:** Policy; conditional start convention and unsupported cases. **Sources:** BR-02, BR-07, BR-12–13; PR-07; Section 6.1a.1, .6; O-01, O-07.
 
-Use the gym's local timezone (Asia/Manila for the Philippines pilot) for display. The approved MVP monthly-labeled plan lasts **exactly 30 consecutive 24-hour days**. Store/evaluate start-inclusive, end-exclusive intervals: eligible at start and ineligible at end unless an adjacent verified paid interval applies. Compute the end as start plus 30 elapsed days, **not** calendar-month advancement or end-of-month clamping. A new membership or late renewal starts at **00:00 Asia/Manila on the local date of the verified full payment**. For a valid offline cash renewal, use 00:00 on the original verified cash-collection date. A payment received later in the day therefore yields less than 30 × 24 hours of prospective access; the term still spans exactly 30 midnight-to-midnight days.
+Use the gym's local timezone (Asia/Manila for the Philippines pilot) for display. The approved MVP monthly-labeled plan lasts **exactly 30 consecutive 24-hour days**. Store/evaluate start-inclusive, end-exclusive intervals: eligible at start and ineligible at end unless an adjacent verified paid interval applies. Compute the end as start plus 30 elapsed days, **not** calendar-month advancement or end-of-month clamping. A new membership or late renewal starts at **00:00 Asia/Manila on the local date of the verified full cash payment**. The previously approved original-date rule for offline cash renewal is historical; the retired outage workflow does not authorize offline renewal or back-entry. A payment received later in the day therefore yields less than 30 × 24 hours of prospective access; the term still spans exactly 30 midnight-to-midnight days.
 
-For an active member, show actual expiry and remaining active days, recommend optional advance renewal, preserve current access, and schedule the paid next term at the current term's exact end. For an expired member, start on the confirmed payment date. A verified late full-cash outage renewal uses the original verified collection date after recovery, not entry/verification date. Preserve all timestamps. A queued future paid period is not an unpaid renewal or receivable.
+For an active member, show actual expiry and remaining active days, recommend optional advance renewal, preserve current access, and schedule the paid next term at the current term's exact end. For an expired member, a newly confirmed full-cash payment starts on its local collection date. Preserve all timestamps. A queued future paid period is not an unpaid renewal or receivable.
 
 The midnight effective-start convention is approved. **S-02 decisions approved by the user, 2026-10-25:** show exact PHT expiry plus remaining whole 24-hour days and whole hours, rounded down at the displayed server check time; show “less than 1 hour” below one hour. Show remaining time only for the current active paid period, separately from any scheduled term. Allow one queued paid advance term; block another sale until that term starts. Same-key recovery of an already confirmed payment remains available. No overlapping periods are permitted.
 
 - **AC-05a:** Given a 30-day membership beginning at 2027-01-31 00:00 Asia/Manila, its end is 2027-03-02 00:00; given a start at 2028-01-31 00:00, its end is 2028-03-01 00:00. A start on 2027-04-15 00:00 ends 2027-05-15 00:00. These are fixed elapsed durations, not calendar-month billing anniversaries. A full payment at 18:30 on the start date still uses 00:00 that date as the effective start.
 - **AC-05b:** Given a current interval ending at boundary E and one paid advance renewal, then the new interval starts exactly at E, current access is preserved, and both sides of E have the correct eligibility with no gap/overlap. Remaining days/expiry are visible before collection.
 - **AC-05c:** Given an expired membership and an online payment confirmed on local date D, then the new term starts at 00:00 Asia/Manila on D, never on the old expiration date.
-- **AC-05d:** Given a valid full-cash outage renewal collected on D and entered/verified later on D+2, then after verification its term starts at 00:00 Asia/Manila on D; entry and verification still show D+2. The earlier one-visit exception remains separately traceable.
+- **AC-05d:** Given an ordinary full-cash payment confirmed on local date D, then the new or late term starts at 00:00 Asia/Manila on D and stored collection/entry timestamps reflect their actual events.
 - **AC-05e:** Given only a proposed renewal or unconfirmed payment, then no future paid period is created. Given an already queued paid term, another advance sale is blocked until that term starts; committed same-key recovery still returns the original result.
 
 ### FR-06 — Eligibility and basic check-in
 
 **Classification:** Policy for eligibility; proposed status presentation/evidence. **Sources:** BR-06, BR-11; Sections 6.3, 8; Section 6.1a.2.
 
-Show whether a fully paid, currently effective period exists and its expiry. Distinguish scheduled future access, expired/no verified access, unresolved payment, and recorded provisional outage visits. A claim, screenshot, pending payment, or old provisional visit is insufficient for normal admission. Existing verified active access is not removed merely because a separate renewal is pending.
+Show whether a fully paid, currently effective period exists and its expiry. Distinguish scheduled future access and expired/no verified access. Historical digital claims and provisional outage visits do not establish normal eligibility. Existing verified active access is not changed merely because retained historical evidence exists.
 
 - **AC-06a:** Given a valid interval [S, E), then the member is eligible at S and immediately before E; at E they are ineligible unless another verified interval begins there.
 - **AC-06b:** Given only a future paid term, expired term, unresolved claim, or pending payment, then normal eligibility is denied with a clear reason. A separate active verified term still qualifies.
-- **AC-06c:** Given an outage visit authorized on a full-cash numbered receipt, then it appears as a one-visit provisional exception after recovery; it does not authorize another visit. Capture eligibility/admission incidents sufficient for pilot review; a full attendance ledger is optional and requires scope validation.
+- **AC-06c:** Given a retained historical outage visit, then it remains visible as historical evidence and does not create or extend ordinary membership eligibility.
 
-### FR-07 — History and missing-payment investigations
+### FR-07 — Investigations and omitted-payment recovery (RETIRED 2026-11-01)
 
-**Classification:** Policy with proposed case record and duplicate controls. **Sources:** BR-05, BR-19; PR-01–03, PR-05; Section 6.1a.5; Appendix C; O-05.
+No role may create or mutate claims, investigations, evidence, omitted-payment recoveries, or linked paid periods through the CRM. Existing case/event data and payment/member links remain preserved and read-only. The October 25, 2026 O-05/S-04 decisions remain historical context and no longer authorize new actions.
 
-Search by member, transaction/receipt reference, collection date, method, and collector. Record claims and evidence references, reviewer, original collection time, reasoning, and outcome. Authorized staff may create, investigate, document and escalate claims. Only the owner may approve and execute recovery, with current authorization and independent evidence of actual collection (approved October 25, 2026). Verbal claims and screenshots alone are insufficient. Preserve opaque evidence references, reasoning, reviewer, actual collection time, entry time and verification time. Uncertain, contradictory or high-risk claims stay unresolved and escalated; never invent a payment or store account credentials or unnecessary sensitive evidence. Recovered full cash uses 00:00 Asia/Manila on the independently verified original collection date for new/late membership; preserve 30/90/180 elapsed-day durations, early-renewal adjacency and one queued term. Uncertain dates or entitlement conflicts reject recovery without shifting, overwriting or terminating another period. Digital confirmation still requires reported, actual-received and verification Manila dates to agree; cross-date claims stay pending/escalated with no retroactive digital activation. Escalate unclear, inconsistent, high-risk, or historically disputed claims to the owner. Preserve existing confirmed entries.
+- **AC-07a:** Former investigation and recovery mutation routes/APIs reject requests without database changes.
+- **AC-07b:** Existing case/evidence/payment links remain readable in relevant member/payment history.
 
-- **AC-07a:** Given a verbal claim or screenshot without independent corroboration, or uncertain, contradictory or high-risk evidence, then the case remains unresolved/documented/escalated and creates no confirmed payment or entitlement.
-- **AC-07b:** Given independently corroborated collection evidence, a verified original cash collection date and current owner approval, when a truly omitted full payment is recovered, then one recovered transaction links to the case/evidence, original collection time, entrant, reviewer, reasoning, and resulting period using original-date Manila midnight for new/late cash terms, exact early-term adjacency and the one-queued-term limit; uncertain/conflicting dates produce no financial writes.
-- **AC-07c:** Given the evidence already matches a recorded payment or receipt, then recovery references that record or escalates a duplicate question; it does not create a second payment/period. Repeated and concurrent recovery is idempotent; an individual corroborated collection reference cannot be recovered through another case.
-- **AC-07d:** Given resolving the case would require changing an existing confirmed transaction, then staff must route it to owner-controlled FR-08, retaining the investigation history. Staff recovery approval/execution requests are rejected on the server even with investigation capability.
+### FR-08 — Corrections, reversals, and refunds (RETIRED 2026-11-01)
 
-### FR-08 — Corrections, reversals, and refunds
+No role may request, approve, execute, or otherwise mutate a correction, reversal, refund, or related access outcome through the CRM. Existing original and linked adjustment/refund/settlement records remain preserved and read-only. O-03 and the October 25, 2026 S-04 execution contract remain historical context; neither authorizes current operations.
 
-**Classification:** Policy for approval and reason-specific access; proposed linked adjustment records; conditional refund eligibility/amounts. **Sources:** BR-09, BR-15; PR-02, PR-05, PR-10; Section 6.1a.3; O-03.
+- **AC-08a:** Former correction/refund mutation routes/APIs reject requests without changing original payments, periods, receipts, or adjustment records.
+- **AC-08b:** Existing original and linked historical financial records remain retrievable from relevant member/payment history.
 
-Classify each case using Section 7. Preserve the original entry; record a linked owner-approved adjustment with evidence, reason, amount, method, money movement/disposition, affected periods, and access outcome (stays, ends, or adjusts), rationale, and effective date. Staff may request/investigate but cannot approve or execute recovery or financial changes, including direct API calls. No blanket refund rule or automatic access cancellation applies.
+### FR-09 — Outage receipt and custody workflow (RETIRED 2026-11-01)
 
-- **AC-08a:** Given an existing confirmed payment, when a correction/refund is approved, then the original remains retrievable and the linked event identifies owner approval, reason, evidence, amount/method, money outcome, and explicit access outcome/effective date. Investigation, owner decision, execution/awaiting external settlement and verified completion/unresolved failure remain distinct.
-- **AC-08b:** Given missing owner approval, missing access disposition, or an unset required gym refund rule, then execution is blocked; the request remains available for review.
-- **AC-08c:** Given one actual collection and two ledger records, then owner-approved duplicate-record correction does not refund nonexistent duplicate funds. Given two actual collections, then independent evidence must establish both actual collections, the same obligation, unintended excess and the exact full refundable excess. Owner approval includes explicit access disposition; actual external settlement must be independently verified before completion. A legitimate second purchase is not presumed erroneous.
-- **AC-08d:** Given an approved correction affecting current/future periods, then eligibility, receipt/history, and closing totals reflect the explicit approved result consistently without erasing prior values. Repeating the approved action creates no second adjustment or refund record.
+The CRM no longer supports offline/outage receipt issuance, provisional access, back-entry, custody, handover, or recovery. No in-CRM or outside-CRM emergency process is defined by this specification. Existing outage and custody records remain preserved and read-only. O-02/O-06 and the October 25, 2026 S-05 policy remain historical context.
 
+- **AC-09a:** Former outage/custody mutation routes/APIs reject requests without database changes.
+- **AC-09b:** Historical outage/payment links remain readable; they do not create or extend ordinary eligibility.
 
-**S-04 execution contract (approved October 25, 2026):** Keep investigation/request, owner approval/rejection, execution/awaiting external settlement, and verified completion/unresolved failure distinct. Immutable original payments, periods and receipts remain retrievable. Linked attributable adjustments require rationale, evidence, exact centavos/method, effective timestamp and explicit approved access outcome; approval alone never proves settlement. The CRM never transfers money. Atomic writes, tenant authorization, member locks and idempotency prevent partial records or duplicate adjustments/settlements. Duplicate ledger records with one actual collection have zero refund. Two collections are not inherently a duplicate; require evidence of the same obligation and unintended excess. Unsupported corrections and discretionary cancellations remain documentable/escalatable, with execution blocked. Live privacy, evidence retention/access, named account/investigation authorities and backup coverage, hosting/email/monitoring/backups/recovery remain separate unverified gates.
+### FR-10 — Daily closing (RETIRED 2026-11-01)
 
-### FR-09 — Numbered outage receipts and recovery
+The CRM no longer supports daily reconciliation, closing snapshots/supplements, differences, or closing approvals. No replacement CRM workflow is defined. Existing closing records remain preserved and read-only. The October 25, 2026 local S-06 decisions and closing SOP remain historical context and do not direct current operations.
 
-**Classification:** Approved policy and local synthetic receipt/custody SOP (user approval October 25, 2026); live operations remain conditional. **Sources:** BR-10–11, BR-16; PR-08–09; Section 6.1a.2, .6; O-02, O-06.
-
-Prepare controlled pre-numbered receipt books/ranges and assigned custody. Offline, an authorized collector may accept the entire price in cash and issue a receipt containing number, member, plan, full amount, actual collection/issuance time, and collector. Document the current visit if provisional access is granted. Physical issuance does not require the application to work offline.
-
-On reconnection, back-enter each original receipt promptly and mark it pending verification until matched to receipt/cash/custody evidence. Capture actual collector, entrant, original collection/issuance times, entry time, verifier/time, and any provisional visit. Prevent reuse of a receipt reference within its controlled numbering scope. Used, unused, void, missing, duplicate, and pending receipts remain accountable. Every shift ends with custody counts/handover even while disconnected; enter the handover after recovery. Invalid evidence goes to owner review.
-
-**Local S-05 decision, approved by the user October 25, 2026:** Apply all seven decisions in [the approved local outage SOP](S05_OUTAGE_POLICY_PROPOSAL.md): gym-unique immutable booklet/number ranges and assigned custody; existing member/cash capabilities for entry; explicit separately designated verification independent of both collector and entrant; signed physical counts/handover at each actual shift boundary; retained lost/void/missing/conflict evidence and owner investigations; no automatic repeat admission or extra payment; original-date recovery only with unambiguous historical price/date evidence. Physical forms work without connectivity. Repeat admission approval remains unavailable in the app; an independently documented owner decision is required outside it. Live named operators/backups, evidence custody/retention and pilot operating coverage remain gated.
-
-- **AC-09a:** Given an outage, full cash, a controlled receipt, and an authorized collector, then the manual procedure permits one documented visit; a partial amount or unverified digital transfer does not qualify for this cash exception.
-- **AC-09b:** Given a later visit, then the old receipt's provisional authorization alone grants no access. A separately documented authorized exception is required if still offline, subject to the repeat-visit SOP; do not infer that another full payment is always due.
-- **AC-09c:** Given receipt back-entry, then it remains pending and grants no new normal digital entitlement until evidence is verified; confirmation then uses the correct original-date rule and keeps the provisional visit separate.
-- **AC-09d:** Given retry, concurrent entry, or reuse of a receipt already entered, then only one underlying payment/period results; conflicting member/amount/number evidence is flagged rather than overwritten.
-- **AC-09e:** Given connectivity remains unavailable at shift end, then the manual handover accounts for used/unused/void/missing numbers and outstanding cash/receipts, with custody passed to an identified person; recovery records retain actual handover time and later entry time.
-- **AC-09f:** Given a missing/void/invalid receipt, then its number, status, investigation, and any associated provisional access remain visible to the owner; no amount or payment is invented to close the gap.
-
-### FR-10 — Day-end reconciliation
-
-**Classification:** Policy for preparation/owner approval; local synthetic closing SOP approved October 25, 2026; live/pilot operating details remain conditional. **Sources:** BR-17; PR-06; Section 6.3; Appendix C; O-06, O-09; [approved local closing SOP](S06_CLOSING_POLICY_PROPOSAL.md).
-
-Show recorded collections by method and actual collector for the agreed business-day cutoff. Capture physically counted cash and independently verified digital receipts, compare with expected amounts, and link differences to cases. Expose pending digital transfers, outstanding outage receipts/custody gaps, and owner-approved corrections/refunds separately so totals remain explainable. Opening cash, cash removals, and any non-membership cash handling need a signed-off counting convention; do not build a general ledger.
-
-**User-approved local synthetic convention (October 25, 2026):** Asia/Manila calendar day `[00:00 D, 00:00 D+1)`; final submission only after its end. Zero opening membership float; segregate non-membership money; count evidenced custody transfers once under the original collector. Unexplained removals remain exceptions. Compare independently counted/verified gross actuals with confirmed gross less executed false-record exclusions; show actual settled refund outflows separately on settlement day, attributed to the original collector/method with the settling owner identified. Approval alone moves no funds. Keep originals immutable; late original-date collections/corrections and settlement events link to earlier snapshots, with explicit supplemental submissions and renewed/reaffirmed evidence instead of overwrites. Cash-capable staff prepare; a freshly reauthenticated owner alone acknowledges unresolved differences. The linked SOP defines formulas and examples. This approval does not authorize live operations or resolve O-09 pilot readiness.
-
-- **AC-10a:** Given cash, GCash, and bank records from multiple collectors, then preparation shows each method/collector subtotal, actual values, and a traceable difference. A pending transfer is not counted as confirmed funds, and a verified back-entry is not counted twice.
-- **AC-10b:** Given a shortage or excess, then staff can submit the difference with evidence/notes; only the owner approves the unresolved difference. Approval records accountability and leaves the unresolved amount visible without changing transaction amounts.
-- **AC-10c:** Given outstanding receipts, missing numbers, or unverified transfers, then closing surfaces them separately and does not silently mark them reconciled when the daily summary is approved.
-- **AC-10d:** Given a back-entry or correction after an earlier closing, then preserve the earlier closing snapshot and trace the later change to its original collection date and later entry/approval time. The pilot's late-adjustment procedure must be agreed before this behavior is enabled.
+- **AC-10a:** Former closing mutation routes/APIs reject requests without database changes.
+- **AC-10b:** Existing closing records remain preserved and are not represented as a current reconciliation result.
 
 ### FR-11 — Verified legacy onboarding
 
@@ -240,15 +199,15 @@ Support a small pilot's verified historical member entitlements, whether by revi
 - **AC-11b:** Given contradictory expiry evidence, unsupported historical payment, or legacy unpaid balance, then flag it for review without inventing funds, normal eligibility, or an installment balance. Other independently verified entitlement remains assessable.
 - **AC-11c:** Given imported records in pilot reports, then historical records and unresolved legacy exceptions are distinguishable from new pilot collections under the approved measurement cutoff.
 
-### FR-12 — Pilot measurement and operational evidence
+### FR-12 — Cash-only pilot measurement and operational evidence
 
 **Classification:** Proposed measurement deliverable; conditional pilot protocol. **Sources:** Sections 3, 7, 10; Appendix A; O-09.
 
-Provide sufficient records for a weekly pilot review; a manual review worksheet is acceptable where reliable. Categorize missing entry, wrong amount, duplicate, recording delay, disputed claim, and admission incidents separately. Preserve real collection, receipt issuance, system entry, and verification timestamps. Collect closing active-time and timed eligibility samples with consistent definitions.
+Before any future pilot, revise O-09 for the currently supported cash-only scope. A manual worksheet is acceptable where reliable. Define independent cash collection denominators, receipt retrieval/history checks, recording delay and eligibility observations. Preserve actual collection, system entry and receipt timestamps. No CRM closing-time, investigation, outage, digital verification or exception measure is current scope. There is no active pilot under this scope revision.
 
-- **AC-12a:** Given an outage payment collected/receipted on D but entered on D+2, then same-day CRM entry measurement records the delay; the receipt's on-day issuance is reported separately. Entry time is never backdated to improve the metric.
-- **AC-12b:** Given a reporting period, then reviewers can reproduce discrepancy counts and rates per transaction, collection denominators supported by independent evidence, closing active-time, and admission incidents including authorized exceptions and wrongful denials.
-- **AC-12c:** Given unresolved incidents, unknown denominators, outages, or missing measurement data, then the report exposes those limitations rather than claiming a validated improvement.
+- **AC-12a:** Given a full-cash collection and later CRM entry, then any approved future measure uses actual event times and never backdates entry.
+- **AC-12b:** Given an approved cash-only reporting period, then reviewers can reproduce independently supported cash denominators, receipt/history results and eligibility observations under revised O-09 definitions.
+- **AC-12c:** Given missing independent evidence, unknown denominators or missing observations, then the report exposes those limits and makes no validated improvement claim.
 
 ## 6. Record model and integrity contract
 
@@ -261,41 +220,43 @@ These are conceptual records and required relationships, not a prescribed databa
 | Plan / charge snapshot | Approved duration and price; historical charge terms independent of later catalog changes |
 | Payment | Unique ID, full charge/method, member, collector, collection/entry/verification times, verifier, receipt/reference, confirmation state, linked period/case |
 | Membership period | Start/end, timezone convention, linked confirmed payment or verified migration provenance; correction/access decisions retained |
-| Receipt / custody | Controlled number/booklet, assigned custodian, issued/unused/void/missing status, collection/issuance times, back-entry match, handovers |
-| Provisional visit | Member, visit/time, authorizer/collector, full-cash receipt, outage context, recovery linkage; no reusable digital membership |
-| Exception / claim | ID/type, reporter/time, member and payment/receipt links where known, evidence reference, reviewer/time, reasoning, outcome, related recovery/correction and access effect |
-| Correction / refund | Original transaction link, owner approval, classified reason, evidence, amount/method, actual money disposition, explicit access outcome/effective date |
-| Reconciliation | Business-day cutoff, collector/method totals, actual counts, differences, open-item links, preparer, owner approval, snapshot and later adjustments |
+| Historical receipt / custody | Preserve any existing controlled number/booklet, custody, handover, issuance, and recovery records as read-only historical evidence; no new records |
+| Historical provisional visit | Preserve existing member/visit/receipt/outage links as read-only; never treat as ordinary membership entitlement |
+| Historical exception / claim | Preserve existing case/evidence/payment/receipt links, reviewer, reasoning, outcome and linked events as read-only |
+| Historical correction / refund | Preserve original transaction links, approvals, evidence, amounts, settlements and access outcomes as read-only |
+| Historical reconciliation | Preserve existing cutoff, totals, differences, source records, approvals and snapshots as read-only; do not imply a current close |
 | Migration evidence | Source, reviewed historical period, verifier/sign-off, uncertainty flags, pilot cutoff classification |
 
 ### Status vocabulary — do not combine unrelated dimensions
 
 | Dimension | Controlled terms | Rules |
 |---|---|---|
-| Payment | Pending verification; Confirmed; Flagged | A confirmed payment is immutable financial history; reversal/refund/correction is a linked event, not an overwritten status. |
+| Payment | Confirmed cash for new ordinary collection; historical methods/states retained | New ordinary CRM payments are CASH only. Historical records remain immutable and readable. |
 | Membership period | Scheduled; Active; Expired; Adjusted/terminated | Scheduled means **fully paid** but not yet effective. An incomplete purchase has no paid period. |
-| Admission decision | Eligible; Not eligible; Provisional single-visit access | A provisional offline visit is not an active CRM-confirmed membership. |
-| Exception case | Open; Under review; Escalated; Resolved | Case progress never automatically grants or revokes membership access. |
+| Historical admission evidence | Existing eligible/not-eligible/provisional context | Historical provisional access never creates current entitlement; new outage exception workflow is retired. |
+| Historical case state | Existing case status retained | Cases are read-only historical records; no new progress or resolution writes. |
 
 Display these dimensions independently. Do not treat “pending renewal” as a partly paid membership: use **uncompleted purchase request** for an unpaid transaction and **scheduled paid period** for a fully paid advance renewal. These product terms do not prescribe a database enum.
 
 Required distinctions:
 
-1. **Unconfirmed payment → confirmed:** Only after full receipt and authorized verification. Back-entry and evidence attachment alone cannot cross this boundary. A failed/unmatched transfer remains pending or flagged.
-2. **Confirmed payment → linked corrective event:** Preserve the original. A dispute flag alone is not a reversal; only the approved correction records the money/access result.
-3. **Paid period:** Scheduled before its start, active within [start, end), expired at end. Adjusted access follows explicit owner decisions. A provisional visit and an unresolved claim are separate records, never paid-period substitutes.
-4. **Exception:** Open/investigating/escalated/resolved with evidence and outcome. Owner acknowledgment of an unresolved difference is not evidence that the discrepancy disappeared.
-5. **Collection vs. entry vs. verification:** Preserve all three, plus physical receipt issuance when applicable; do not conflate the collector with the later data entrant or verifier.
+1. **New payment:** Only ordinary full cash collection is supported. Digital claims and verification are retired; existing states remain read-only.
+2. **Historical financial evidence:** Preserve original payments, linked periods/receipts and any existing corrective events. The CRM exposes no correction/refund mutation.
+3. **Paid period:** Scheduled before its start, active within [start, end), expired at end. Existing access history remains readable and no retired workflow may alter it.
+4. **Retired workflow records:** Existing cases, outage/custody events and closings are read-only; their existence does not imply the workflow remains available.
+5. **Collection vs. entry:** Retain ordinary cash collector, collection, entry and receipt attribution. Preserve historical verification/issuance fields without enabling new workflow writes.
 
 Proposed implementation controls across all slices:
 
 - A confirmation and its required financial/period links succeed together or recover consistently; retries and concurrent actions cannot duplicate the same operation.
-- Enforce controlled receipt uniqueness and repeated-action safety for recovery, case resolution, and corrections as well as ordinary sales.
+- Enforce repeated-action safety for ordinary cash collection. Retired workflow APIs must not perform writes.
 - Enforce permissions on the trusted execution path. Keep an attributable history of sensitive approved actions and preserve original financial facts.
 - Restrict evidence access, avoid unnecessary sensitive data, and store no banking login credentials. Evidence retention/access and backup/restore procedures require pilot readiness decisions in Section 9.
-- Present pending, provisional, confirmed, scheduled, and unresolved states clearly; never use a generic success message that implies unverified membership activation.
+- Present ordinary cash confirmation and scheduled/active/expired paid periods clearly. Historical pending, provisional, and unresolved records must be labeled historical; never imply they are actionable or grant current membership access.
 
-## 7. Reason-specific correction and refund matrix
+## 7. Historical reason-specific correction and refund matrix — superseded 2026-11-01
+
+The following approved policy matrix is retained as historical context only. The user retired all CRM investigation, correction and refund operations on 2026-11-01. It does not authorize current actions. Existing original and linked records remain preserved and read-only. Do not delete this historic decision record.
 
 October 25, 2026 approval: the narrow full duplicate-excess refund below is permitted. Discretionary cancellation eligibility and amounts remain blocked until each pilot gym approves written terms for before-use and partial-use cases, evidence and access disposition. No prorating formula is implied.
 
@@ -318,11 +279,11 @@ Each slice delivers a demonstrable operator journey across interface, authorizat
 |---|---|---|---|---|
 | S-01 — First verified cash membership | Individual owner/staff access; approved owner-priced plans; member search/create; exact charge; full cash confirmation; receipt/history; current eligibility | None | Demonstrate US-01–03 and first membership eligibility; pass AC-01a–b, AC-02a–c, AC-03a–d and applicable AC-06a–b, including short payment and lost-response retry | O-07 resolved; initial capability assignments |
 | S-02 — Renewal without lost time | Early/late cash renewal, expiry/remaining-time display, adjacent periods, distinct uncompleted-request versus scheduled-paid-period status | S-01 | Demonstrate US-05–06; pass AC-05a–c, AC-05e, AC-06a–b; check 30-day boundaries across leap years and month ends, exact expiry and concurrent duplicate renewal requests | Display rounding and one-queued-term rule approved 2026-10-25; verify implementation and acceptance |
-| S-03 — Verified digital collection | Pending GCash/bank payment, designated verifier work queue, account-match confirmation, member receipt/eligibility | S-01, S-02 | Demonstrate US-04; pass AC-01c, AC-04a–d; screenshot-only and unauthorized confirmation fail; proper verification creates one period | O-04 named account verifiers and unavailable-verifier SOP |
-| S-04 — Evidence-backed discrepancy resolution | Search history, open/escalate cases, recover an omitted full payment; owner-controlled linked corrections and gated refunds with explicit access disposition | S-01–03 | Demonstrate US-07–08; pass AC-07a–d, AC-08a–d; compare duplicate ledger entry with two actual collections; staff modification attempts fail | October 25, 2026 approved supported recovery/duplicate correction/full excess refund; discretionary cancellation and live SOPs remain gated |
-| S-05 — Recover an outage shift | Controlled receipt registry, manual booklet/access SOP, one-visit record, back-entry verification, receipt uniqueness and custody handover | S-01–04 | Demonstrate US-09; pass AC-09a–f, AC-05d; simulate continued outage across shifts, lost receipt, duplicate entry, and late full-cash renewal | O-02/O-06 local design approved 2026-10-25; local synthetic evidence in ledger; live physical controls/authorities/rehearsal remain gates |
-| S-06 — Close a business day | Collector/method summaries, counted cash/verified digital actuals, visible pending items, difference submission, owner approval and later-adjustment history | S-01–05 | Demonstrate US-10; pass AC-10a–d; include shortage, pending transfer, unentered receipt, owner refund and back-entry after an earlier close | Local synthetic closing SOP approved October 25, 2026; live cash handling and pilot sign-off remain gated |
-| S-07 — Onboard and evaluate a pilot | Reviewed legacy entitlements, uncertainty flags, metric worksheet/report, training and incident procedure | S-01–06 | Demonstrate US-11–12; pass AC-11a–c, AC-12a–c; rehearse join → renewal → eligibility → dispute → outage recovery → closing with owner/staff | O-08, O-09; security/data stewardship and release readiness |
+| S-03 — Verified digital collection | **RETIRED 2026-11-01.** Historical local acceptance only; no current digital collection writes. | Historical S-01, S-02 | Current acceptance is retired-route/API denial plus retained read-only history | O-04 is superseded for current operations; preserve historical decision |
+| S-04 — Evidence-backed discrepancy resolution | **RETIRED 2026-11-01.** Historical local acceptance only; no current investigation/recovery/correction/refund writes. | Historical S-01–03 | Current acceptance is retired-route/API denial plus retained read-only history | O-03/O-05 decisions remain historical context; preserve records |
+| S-05 — Recover an outage shift | **RETIRED 2026-11-01.** Historical local acceptance only; no CRM outage/custody/provisional visit writes. | Historical S-01–04 | Current acceptance is retired-route/API denial plus preserved history | O-02/O-06 and the S-05 SOP remain superseded context |
+| S-06 — Close a business day | **RETIRED 2026-11-01.** Historical local acceptance only; no CRM closing writes. | Historical S-01–05 | Current acceptance is retired-route/API denial plus preserved history | Local closing decisions/SOP remain superseded context |
+| S-07 — Onboard and evaluate a pilot | Historical milestone evidence only; no current pilot authorized | S-01–02 | Future pilot acceptance requires revised O-09, independent cash-only evidence, and separate readiness approval | O-08; revised O-09; security/data stewardship and release readiness |
 
 ### S-01 engineering task breakdown (same business milestone)
 
@@ -340,26 +301,26 @@ Each task is small enough for an individual coding-agent prompt, but **S-01 is n
 
 All tasks may use synthetic data. Tasks S-01e–g use the approved 00:00 Asia/Manila effective-start convention; remaining-day display rounding must not overstate eligibility. Keep nonessential features out of S-01.
 
-S-04 supported recovery and exact full duplicate-excess execution may proceed under the October 25, 2026 decisions; discretionary refunds cannot be enabled until their case policies are approved. The final pilot must support the agreed exception process, either through supported approved cases or an explicitly accepted manual escalation procedure. An open gate must not be hidden by marking its slice complete.
+S-03 through S-06 are retired for new use by the user-approved 2026-11-01 scope revision. Their historical local evidence and policy decisions remain in the ledger and source documents. Do not infer or implement an external emergency procedure. Any non-CRM operating process requires a separate operational decision.
 
 ## 9. Decision register and implementation gates
 
-All owners below are **proposed accountable roles, people to assign**. The source resolves product direction for O-01, O-02, O-04, and O-05; this register concerns their remaining operational details. P1 source priority does not mean a detail can be guessed when a slice needs it.
+All owners below are **proposed accountable roles, people to assign**. O-02–O-06 entries preserve superseded history and do not define current operations. P1 source priority does not mean a detail can be guessed when a slice needs it.
 
 | Source / detail | Still required | Accountable role | Blocks / safe interim behavior |
 |---|---|---|---|
 | O-01 — Local interval convention | **RESOLVED 2026-10-25:** exact PHT expiry and whole days/hours rounded down at server check time; “less than 1 hour” below one hour; current paid term only | User approval recorded | Verify display and exclusive-end boundaries; no remaining-time display for expired/future-only terms |
 | Advance renewal limit | **RESOLVED 2026-10-25:** one queued paid term; another sale only once it starts; preserve committed same-key recovery | User approval recorded | Verify preview/confirmation denial, concurrent requests and recovery |
-| Derived date detail | **RESOLVED October 25, 2026 for verified omitted full cash:** original-date Manila midnight for new/late terms; preserve adjacency, duration and queue limits. Digital cross-date remains blocked | Product owner + pilot owner | Blocks uncertain/conflicting cash dates and all cross-date digital confirmation; verified nonconflicting cash recovery is supported. Preserve actual collection, later entry and verification times |
-| O-02 — Repeat outage visits/lost receipts | **LOCAL DESIGN RESOLVED 2026-10-25 by user:** approved outage SOP decisions 4–5; no automatic reuse/extra payment, separate documented owner later-visit decision, retained-copy/cash/custody corroboration for lost member copy | Pilot owner + operations lead | Local synthetic implementation authorized; live operating coverage/evidence SOP remains gated |
-| O-03 — P0 refund details | **PARTLY RESOLVED October 25, 2026:** full independently evidenced unintended duplicate excess refund for the same obligation approved; discretionary cancellation before/after use still needs written pilot terms | Pilot owner + product owner | Blocks affected discretionary refunds; retain requests, approval/access structure and owner escalation |
-| O-04 — Named digital verifiers | Local synthetic mechanism approved 2026-10-25 in FR-04; live account/viewer assignments and evidence/retention SOP remain open | Pilot owner | Explicit designation required even for owners. Synthetic evidence references and owner escalation only; no live settlement authorization |
-| O-05 — Claim SOP | **DESIGN RESOLVED October 25, 2026:** staff investigate/escalate; owner alone approves/executes recovery; independently corroborated actual collection required. Named live authorities, backup coverage, evidence handling/access/retention SOP remain pilot gates | Pilot owner + operations lead | Staff recovery approval/execution forbidden; live evidence SOP and authority coverage remain blocked pending pilot approval |
-| O-06 — Receipt custody | **LOCAL DESIGN RESOLVED 2026-10-25 by user:** approved outage SOP decisions 1–3, 6–7; gym/booklet/number uniqueness, assigned custody, independent designated verification, every-shift physical counts/signatures/escalation and preserved actual/entry times; no automatic write-off or closing cutoff | Pilot owner + operations lead | Local synthetic implementation/rehearsal authorized; live booklet control, authorities/backups and evidence handling remain gated |
+| Derived date detail | **RESOLVED October 25, 2026:** current full-cash new/late terms use original payment-date Manila midnight; preserve adjacency, duration and queue limits. The omitted-payment recovery extension is historical and retired. | User approval recorded | Current cash purchase date/time behavior remains; no recovery or digital-cross-date action is available |
+| O-02 — Repeat outage visits/lost receipts | **HISTORICAL; SUPERSEDED 2026-11-01:** the October 25, 2026 user-approved outage decisions are retained as context. CRM outage workflow retired; no outside-CRM fallback is inferred. | Historical owner: pilot owner + operations lead | No current outage workflow authorized |
+| O-03 — Refund details | **HISTORICAL; SUPERSEDED 2026-11-01:** October 25 supported refund/correction decisions and unresolved cancellation terms are preserved in the history. All CRM correction/refund actions retired. | Historical owner: pilot owner + product owner | No current investigation/correction/refund workflow authorized |
+| O-04 — Named digital verifiers | **HISTORICAL; SUPERSEDED 2026-11-01:** local synthetic verifier mechanism and open live account SOP are preserved as past decisions. Digital collection retired. | Historical owner: pilot owner | No current digital payment verification authorized |
+| O-05 — Claim SOP | **HISTORICAL; SUPERSEDED 2026-11-01:** October 25 investigation/recovery authority decision and its live gates remain historical. | Historical owner: pilot owner + operations lead | No current investigation/recovery workflow authorized |
+| O-06 — Receipt custody | **HISTORICAL; SUPERSEDED 2026-11-01:** approved custody and closing-related decisions remain preserved in source/SOP history. | Historical owner: pilot owner + operations lead | No current outage/custody workflow authorized |
 | O-07 — Launch plan catalog | **RESOLVED 2026-10-24:** Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; all fixed elapsed days | User approval recorded; future price changes owner-controlled | Only these durations; no discounts/other variants. Live readiness gates remain separate. |
 | O-08 — Legacy acceptance | **LOCAL DESIGN RESOLVED October 26, 2026 by user:** decision 1 in [S-07 protocol](S07_LOCAL_POLICY_PROPOSAL.md): reviewed manual entry, fresh owner independent source sign-off, explicit historical intervals, preserved uncertainty, duplicate/overlap rejection and existing renewal rules; no fabricated finance | Pilot owner + product owner | Local synthetic implementation authorized; live source custody/verification authority and operational sign-off remain gated |
-| O-09 — Pilot protocol | **LOCAL DESIGN RESOLVED October 26, 2026 by user:** decision 2 in [S-07 protocol](S07_LOCAL_POLICY_PROPOSAL.md): Manila windows/cutoff, independent collection denominators, incident/timing/adoption definitions, missing-data rules and synthetic fixture | Product owner + pilot reviewer | Real participants, baseline/trial dates/duration, independent live evidence/coverage, reviewers, real training and operational sign-off remain required; credible success claims and pilot launch remain blocked |
-| Derived closing detail | **LOCAL DESIGN RESOLVED October 25, 2026 by user:** all three [closing SOP decisions](S06_CLOSING_POLICY_PROPOSAL.md) approved: Manila midnight cutoff, segregated zero-float membership counts, actual-settlement refund allocation and append-only supplemental closings | Pilot owner + operations lead | Local synthetic implementation/verification authorized; live cash handling, authorities, evidence custody/retention, physical rehearsal and O-09 pilot sign-off remain gated |
+| O-09 — Pilot protocol | **HISTORICAL; REVISE BEFORE PILOT:** October 26 local protocol and synthetic fixtures remain historical; its measures assumed now-retired digital, outage, exception and closing workflows. Future pilot scope must be limited to currently supported cash collection, receipt/history and eligibility unless separately authorized. | Product owner + pilot reviewer | Real participants, baseline/trial dates, independent evidence, reviewers, training and operational sign-off remain required; no launch or success claim authorized |
+| Derived closing detail | **HISTORICAL; SUPERSEDED 2026-11-01:** the three locally approved S-06 decisions remain in the superseded SOP as historical context. | Historical owner: pilot owner + operations lead | No in-app daily closing authorized; no external process inferred |
 | Derived data stewardship detail | Necessary member fields, evidence access/retention, operational record retention, backup/restore ownership, recovery expectations | Product owner + implementation lead + pilot owner | Blocks use of live personal/financial data without an accepted operational procedure |
 
 Record each resolution here with date, approver, selected behavior, examples, and affected FR/AC/slices; then synchronize `product.md` if it changes or adds product policy. Unresolved details keep the affected acceptance criteria conditional, not silently waived.
@@ -370,37 +331,38 @@ Record each resolution here with date, approver, selected behavior, examples, an
 
 Verify each slice with realistic owner/staff workflows and relevant negative cases. Use automated integration checks for financial/permission/date integrity and focused UI checks for complete operator journeys. Test style and tooling remain implementation decisions.
 
-Required coverage includes full-vs-short payment, screenshot-only digital claims, unauthorized direct actions, repeated/concurrent submissions, partial-write recovery, 30-day expiry across month ends/leap years, one-visit outage access, custody gaps, original collection versus later entry, duplicate record versus duplicate collection, explicit correction access outcomes, and visible unresolved closing differences. Exercise both GCash and bank transfer. Use synthetic data until live-data readiness is satisfied.
+Required current coverage includes full-vs-short cash payment, rejection of non-cash methods, unauthorized direct requests, repeated/concurrent cash submission, partial-write recovery, 30-day expiry across month ends/leap years, receipt retrieval, retained historical member/payment links, and read-only denials for each retired mutation family. Use synthetic data until live-data readiness is satisfied. Prior digital, exception, outage and closing evidence remains historical and does not count as current workflow acceptance.
 
 Keep acceptance results linked to AC identifiers with evidence, failures, and any decision gates. A proposed control's successful test proves implementation behavior, not pilot acceptance of the policy or a measured business outcome.
 
-### Proposed pilot targets
+### Historical pilot targets (superseded 2026-11-01; not current targets)
+
+These earlier targets assumed digital collections, Exceptions, outage workflows, and daily closing. Preserve them as historical context only. Revised O-09 must define cash-only measures, baselines, denominators, independent evidence, and targets before any pilot; none of the following values authorizes a pilot or represents current acceptance.
 
 | Measure | Source baseline | Proposed target / interpretation |
 |---|---|---|
 | Discrepancies per gym/month | Approximately 15, unvalidated | 5 or fewer; report separate categories, absolute counts, and rates per transaction |
-| Daily reconciliation active time | Reported 1–2 hours, unvalidated | 30 minutes or less using a consistent cutoff/start/end definition |
 | Same-day CRM recording | Unknown | At least 95% of independently verified received payments; measure real entry date separately from physical receipt issuance |
-| Mistaken expired-member admissions | Frequency unknown | Zero during pilot; distinguish valid one-visit exceptions and also record wrongful denials |
+| Eligibility decisions | Frequency and timing unknown | Define baseline, denominator, and target before pilot; no provisional outage admissions are in current CRM scope |
 | Common eligibility check time | Unknown | At most 15 seconds, exploratory; establish baseline first |
 
-Confirm discovery and preferably 2–4 weeks of baseline observations where feasible, then validate low-fidelity workflows with owner/staff before development of the affected journeys. For the limited operational pilot, assign reviewers, train operators, agree incident/fallback procedures, and review results weekly. Participant count, dates, trial duration, sample sizes, and baseline evidence remain O-09.
+Confirm discovery and preferably 2–4 weeks of baseline observations where feasible. Any future pilot must evaluate only currently supported cash collection, receipt/history and eligibility, with separately approved procedures for matters outside the CRM. Assign reviewers, train operators, and define participants, dates, trial duration, measures, incident handling and evidence custody under a revised O-09 before launch.
 
-### Additional pilot adoption measures (approved)
+### Historical pilot adoption measures (superseded 2026-11-01)
 
-Track (1) **point-of-collection entry rate**: CRM entry recorded during collection rather than deferred (report authorized offline receipts separately); (2) **staff adoption across shifts**: proportion of applicable shifts/operators actually using the approved workflow; and (3) **unapproved parallel recordkeeping**: occurrences of paper/spreadsheet shadow ledgers outside the authorized outage fallback. Define denominators and how each observation is verified in O-09. These measures diagnose why outcomes improve or fail; pilot targets are not assumed until baseline evidence is collected.
+The prior adoption measures, including approved outage fallback and shadow-ledger classifications, belong to the superseded local O-09 protocol. Redefine measures and denominators for cash-only CRM use before any pilot; do not report old synthetic measurements as current operational results.
 
 ### Definition of done
 
 - Every in-scope story is delivered through its vertical slice, with applicable acceptance evidence and no undisclosed skipped cases.
 - All production-relevant decision gates have recorded answers; unsupported conditional paths are blocked and disclosed. Deferred capabilities have an explicitly accepted operational treatment consistent with the source, not an invented default.
-- Permissions, payment/period integrity, duplicate protection, receipt traceability, and owner-approved adjustment behavior pass verification.
-- Owner and staff can complete the ordinary join, digital collection, renewal, eligibility, claim, correction, outage recovery, and closing journeys using agreed operating instructions.
+- Permissions, payment/period integrity, duplicate protection, receipt traceability, and retired-workflow no-write behavior pass verification.
+- Owner and authorized staff can complete ordinary full-cash join/renewal, retrieve receipt and payment history, and check eligibility. Retired mutation paths reject writes, and retained records stay readable.
 - Live-data stewardship and recovery procedures are accepted; historical access is verified before migration approval.
-- No unresolved high-severity product-caused payment-integrity issue or unauthorized alteration remains. A second routine payment ledger is not needed to compensate for product defects; controlled outage receipts remain the agreed fallback.
-- Pilot reviewers can reproduce measurements and disclose missing evidence, open discrepancies, workarounds, incorrect denials, and outages.
+- No unresolved high-severity product-caused payment-integrity issue or unauthorized alteration remains. Any process outside the supported CRM scope needs a separate operational decision.
+- Pilot reviewers can reproduce current cash-only measures after O-09 has been revised and approved for that scope.
 
-Delivery readiness and pilot success are separate decisions. Broader rollout requires credible evidence of improved payment accuracy and closing time, accurate eligibility, and no unresolved critical integrity issues. Weak results require diagnosis of workflow, adoption, policy fit, or measurement before expanding scope.
+Delivery readiness and pilot success are separate decisions. Broader rollout requires credible evidence of cash payment accuracy and eligibility under revised O-09, plus no unresolved critical integrity issues. Do not carry forward the retired closing-time target. Weak results require diagnosis of workflow, adoption, policy fit, or measurement before expanding scope.
 
 ## 11. Runtime validation acceptance supplement (2026-10-24)
 

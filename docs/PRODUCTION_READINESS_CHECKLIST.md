@@ -8,6 +8,8 @@ action plan derived from the [release audit](RELEASE_READINESS_AUDIT.md), its
 [architecture §3/10/11/14](architecture.md). It is not a new policy approval,
 external verification, release certification or authorization to execute the tasks.
 
+**Scope update — 2026-11-01:** This readiness snapshot predates retirement of digital collections, Exceptions, outage receipts/custody, and daily closing. Follow current cash-only scope in [PROJECT.md](PROJECT.md). Prior S-03–S-06 operational gates and procedures remain historical evidence; they do not authorize current app workflows or imply an outside-CRM fallback. Revise O-09 before any future pilot. Unrelated live-readiness gates remain open.
+
 S-01–S-03, supported S-04, S-05, S-06 and S-07 have recorded **local synthetic**
 acceptance. The latest recorded S-07 checks are 154/154 tests, zero skips, and
 typecheck/lint/build/migrations/browser acceptance PASS. These are prior evidence,
@@ -69,19 +71,17 @@ they do not require rebuilding delivered workflows. R-04 follow-up stays deferre
   migration-credential synthetic bootstrap is not a live provisioning mechanism.
   **Trace:** R-05 bootstrap/recovery gates; AD-004–010/014/026/030/032.
 
-- [ ] **PR-04 — Agree supported live workflows and exception treatment. BLOCKED.**
+- [ ] **PR-04 — Agree supported live workflows and exception treatment. BLOCKED; update for cash-only scope before any pilot.**
   **Owner:** product owner + pilot owner + operations lead. **Depends:** PR-01.
-  **Action:** approve live use of the supported collection, investigation, refund,
-  outage and closing procedures. Resolve required affected policies or explicitly
-  accept a safe manual escalation process while unsupported commands stay blocked:
-  discretionary cancellation terms, uncertain historical cash price/date evidence,
-  cross-date digital confirmation and later outage visits. Do not infer refunds,
-  re-collection, normal access or backdating from an unresolved claim.
-  **Close with:** workflow-by-workflow supported/blocked/manual matrix, accountable
-  escalation and user instructions; synchronize any new policy in PROJECT/product
-  before implementation. Existing exact full duplicate-excess refunds and zero-money
-  corrections remain supported; general cancellation refunds are not implied.
-  **Trace:** R-05; PROJECT FR-04/07–10, §8 exception gate, O-02–06.
+  **Action:** revise this historical gate to cover only ordinary full-cash collection,
+  receipt/history retrieval, and eligibility. Investigation, refund, outage/custody,
+  and closing procedures have been retired; this checklist does not define an
+  outside-CRM emergency process. Revise O-09 before any future pilot and keep
+  unrelated live-readiness gates open.
+  **Close with:** cash-only supported-workflow matrix and operator instructions
+  aligned with PROJECT.md. Do not reopen historical exception policies without a
+  separately approved scope change.
+  **Trace:** current PROJECT.md scope revision; historical R-05 and O-02–06.
 
 ## P1 — implement and prove the hosted and operating controls
 
@@ -211,7 +211,7 @@ they do not require rebuilding delivered workflows. R-04 follow-up stays deferre
   owner email and staff username login remain distinct; no shared credentials.
   **Trace:** R-05 staff lifecycle gate; FR-01; AD-004–008/026/030.
 
-- [ ] **PR-15 — Assign digital-verification and investigation authority. BLOCKED.**
+- [ ] **PR-15 — Assign digital-verification and investigation authority. SUPERSEDED 2026-11-01; retained as historical gate.**
   **Owner:** pilot owner + financial operations lead. **Depends:** PR-02, PR-04, PR-14.
   **Action:** name actual receiving accounts, designated viewers and backups,
   claim/investigation escalation and evidence custodians. Demonstrate verification
@@ -222,7 +222,7 @@ they do not require rebuilding delivered workflows. R-04 follow-up stays deferre
   permitted rehearsal/sign-off; every operator uses only their approved capability.
   **Trace:** R-05 operational evidence gates; O-03/04/05; FR-04/07/08.
 
-- [ ] **PR-16 — Perform physical outage/custody and closing rehearsal. BLOCKED.**
+- [ ] **PR-16 — Perform physical outage/custody and closing rehearsal. SUPERSEDED 2026-11-01; retained as historical gate.**
   **Owner:** pilot owner + receipt custodians + operations lead.
   **Depends:** PR-02, PR-04, PR-14, PR-15.
   **Action:** adopt the approved [outage](S05_OUTAGE_POLICY_PROPOSAL.md) and

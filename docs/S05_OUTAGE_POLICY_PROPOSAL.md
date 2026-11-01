@@ -1,6 +1,8 @@
 # S-05 approved local outage procedure and paper templates
 
-**Status: APPROVED for local synthetic S-05 only, October 25, 2026.** The user approved all seven decisions through the in-session policy question. This does not authorize live operation. Physical forms below are approved for synthetic rehearsal; live authority, evidence handling and operational coverage remain gated.
+**Current status: SUPERSEDED 2026-11-01.** The user retired CRM outage receipts, provisional access, back-entry and custody workflows. This document preserves the seven decisions approved October 25, 2026 as historical context only. Do not use these steps as current operator instructions or infer an outside-CRM emergency process. Existing records remain preserved read-only. A separate operational decision is required for any emergency process.
+
+**Historical status:** APPROVED for local synthetic S-05 only, October 25, 2026. The user approved all seven decisions through the in-session policy question. This did not authorize live operation. Physical forms below documented synthetic rehearsal; live authority, evidence handling and operational coverage remained gated.
 
 Decision required by [PROJECT FR-09, AC-09a–f and §9 O-02/O-06](PROJECT.md), [product BR-10/11/16 and PR-08/09](product.md), and [design UX-10](design.md). The settled full-cash, one-visit, pending-until-verified and original-date rules remain controlling. The following seven decisions supply the approved local details.
 
