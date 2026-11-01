@@ -12,7 +12,7 @@ export default async function Home() {
   const requestHeaders = await headers();
   const actor = await getActor(requestHeaders).catch(error => { if (error instanceof IdentityError) redirect("/login"); throw error; });
   if (actor.operator.role !== "OWNER") {
-    if (actor.operator.canManageMembers) redirect("/operate");
+    if (actor.operator.canManageMembers) redirect("/members");
     redirect("/team");
   }
   const data = await workspaceOverview(requestHeaders);
@@ -20,7 +20,7 @@ export default async function Home() {
   const maximum = Math.max(...data.days.map(day => day.amount), 1);
   const date = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric" });
   return <>
-    <div className="page-heading"><div><h1>Welcome, {actor.operator.user.name}.</h1><p>Check membership, record a full cash payment, or retrieve payment history.</p></div><Link href="/operate" className="action-link"><WorkspaceIcon name="operate" />Open front desk</Link></div>
+    <div className="page-heading"><div><h1>Welcome, {actor.operator.user.name}.</h1><p>Check membership, record a full cash payment, or retrieve payment history.</p></div><Link href="/members#search-name" className="action-link"><WorkspaceIcon name="search" />Find a member</Link></div>
     <div className="grid gap-3 sm:grid-cols-2">{[
       { title: "Cash collected today", value: formatPhp(today.amount), detail: `${today.count} recorded cash payments`, icon: "wallet" as const },
       { title: "Active members", value: data.activeMembers, detail: "Currently eligible members", icon: "members" as const },

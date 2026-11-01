@@ -71,6 +71,20 @@ try {
   async function get(path: string) {
     return fetch(new URL(path, origin), { headers: owner });
   }
+  const directoryResponse = await get("/members");
+  assert.equal(directoryResponse.status, 200);
+  const directoryHtml = await directoryResponse.text();
+  assert.ok(directoryHtml.includes("Find a member"), "Members includes the operational lookup");
+  assert.ok(directoryHtml.includes(`Cash History ${suffix}`), "Members shows the paid member");
+  assert.ok(directoryHtml.includes("Active"), "Members shows current eligibility");
+  assert.ok(directoryHtml.includes('id="member-name"'), "Members retains creation");
+  assert.ok(!directoryHtml.includes('href="/operate"'), "Front Desk is absent from navigation");
+  const compatibilityResponse = await fetch(new URL("/operate", origin), { headers: owner, redirect: "manual" });
+  assert.equal(compatibilityResponse.status, 307, "Old Front Desk route remains a temporary compatibility redirect");
+  assert.equal(new URL(compatibilityResponse.headers.get("location")!, origin).pathname, "/members");
+  const followedResponse = await get("/operate");
+  assert.equal(followedResponse.status, 200);
+  assert.equal(new URL(followedResponse.url).pathname, "/members");
   const memberResponse = await get(`/members/${member.id}`);
   assert.equal(memberResponse.status, 200);
   const memberHtml = await memberResponse.text();
@@ -109,7 +123,7 @@ try {
   for (const path of ["/digital", "/investigations", "/investigations/retired", "/outage-receipts", "/closing"]) {
     assert.equal((await get(path)).status, 404, `${path} stays retired`);
   }
-  console.log("Authenticated HTTP cash confirmation, eligible member history, payment history, receipt retrieval, and retired-page 404 checks PASS.");
+  console.log("Authenticated HTTP Members lookup/eligibility/creation, /operate redirect, cash confirmation, history, receipt retrieval, and retired-page 404 checks PASS.");
 } finally {
   await db.$disconnect();
   await admin.$disconnect();

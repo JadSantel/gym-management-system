@@ -98,9 +98,6 @@
   .record-table :is(th,td) { padding: 15px 12px; border-bottom: 1px solid var(--border); }
   .record-table tbody tr:last-child td { border-bottom: none; }
   .record-table tbody tr:hover { background: var(--muted); }
-  .lookup-banner { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid var(--border); border-radius: 8px; padding: 28px; background: var(--muted); margin-bottom: 18px; }
-  .lookup-pattern { position: absolute; pointer-events: none; width: 260px; height: 65px; bottom: 0; right: 0; background: conic-gradient(var(--brand) 25%,transparent 0 50%,var(--brand) 0 75%,transparent 0) 0 0/8px 8px; mask-image: linear-gradient(to top,#000,transparent); opacity: .65; }
-  .lookup-banner .action-link { position: relative; z-index: 1; background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
   .mobile-bottom-nav { display: none; }
 }
 @media (max-width: 1023px) {
@@ -113,7 +110,6 @@
 @media (max-width: 639px) {
   .workspace-content { padding-left: 18px; padding-right: 18px; padding-top: 24px; }
   .page-heading h1 { font-size: 24px; }
-  .lookup-banner { flex-direction: column; align-items: flex-start; padding: 22px; }
   .panel { padding: 16px; }
   .record-table, .record-table tbody { display: block; }
   .record-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

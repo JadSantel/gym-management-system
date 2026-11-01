@@ -52,27 +52,27 @@ The sidebar and responsive drawer use **Quick Actions**, **Workspace**, and **Ma
 | Group | Label | Route | Visibility / purpose |
 |---|---|---|---|
 | Quick Actions | Add Member | `/members#member-name` | Owner or staff with member access; targets the existing name field. Creation records no payment and grants no paid access. |
-| Quick Actions | Record Cash Payment | `/operate` | Owner or staff with both member access and cash collection permission; opens Front Desk to find a member and prepare the existing full-cash flow. |
+| Quick Actions | Record Cash Payment | `/members#search-name` | Owner or staff with both member access and cash collection permission; targets lookup in Members, then opens the existing profile/full-cash flow. |
 | Workspace | Dashboard | `/` | Owner only; existing overview page. |
-| Workspace | Front Desk | `/operate` | Owner or staff with member access; existing lookup and eligibility workflow. |
-| Workspace | Members | `/members` | Owner or staff with member access; search, create, paid periods and eligibility. |
+| Workspace | Members | `/members` | Owner or staff with member access; unified operational lookup, search/create, paid periods, eligibility and profile/payment access. |
 | Workspace | Payments | `/transactions` | Owner or staff with member access; confirmed payment history. Historical non-cash records remain read-only. |
 | Management | Plans & pricing | `/plans` | Owner only. |
 | Management | Team & access / Your account | `/team` | Owner sees Team & access; staff see Your account with existing account permissions. |
 | Management | Historical pilot evidence | `/pilot` | Owner or staff with member access; archive only, no current pilot authorization. |
 
-Workspace and Management destinations use exact or descendant route highlighting; Dashboard matches `/` only. Quick Actions are shortcuts, without current-page styling, so Record Cash Payment does not duplicate Front Desk's active state. The header uses the destination label. Desktop and mobile both say **Payments**. Below 1024px the drawer contains all permitted groups and the bottom navigation contains Front Desk, Members and Payments for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. The brand link preserves owner `/`, member-capable staff `/operate`, other staff `/team`.
+Workspace and Management destinations use exact or descendant route highlighting; Dashboard matches `/` only. Quick Actions are shortcuts, without current-page styling, so Record Cash Payment and Add Member do not duplicate Members' active state. The header uses the destination label. Desktop and mobile both say **Payments**. Below 1024px the drawer contains all permitted groups and the bottom navigation contains Members and Payments for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. The brand link preserves owner `/`, member-capable staff `/members`, other staff `/team`.
 
 **Authorization:** Navigation reflects existing capabilities; server/API checks remain authoritative, including direct requests, fresh capability checks and tenant isolation. Cash permission alone does not expose the shortcut because member lookup/charge preparation also requires member access.
 
 **Deferred:** Reports, Attendance, QR Scanner, public registration, member login/portal and QR attendance require separately approved scope. Do not add placeholders. Payments has no pending/failed/refunded tabs or membership balances. Member eligibility remains Active, Scheduled, Expired and No membership; no undefined "expiring soon" window is introduced.
 
-**Next task after the navigation GitHub checkpoint:** separately merge Front Desk lookup/eligibility into Members using existing behavior. Verify lookup, eligibility, creation and payment access before replacing `/operate` with a compatibility redirect and removing its navigation link. This increment retains Front Desk and does not perform that merge.
+**Front Desk merge (step 3):** Members reuses the existing lookup/eligibility/creation component and its row list; no duplicate search panel or banner. Creation still grants no paid access, and current admission decisions are rechecked on the member profile. Lookup, creation and full-cash access were verified on Members before replacing `/operate` with a temporary 307 compatibility redirect to `/members` and removing its navigation link. Member-capable staff now land at `/members`. Dashboard, payment-history and profile links use Members directly; the cash shortcut targets the search field. The old desk-only card layout and decorative banner styles are removed.
 
 ### 3.3 Current route inventory
 
 - Public/account: `/login` (including owner recovery) and `/setup` for private invitation/reset completion; no public registration.
-- Authenticated app: `/`, `/operate`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/plans`, `/team`, `/pilot`, subject to existing server authorization.
+- Authenticated app: `/`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/plans`, `/team`, `/pilot`, subject to existing server authorization.
+- Compatibility: `/operate` redirects to `/members`; destination authorization still applies to signed-out and permission-limited operators.
 - Retired routes `/digital`, `/investigations`, `/outage-receipts`, and `/closing` are removed. Existing linked history remains read-only on member/payment pages.
 - Private platform operations remain outside normal gym navigation. A route/resource ID never establishes authority; every protected resource is checked within the authenticated gym.
 
@@ -82,7 +82,7 @@ Workspace and Management destinations use exact or descendant route highlighting
 
 Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses a warm neutral canvas and off-white panels; dark uses near-black layers. Primary actions reverse ink/paper between themes. Orange marks navigation, selected controls and focus; green means confirmed/effective, amber pending/attention, red blocked/destructive. The prototype's dark front-desk banner is adapted to neutral light in light mode under the existing AGENTS.md contract. All text/control contrast still requires rendered checks.
 
-Navigation follows the implemented Quick Actions, Workspace and Management groups in section 3.2: Dashboard, Front Desk, Members and Payments, with Plans & pricing, Team & access and Historical pilot evidence under Management. Digital collection, Exceptions, outage receipt/custody, and daily closing are absent. Owners land at `/`; staff with member access land at `/operate`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
+Navigation follows the implemented Quick Actions, Workspace and Management groups in section 3.2: Dashboard, Members and Payments, with Plans & pricing, Team & access and Historical pilot evidence under Management. Digital collection, Exceptions, outage receipt/custody, and daily closing are absent. Owners land at `/`; staff with member access land at `/members`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
 
 Member profiles separate current access, queued paid periods, cash payment/receipt history, and retained historical digital, case, adjustment and outage records. Payment follows Plan / Payment / Review using an exact full-cash charge and same-key recovery. Retired historical records are read-only. Prototype attendance storage/check-ins, fictional metrics and optional phone data remain outside scope. Current eligibility remains authoritative.
 

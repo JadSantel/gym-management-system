@@ -13,12 +13,11 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const members = actor && (actor.owner || actor.members);
   const actions: Destination[] = actor ? [
     ...(members ? [{ href: "/members#member-name", label: "Add Member", icon: "plus" as const }] : []),
-    ...(members && (actor.owner || actor.cash) ? [{ href: "/operate", label: "Record Cash Payment", icon: "wallet" as const }] : []),
+    ...(members && (actor.owner || actor.cash) ? [{ href: "/members#search-name", label: "Record Cash Payment", icon: "wallet" as const }] : []),
   ] : [];
   const workspace: Destination[] = actor ? [
     ...(actor.owner ? [{ href: "/", label: "Dashboard", icon: "overview" as const }] : []),
     ...(members ? [
-      { href: "/operate", label: "Front Desk", icon: "operate" as const },
       { href: "/members", label: "Members", icon: "members" as const },
       { href: "/transactions", label: "Payments", icon: "receipt" as const },
     ] : []),

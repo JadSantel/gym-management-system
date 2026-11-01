@@ -76,22 +76,22 @@ try {
   browser("set", "viewport", "1440", "1000");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Workspace", "Management"]);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
-    ["Add Member", "/members#member-name"], ["Record Cash Payment", "/operate"],
-    ["Dashboard", "/"], ["Front Desk", "/operate"], ["Members", "/members"], ["Payments", "/transactions"],
+    ["Add Member", "/members#member-name"], ["Record Cash Payment", "/members#search-name"],
+    ["Dashboard", "/"], ["Members", "/members"], ["Payments", "/transactions"],
     ["Plans & pricing", "/plans"], ["Team & access", "/team"], ["Historical pilot evidence", "/pilot"],
   ]);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
-  const paths: string[][] = [["overview", "/"], ["operate", "/operate"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
+  const paths: string[][] = [["overview", "/"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
     browser("select", 'select[aria-label="Appearance"]', theme);
-    for (const [name, path] of paths.filter(([name]) => !process.argv.includes("--review-only") || ["profile", "payment"].includes(name))) {
+    for (const [name, path] of paths.filter(([name]) => !process.argv.includes("--review-only") || ["members", "profile", "payment"].includes(name))) {
       browser("open", `${origin}${path}`); browser("wait", "--fn", "document.fonts.status === 'loaded'");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
       if (name === "profile") assert.equal(evaluate("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Renew membership')?.disabled && document.querySelector('#charge-plan').disabled"), true);
       if (name === "payment") browser("wait", "--fn", "document.activeElement?.id === 'charge-title'");
       for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812]] as const) {
         browser("set", "viewport", String(width), String(height)); audit(`${theme} ${name} ${device}`);
-        if (["overview", "operate", "members", "profile", "transactions", "team", "plans", "pilot"].includes(name)) {
+        if (["overview", "members", "profile", "transactions", "team", "plans", "pilot"].includes(name)) {
           if (device !== "desktop") { click("Toggle Sidebar"); browser("wait", '[role="dialog"]'); }
           const expected = name === "profile" ? "/members" : path;
           assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [expected], `${theme} ${name} ${device} single active destination`);
@@ -113,6 +113,7 @@ try {
     }
   }
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
+  text("Find a member"); assert.equal(evaluate("location.pathname"), "/members", "Owner compatibility redirect");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   browser("click", 'nav[aria-label="Main navigation"] a[href="/members#member-name"]');
   browser("wait", "#member-name"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
@@ -125,7 +126,9 @@ try {
   assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Creation alone records no payment");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   browser("find", "role", "link", "click", "--name", "Record Cash Payment", "--exact");
-  text("Who's at the desk?"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  browser("wait", "--fn", "location.hash === '#search-name' && !document.querySelector('[role=dialog]')");
+  assert.equal(evaluate("location.pathname"), "/members");
+  assert.equal(evaluate("(() => {const box=document.getElementById('search-name').getBoundingClientRect(),main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top && box.bottom<=main.bottom && scrollY===0;})()"), true, "Cash shortcut targets visible lookup");
   browser("fill", "#search-name", newName); click("Search"); text(newName);
   browser("click", `main a[href="/members/${created.id}"]`); text("Member profile"); text(newName);
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Not eligible')"), true);
@@ -157,28 +160,31 @@ try {
   browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
   browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
-  browser("set", "viewport", "320", "812"); audit("320px front desk reflow");
+  browser("set", "viewport", "320", "812"); audit("320px Members reflow");
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/members/${fixture[0].id}`);
   browser("select", "#legacy-action", "review"); browser("check", "#legacy-independentlyChecked");
   assert.equal(evaluate("document.getElementById('legacy-independentlyChecked').checked"), true);
   assert.equal(evaluate("(() => { const box=document.getElementById('legacy-independentlyChecked').getBoundingClientRect(),nav=document.querySelector('nav[aria-label=\"Quick navigation\"]').getBoundingClientRect(); return box.top>=0 && box.bottom<=nav.top && scrollY===0; })()"), true, "Mobile historical review checkbox stays above navigation");
   audit("Mobile historical review checkbox"); browser("screenshot", resolve(output, "dark-legacy-checkbox-phone.png"));
-  click("Sign out"); text("You are signed out."); browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Welcome, Prototype Staff");
-  assert.equal(new URL(evaluate("location.href")).pathname, "/operate");
-  for (const path of ["/", "/plans"]) {
-    browser("open", `${origin}${path}`); text("Welcome, Prototype Staff");
-    assert.equal(evaluate("location.pathname"), "/operate", `${path} denies owner-only content to staff`);
+  click("Sign out"); text("You are signed out.");
+  browser("open", `${origin}/operate`); browser("wait", "#identifier");
+  assert.equal(evaluate("location.pathname"), "/login", "Signed-out compatibility redirect grants no access");
+  browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Find a member");
+  assert.equal(new URL(evaluate("location.href")).pathname, "/members");
+  for (const path of ["/", "/plans", "/operate"]) {
+    browser("open", `${origin}${path}`); text("Find a member");
+    assert.equal(evaluate("location.pathname"), "/members", `${path} resolves to authorized Members workspace for staff`);
   }
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Front Desk", "Members", "Payments", "Your account", "Historical pilot evidence"]);
-  assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/operate", "Staff brand keeps Front Desk home");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Members", "Payments", "Your account", "Historical pilot evidence"]);
+  assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/members", "Staff brand uses Members home");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
   assert.equal(evaluate(`fetch('/api/charges', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:'${fixture[0].id}',planId:'${monthly.id}'})}).then(response=>response.status)`), 403);
   await reauthenticate(owner, password);
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: true });
   browser("reload"); text("Prepare charge preview"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.equal(evaluate("!!document.querySelector('nav[aria-label=\"Main navigation\"] a[href=\"/operate\"]:has(svg)') && document.querySelector('nav[aria-label=\"Main navigation\"]').textContent.includes('Record Cash Payment')"), true);
+  assert.equal(evaluate("!!document.querySelector('nav[aria-label=\"Main navigation\"] a[href=\"/members#search-name\"]')"), true);
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: true });
   browser("open", `${origin}/team`); text("Your account"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
