@@ -144,6 +144,7 @@ try {
     const charge = await prepareCharge(owner, member.id, monthly.id);
     await confirmCash(owner, charge.id, "800.00", randomUUID());
   }
+  for (let index = 0; index < 15; index++) await createMember(owner, { fullName: `Table member ${index}` });
   const paths: string[][] = [["overview", "/"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
     if (process.argv.includes("--skip-matrix")) break;
@@ -295,8 +296,29 @@ try {
   memberFilter("All members");
   assert.equal(evaluate("document.querySelectorAll('main tbody tr').length"), 10);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('main th')).map(node=>node.textContent)"), ["Member", "Email", "Phone #", "Membership started", "Membership expires", "Actions"]);
-  click("Next"); assert.equal(evaluate("document.querySelector('nav[aria-label=\"Member pages\"]').textContent.includes('Page 2')"), true);
+  const memberCount = await admin.member.count({ where: { gymId } });
+  const memberLastPage = Math.ceil(memberCount / 10);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('#member-page-size option')).map(option=>option.value)"), ["10", "20", "30"]);
+  for (const [action, page] of [["Next page", 2], ["Last page", memberLastPage], ["Previous page", memberLastPage - 1], ["First page", 1]] as const) {
+    click(action);
+    browser("wait", "--fn", `document.querySelector('nav[aria-label="Member pages"]').textContent.includes('Page ${page} of ${memberLastPage}')`);
+    assert.equal(evaluate("document.querySelector('nav[aria-label=\"Member pages\"]').previousElementSibling.textContent.includes(" + JSON.stringify(`Showing ${(page - 1) * 10 + 1}–${Math.min(page * 10, memberCount)} of ${memberCount} members.`) + ")"), true);
+    assert.equal(evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent"), memberCounts);
+  }
+  for (const size of [20, 30, 10]) {
+    click("Last page"); browser("select", "#member-page-size", String(size));
+    browser("wait", "--fn", `document.querySelectorAll('main td[data-label=Member]').length===${Math.min(size, memberCount)} && document.querySelector('nav[aria-label="Member pages"]').textContent.includes('Page 1 of ${Math.ceil(memberCount / size)}')`);
+    if (size === 20) {
+      click("Last page"); memberFilter("Pending");
+      assert.equal(evaluate("document.getElementById('member-page-size').value"), "20");
+      assert.equal(evaluate("document.querySelector('nav[aria-label=\"Member pages\"]').textContent.includes('Page 1 of')"), true);
+      memberFilter("All members");
+    }
+  }
+  click("Next page");
   browser("fill", "#search-name", "Nobody with this name"); text("No members match this filter."); audit("Empty member search");
+  assert.equal(evaluate("document.querySelector('nav[aria-label=\"Member pages\"]').textContent.includes('Page 1 of 1')"), true);
+  assert.equal(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Member pages\"] button')).every(button=>button.getAttribute('aria-disabled')==='true')"), true);
   assert.equal(evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent"), memberCounts);
   browser("fill", "#search-name", "Ana Cruz"); click("Refresh members"); text("Paid next term scheduled"); memberFilter("Pending"); text("No members match this filter.");
   memberFilter("All members"); clearMemberSearch();
@@ -320,6 +342,17 @@ try {
   browser("screenshot", resolve(output, "dark-members-refresh-error.png"));
   assert.equal(evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent"), memberCounts);
   browser("network", "unroute"); click("Refresh members"); text("Member list refreshed.");
+  for (const theme of ["light", "dark"]) {
+    appearance(theme);
+    for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812]] as const) {
+      browser("set", "viewport", String(width), String(height));
+      evaluate("(() => {const nav=document.querySelector('nav[aria-label=\"Member pages\"]'),main=document.getElementById('main');if(innerWidth<1024){window.scrollTo(0,0);main.scrollTop+=nav.getBoundingClientRect().top-main.getBoundingClientRect().top-100;}else nav.scrollIntoView({block:'center'});return true;})()");
+      browser("wait", "--fn", "document.getAnimations().every(animation=>animation.playState!=='running')");
+      audit(`${theme} member pagination ${device}`);
+      assert.equal(evaluate("(() => {const nav=document.querySelector('nav[aria-label=\"Member pages\"]'),main=document.getElementById('main'),box=nav.getBoundingClientRect();return box.top>=Math.max(0,main.getBoundingClientRect().top)&&box.bottom<=Math.min(innerHeight,main.getBoundingClientRect().bottom)&&[...nav.querySelectorAll('button,select')].every(control=>{const b=control.getBoundingClientRect();return b.width>=44&&b.height>=44;});})()"), true, "Member pagination is visible with 44px targets");
+      browser("screenshot", resolve(output, `${theme}-members-${device}-pagination.png`));
+    }
+  }
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
   browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");

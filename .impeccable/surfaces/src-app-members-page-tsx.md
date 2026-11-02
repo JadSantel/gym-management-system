@@ -17,7 +17,7 @@ OWN-WORLD: Inherit warm neutral light surfaces, near-black dark surfaces, Geist,
 
 STORY: Three complete-tenant counts precede search and All members / Active / Expiring soon / Pending filters. Active overlaps Expiring soon. Pending means no verified membership yet; scheduled paid and expired members remain distinctly labeled. Email and phone display Not recorded because they are not stored.
 
-FIRST VIEWPORT: Members heading and Add member action; three equal stat cards; compact search/status toolbar; table with Member, Email, Phone #, Membership started, Membership expires and trailing menu. Sort Member/Email, paginate 10 rows. Narrow layouts keep labelled records and accessible sorting controls. Existing creation remains below the directory, reachable through #member-name.
+FIRST VIEWPORT: Members heading and Add member action; three equal stat cards; compact search/status toolbar; table with Member, Email, Phone #, Membership started, Membership expires and trailing menu. Sort Member/Email; paginate 10 (default), 20 or 30 rows with a result range, page count and first/previous/next/last controls. Narrow layouts keep labelled records and accessible sorting controls. Existing creation remains below the directory, reachable through #member-name.
 
 FORM: User-specified composition, code-led inside the established world. No concept roll or generated raster. Exact seven-day inclusive threshold on the active interval, exact PHT date/time display; profiles recheck admission. Counts ignore search, status and pagination. No schema, financial or navigation changes.
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, MoreHorizontal, RefreshCw, Search, UserCheck, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, RefreshCw, Search, UserCheck, Users } from "lucide-react";
 import { createColumnHelper, createPaginatedRowModel, createSortedRowModel, rowPaginationFeature, rowSortingFeature, sortFn_text, tableFeatures, useTable, type SortingState } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,6 +65,9 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
     state: { sorting }, onSortingChange: setSorting, initialState: { pagination: { pageIndex: 0, pageSize: 10 } } });
   const pagination = table.state.pagination;
   const pageRows = table.getRowModel().rows;
+  const pageCount = Math.max(1, table.getPageCount());
+  const firstRow = visible.length ? pagination.pageIndex * pagination.pageSize + 1 : 0;
+  const lastRow = Math.min((pagination.pageIndex + 1) * pagination.pageSize, visible.length);
   useEffect(() => { if (feedback.error) feedbackRef.current?.focus(); }, [feedback]);
 
   async function refresh() {
@@ -141,8 +144,25 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
           <TableHeader><TableRow>{table.getHeaderGroups()[0].headers.map(header => <TableHead key={header.id} scope="col" aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : undefined}><table.FlexRender header={header} /></TableHead>)}</TableRow></TableHeader>
           <TableBody>{pageRows.length ? pageRows.map(row => <TableRow key={row.id}>{row.getAllCells().map(cell => <TableCell key={cell.id} data-label={labels[cell.column.id]}><table.FlexRender cell={cell} /></TableCell>)}</TableRow>) : <TableRow><TableCell colSpan={columns.length} className="h-40 text-center"><p className="font-medium">{members.length ? "No members match this filter." : "No members to show yet."}</p><p className="mt-2 text-xs text-muted-foreground">{members.length ? "Try another name or status." : "Search first, then create a member below."}</p></TableCell></TableRow>}</TableBody>
         </Table>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4"><p role="status" className="text-xs text-muted-foreground">{visible.length ? pagination.pageIndex * pagination.pageSize + 1 : 0}–{Math.min((pagination.pageIndex + 1) * pagination.pageSize, visible.length)} of {visible.length} members</p>
-          <nav aria-label="Member pages" className="flex flex-wrap items-center gap-2"><span className="mr-2 text-xs text-muted-foreground">Page {pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}</span><Button variant="outline" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage() || busy}>Previous</Button><Button variant="outline" onClick={() => table.nextPage()} disabled={!table.getCanNextPage() || busy}>Next</Button></nav></div>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4 text-xs">
+          <p role="status" aria-live="polite" className="text-muted-foreground">Showing {firstRow}–{lastRow} of {visible.length} members. Dates in Asia/Manila.<span className="sr-only"> Page {pagination.pageIndex + 1} of {pageCount}.</span></p>
+          <nav aria-label="Member pages" className="flex w-full flex-wrap items-center justify-between gap-3 lg:w-auto">
+            <label htmlFor="member-page-size" className="flex items-center gap-2 font-medium">Rows per page
+              <select id="member-page-size" value={String(pagination.pageSize)} disabled={busy} onChange={event => table.setPagination({ pageIndex: 0, pageSize: Number(event.target.value) })} className="min-h-11 rounded-md border border-border bg-card px-3 text-sm text-foreground disabled:opacity-50">
+                {[10, 20, 30].map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
+            <span className="ml-auto whitespace-nowrap font-medium">Page {pagination.pageIndex + 1} of {pageCount}</span>
+            <div className="flex w-full justify-end gap-2 sm:w-auto">
+              {[
+                { label: "First page", pageIndex: 0, unavailable: !table.getCanPreviousPage(), icon: ChevronsLeft },
+                { label: "Previous page", pageIndex: pagination.pageIndex - 1, unavailable: !table.getCanPreviousPage(), icon: ChevronLeft },
+                { label: "Next page", pageIndex: pagination.pageIndex + 1, unavailable: !table.getCanNextPage(), icon: ChevronRight },
+                { label: "Last page", pageIndex: pageCount - 1, unavailable: !table.getCanNextPage(), icon: ChevronsRight },
+              ].map(action => <Button key={action.label} variant="outline" aria-label={action.label} aria-disabled={busy || action.unavailable} tabIndex={action.unavailable ? -1 : 0} onClick={() => { if (!busy && !action.unavailable) table.setPageIndex(action.pageIndex); }} className="min-w-11 px-3 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"><action.icon aria-hidden="true" className="size-4" /></Button>)}
+            </div>
+          </nav>
+        </div>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">Email and phone are not recorded. Dates show the current, next scheduled, or latest expired membership in PHT; expiry is exclusive.</p>
       <p className="mt-2 text-xs text-muted-foreground">Eligibility checked {pht.format(new Date(checkTime))} PHT. Refresh to update. Open a profile for the current access decision before admission.</p>
