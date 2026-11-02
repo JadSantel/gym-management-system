@@ -18,8 +18,8 @@ import { GET as memberGet, POST as memberPost } from "../src/app/api/members/rou
 import { GET as plansGet, POST as plansPost } from "../src/app/api/plans/route";
 import { GET as chargeGet, POST as chargePost } from "../src/app/api/charges/route";
 import { POST as paymentPost } from "../src/app/api/payments/route";
-import { proposedPeriod } from "../src/lib/charges";
-import { parsePesos, formatPhp } from "../src/lib/money";
+import { proposedPeriod, prepareCharge, confirmCash } from "../src/lib/charges";
+import { parsePesos, formatPhp, pesoInput } from "../src/lib/money";
 import { assessEligibility, remainingActiveTime } from "../src/lib/eligibility";
 import { paymentHistory } from "../src/lib/payment-history";
 
@@ -748,6 +748,76 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const history = await paymentHistory(owners[0], { memberId: historyMember.id });
     assert.ok(history.payments.some(payment => payment.method === "CASH" && payment.receipt?.paymentId === payment.id));
     assert.ok(history.payments.every(payment => payment.memberId === historyMember.id));
+  });
+
+  await t.test("Payments paginate every matching record, preserve summaries and retain tenant/capability boundaries", async () => {
+    const plan = await admin.plan.findFirstOrThrow({ where: { gymId: gyms[0], durationDays: 30 } });
+    let lastMember = "";
+    for (let index = 0; index < 55; index++) {
+      const member = await createMember(owners[0], { fullName: `Summary ${suffix} member ${index}` });
+      const charge = await prepareCharge(owners[0], member.id, plan.id);
+      await confirmCash(owners[0], charge.id, pesoInput(plan.priceCentavos), randomUUID());
+      lastMember = member.id;
+    }
+    const all = await paymentHistory(owners[0], {});
+    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0] }, _sum: { amountCentavos: true }, _count: true });
+    assert.equal(all.payments.length, 10);
+    assert.equal(all.pagination.page, 1);
+    assert.equal(all.pagination.pageSize, 10);
+    assert.equal(all.pagination.totalRows, expected._count);
+    assert.equal(all.pagination.totalPages, Math.ceil(expected._count / 10));
+    assert.equal(all.summary.count, expected._count);
+    assert.equal(all.summary.amount, expected._sum.amountCentavos);
+    assert.ok(all.summary.count > 50);
+    assert.ok(all.payments.every(payment => payment.gymId === gyms[0]));
+    const expectedIds = (await admin.payment.findMany({ where: { gymId: gyms[0] }, orderBy: [{ collectedAt: "desc" }, { id: "desc" }], select: { id: true } })).map(payment => payment.id);
+    const pagedIds: string[] = [];
+    for (let page = 1; page <= all.pagination.totalPages; page++) {
+      const result = await paymentHistory(owners[0], { page: String(page) });
+      pagedIds.push(...result.payments.map(payment => payment.id));
+      assert.deepEqual(result.summary, all.summary);
+    }
+    assert.deepEqual(pagedIds, expectedIds, "all matching records remain reachable in stable order without overlap");
+    for (const pageSize of ["20", "30"] as const) {
+      const result = await paymentHistory(owners[0], { page: "2", pageSize });
+      assert.deepEqual(result.payments.map(payment => payment.id), expectedIds.slice(Number(pageSize), Number(pageSize) * 2));
+      assert.equal(result.pagination.totalPages, Math.ceil(expected._count / Number(pageSize)));
+      assert.deepEqual(result.summary, all.summary);
+    }
+    const outOfRange = await paymentHistory(owners[0], { page: "999999999", pageSize: "30" });
+    assert.equal(outOfRange.pagination.page, outOfRange.pagination.totalPages);
+    assert.equal(outOfRange.payments.at(-1)?.id, expectedIds.at(-1));
+    const byMember = await paymentHistory(owners[0], { memberId: lastMember, status: "CONFIRMED", method: "CASH" });
+    assert.equal(byMember.payments.length, 1);
+    assert.deepEqual(byMember.summary, all.summary, "name/method/list filters do not redefine date summary cards");
+    const at = byMember.payments[0].collectedAt;
+    const date = new Date(at.getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const start = new Date(`${date}T00:00:00+08:00`);
+    const rangeExpected = await admin.payment.aggregate({ where: { gymId: gyms[0], collectedAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } }, _sum: { amountCentavos: true }, _count: true });
+    const ranged = await paymentHistory(owners[0], { from: date, to: date });
+    assert.equal(ranged.summary.amount, rangeExpected._sum.amountCentavos);
+    assert.equal(ranged.summary.count, rangeExpected._count);
+    assert.deepEqual((await paymentHistory(owners[0], { date })).summary, ranged.summary, "legacy single-day URLs retain Manila boundaries");
+    const pending = await paymentHistory(owners[0], { status: "PENDING" });
+    assert.deepEqual(pending.payments, []);
+    assert.deepEqual(pending.pagination, { page: 1, pageSize: 10, totalRows: 0, totalPages: 1 });
+    assert.deepEqual(pending.summary, all.summary);
+    const empty = await paymentHistory(owners[0], { from: "1900-01-01", to: "1900-01-01" });
+    assert.equal(empty.summary.amount, 0); assert.equal(empty.summary.count, 0);
+    assert.deepEqual(empty.payments, []);
+    assert.equal(empty.pagination.totalPages, 1);
+    const foreign = await admin.member.findFirstOrThrow({ where: { gymId: gyms[1] } });
+    assert.deepEqual((await paymentHistory(owners[0], { memberId: foreign.id })).payments, []);
+    assert.equal((await paymentHistory(owners[0], { memberId: foreign.id, page: "2" })).pagination.totalRows, 0);
+    const other = await paymentHistory(owners[1], {});
+    assert.equal(other.summary.count, await admin.payment.count({ where: { gymId: gyms[1] } }));
+    await assert.rejects(paymentHistory(new Headers(), {}), { status: 401 });
+    await reauthenticate(owners[0], password);
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
+    assert.equal((await paymentHistory(staffHeaders, {})).canCollect, false);
+    await setCapabilities(owners[0], staff.id, { canManageMembers: false, canCollectCash: false });
+    await assert.rejects(paymentHistory(staffHeaders, { status: "PENDING" }), { status: 403 });
+    await assert.rejects(paymentHistory(owners[0], { from: "2026-11-03", to: "2026-11-02" }), { status: 400 });
   });
 
 });

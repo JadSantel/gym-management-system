@@ -39,10 +39,17 @@ function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
+  const uncertainControls = result.incomplete?.filter((item: { id: string; nodes: { failureSummary: string }[] }) => item.id === "aria-valid-attr-value" && item.nodes.every(node => node.failureSummary.includes("Unable to determine if aria-controls referenced ID exists"))) ?? [];
+  if (uncertainControls.length) {
+    assert.equal(evaluate("Array.from(document.querySelectorAll('[aria-expanded=\"true\"][aria-controls]')).every(trigger=>{const target=document.getElementById(trigger.getAttribute('aria-controls'));return target && target.getAttribute('role')==='dialog' && target.getClientRects().length>0 && !target.closest('[aria-hidden=\"true\"],[inert]') && target.contains(document.activeElement);})"), true, `${label} open popup has a visible, accessible controlled dialog with focus inside`);
+    result.counts.incomplete -= uncertainControls.length;
+    console.log(`${label}: aria-controls DOM review PASS (visible accessible target and focus inside).`);
+  }
   if (result.incomplete?.some((item: { id: string }) => item.id === "aria-hidden-focus") && evaluate("!!document.querySelector('[role=dialog]')")) {
-    browser("focus", '[role="dialog"] button:has-text("Close")'); browser("press", "Tab");
-    assert.equal(evaluate("document.querySelector('[role=dialog]').contains(document.activeElement)"), true);
-    browser("press", "Shift+Tab"); assert.equal(evaluate("document.activeElement.textContent"), "Close");
+    const stops = "Array.from(document.querySelector('[role=dialog]').querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex=\"0\"]')).filter(node=>node.getClientRects().length)";
+    evaluate(`(${stops}).at(-1).focus(); true`); browser("press", "Tab");
+    assert.equal(evaluate(`document.activeElement===(${stops})[0]`), true);
+    browser("press", "Shift+Tab"); assert.equal(evaluate(`document.activeElement===(${stops}).at(-1)`), true);
     result.counts.incomplete -= result.incomplete.filter((item: { id: string }) => item.id === "aria-hidden-focus").length;
     console.log(`${label}: aria-hidden-focus manual review PASS (Tab/Shift+Tab wrap).`);
   }
@@ -81,8 +88,14 @@ try {
     ["Plans & pricing", "/plans"], ["Team & access", "/team"], ["Historical pilot evidence", "/pilot"],
   ]);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
+  for (let index = 0; index < 11; index++) {
+    const member = await createMember(owner, { fullName: `Pagination member ${index}` });
+    const charge = await prepareCharge(owner, member.id, monthly.id);
+    await confirmCash(owner, charge.id, "800.00", randomUUID());
+  }
   const paths: string[][] = [["overview", "/"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
+    if (process.argv.includes("--skip-matrix")) break;
     browser("select", 'select[aria-label="Appearance"]', theme);
     for (const [name, path] of paths.filter(([name]) => !process.argv.includes("--review-only") || ["members", "profile", "payment"].includes(name))) {
       browser("open", `${origin}${path}`); browser("wait", "--fn", "document.fonts.status === 'loaded'");
@@ -108,10 +121,21 @@ try {
         if (device !== "desktop") assert.equal(evaluate("(() => { const nav=document.querySelector('nav[aria-label=\"Quick navigation\"]'),main=document.getElementById('main'); return Math.abs(nav.getBoundingClientRect().bottom-innerHeight)<1 && main.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top+1 && scrollY===0; })()"), true, `${name} navigation frame`);
         if (device !== "tablet") browser("screenshot", resolve(output, `${theme}-${name}-${device}-viewport.png`));
         browser("screenshot", resolve(output, `${theme}-${name}-${device}.png`), "--full");
+        if (name === "transactions") {
+          evaluate(`document.getElementById('main').scrollTop=${device === "phone" ? 800 : 500}; true`);
+          audit(`${theme} transactions ${device} rows`);
+          browser("screenshot", resolve(output, `${theme}-transactions-${device}-rows.png`));
+          evaluate("document.getElementById('main').scrollTop=document.getElementById('main').scrollHeight; true");
+          audit(`${theme} transactions ${device} pagination`);
+          assert.equal(evaluate("(() => {const nav=document.querySelector('nav[aria-label=\"Payment pages\"]'),main=document.getElementById('main');return nav.getBoundingClientRect().top>=main.getBoundingClientRect().top && nav.getBoundingClientRect().bottom<=main.getBoundingClientRect().bottom;})()"), true, "pagination stays within the scrolling workspace");
+          browser("screenshot", resolve(output, `${theme}-transactions-${device}-pagination.png`));
+          evaluate("document.getElementById('main').scrollTop=0; true");
+        }
       }
       console.log(`${theme} ${name}: desktop/tablet/phone, overflow, axe PASS`);
     }
   }
+  browser("select", 'select[aria-label="Appearance"]', "dark");
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
   text("Find a member"); assert.equal(evaluate("location.pathname"), "/members", "Owner compatibility redirect");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
@@ -151,10 +175,58 @@ try {
   audit("Cash review before confirmation"); browser("screenshot", resolve(output, "dark-cash-review-desktop.png"));
   click("Back to payment");
   assert.equal(evaluate("document.querySelector('main').innerText.includes('GCash') || document.querySelector('main').innerText.includes('Bank transfer')"), false, "payment preview offers cash only");
-  browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); text("Payment history");
-  browser("fill", "input[name=member]", "Maria Santos"); click("Search history"); text("Maria Santos");
+  browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); text("Payments");
+  browser("wait", "--fn", "document.querySelectorAll('main #payment-page-size').length===1 && document.querySelector('main section[aria-label=\"Payment history\"]').getAttribute('aria-busy')==='false'");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('main th')).map(node=>node.textContent)"), ["Member", "Method", "Amount", "Status", "Receipt"]);
+  const summaryBefore = evaluate("document.querySelector('[aria-label=\"Payment summary\"]').innerText");
+  const paginationCount = await admin.payment.count({ where: { gymId } });
+  const lastPage = Math.ceil(paginationCount / 10);
+  const lastPageCount = paginationCount - (lastPage - 1) * 10;
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('main #payment-page-size option')).map(option=>option.value)"), ["10", "20", "30"]);
+  assert.equal(evaluate("document.querySelectorAll('main td[data-label=Member]').length"), 10);
+  for (const [action, page, count] of [["Next page", "2", Math.min(10, paginationCount - 10)], ["First page", "1", 10], ["Last page", String(lastPage), lastPageCount], ["Previous page", String(lastPage - 1), 10]] as const) {
+    click(action);
+    browser("wait", "--fn", `new URL(location.href).searchParams.get('page')==='${page}' && document.querySelectorAll('main td[data-label=Member]').length===${count} && document.querySelector('section[aria-label="Payment history"]').getAttribute('aria-busy')==='false'`);
+    assert.equal(evaluate("document.querySelector('[aria-label=\"Payment summary\"]').innerText"), summaryBefore);
+    assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), action, "page navigation preserves control focus");
+  }
+  for (const size of ["20", "30", "10"]) {
+    browser("focus", "main #payment-page-size");
+    browser("select", "main #payment-page-size", size);
+    browser("wait", "--fn", `new URL(location.href).searchParams.get('pageSize')==='${size}' && document.querySelectorAll('main td[data-label=Member]').length===${Math.min(Number(size), paginationCount)}`);
+    assert.equal(evaluate("new URL(location.href).searchParams.get('page')"), "1");
+    assert.equal(evaluate("document.activeElement.id"), "payment-page-size");
+  }
+  click("Last page"); browser("wait", "--fn", `new URL(location.href).searchParams.get('page')==='${lastPage}' && document.querySelectorAll('main td[data-label=Member]').length===${lastPageCount}`);
+  click("Bank transfer"); text("No matching payments");
+  assert.equal(evaluate("new URL(location.href).searchParams.get('page')"), "1", "filters reset page");
+  assert.equal(evaluate("document.querySelector('[aria-label=\"Payment summary\"]').innerText"), summaryBefore);
+  browser("find", "role", "radio", "click", "--name", "Pending", "--exact"); text("No pending payments in this history"); audit("Pending history empty state");
+  browser("screenshot", resolve(output, "dark-transactions-pending-phone.png"));
+  assert.equal(evaluate("document.querySelectorAll('main td[data-label=Receipt]').length"), 0);
+  assert.equal(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Payment pages\"] button')).every(button=>button.getAttribute('aria-disabled')==='true')"), true);
+  click("Reset filters"); browser("wait", "--fn", "!new URL(location.href).searchParams.has('method') && !new URL(location.href).searchParams.has('status') && document.querySelector('section[aria-label=\"Payment history\"]').getAttribute('aria-busy')==='false'");
+  browser("fill", "input[name=member]", "Maria Santos"); click("Search"); text("Maria Santos");
+  browser("wait", "--fn", "new URL(location.href).searchParams.get('member')==='Maria Santos' && document.querySelectorAll('main td[data-label=Member]').length===1");
+  assert.equal(evaluate("document.activeElement.textContent"), "Search", "Server filters preserve keyboard focus");
+  browser("click", "main td[data-label=Member] button"); text("Payment details"); audit("Payment details Sheet");
+  browser("focus", '[role="dialog"] button[aria-label="Close payment details"]');
+  browser("screenshot", resolve(output, "dark-transactions-details-phone.png"));
+  assert.equal(evaluate(`document.querySelector('[role=dialog] a[href="/members/${fixture[0].id}"]')!==null`), true);
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  assert.equal(evaluate("document.activeElement.closest('td')?.getAttribute('data-label')"), "Member");
+  click("All dates"); click("Today"); browser("focus", "#payment-date-from");
+  browser("press", "ArrowRight"); browser("press", "ArrowRight"); browser("press", "ArrowUp"); browser("press", "Tab");
+  assert.equal(evaluate("document.getElementById('payment-date-from').value > document.getElementById('payment-date-to').value"), true, "keyboard edits the native start date after the end date");
+  click("Apply date range"); text("End date must be on or after start date."); audit("Payment range validation");
+  browser("screenshot", resolve(output, "dark-transactions-range-error-phone.png"));
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  assert.equal(evaluate("document.activeElement.textContent"), "All dates", "Date picker Escape returns focus to its trigger");
+  click("More filters"); browser("fill", "#payment-reference", "Missing reference"); click("Apply filters"); text("No matching payments");
+  browser("back"); browser("wait", "--fn", "!new URL(location.href).searchParams.has('reference') && document.querySelectorAll('main td[data-label=Member]').length===1");
+  assert.equal(evaluate("document.getElementById('transaction-search').value"), "Maria Santos", "Back restores URL filters");
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Pending verification')"), false);
-  browser("fill", "#transaction-search", "No matching transaction"); text("0 payment record(s) shown."); audit("Empty transaction filter");
+  browser("fill", "#transaction-search", "No matching transaction"); click("Search"); text("No matching payments"); audit("Empty transaction filter");
   browser("open", `${origin}/members`); browser("fill", "#search-name", "Nobody with this name"); click("Search"); text("No matching members."); audit("Empty member search");
   browser("fill", "#search-name", "Ana Cruz"); click("Search"); text("Paid next term scheduled"); click("Expired"); text("No members match this filter.");
   browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");

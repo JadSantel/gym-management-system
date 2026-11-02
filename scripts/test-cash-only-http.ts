@@ -9,6 +9,7 @@ import { bootstrapSyntheticOwner, completeSetup, reauthenticate } from "../src/l
 import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { confirmCash, prepareCharge } from "../src/lib/charges";
+import { paymentHistory } from "../src/lib/payment-history";
 
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
@@ -45,9 +46,11 @@ try {
 
   // Seed a matched synthetic legacy payment directly to prove retained records remain readable.
   const operator = await admin.operator.findFirstOrThrow({ where: { gymId, role: "OWNER" } });
-  const historicalMember = await createMember(owner, { fullName: `Historical Digital ${suffix}` });
+  async function seedHistorical(method: "GCASH" | "BANK") {
+  const prefix = method === "GCASH" ? "HISTORICAL" : "HISTORICAL-BANK";
+  const historicalMember = await createMember(owner, { fullName: `Historical ${method === "GCASH" ? "Digital" : "Bank"} ${suffix}` });
   const historicalCharge = await prepareCharge(owner, historicalMember.id, plan.id);
-  const account = await admin.receivingAccount.create({ data: { gymId, label: `Historical account ${suffix}`, method: "GCASH", createdBy: operator.id } });
+  const account = await admin.receivingAccount.create({ data: { gymId, label: `${prefix} account ${suffix}`, method, createdBy: operator.id } });
   await admin.digitalVerifier.create({ data: { gymId, accountId: account.id, operatorId: operator.id, active: true } });
   const collectedAt = new Date();
   const enteredAt = new Date();
@@ -57,16 +60,27 @@ try {
       amountCentavos: plan.priceCentavos, transactionReference: `HISTORICAL-${suffix}`, reportedReceivedAt: collectedAt,
       enteredAt, collectedBy: operator.id } });
     const payment = await tx.payment.create({ data: { gymId, memberId: historicalMember.id, chargeId: historicalCharge.id,
-      reference: `HISTORICAL-PAYMENT-${suffix}`, amountCentavos: plan.priceCentavos, method: "GCASH",
+      reference: `${prefix}-PAYMENT-${suffix}`, amountCentavos: plan.priceCentavos, method,
       collectedBy: operator.id, collectedAt, enteredAt, verifiedBy: operator.id, verifiedAt } });
     await tx.membershipPeriod.create({ data: { gymId, memberId: historicalMember.id, paymentId: payment.id, confirmedBy: operator.id,
       startsAt: historicalCharge.intendedStart, endsAt: historicalCharge.intendedEnd } });
     await tx.effectiveEntitlement.create({ data: { gymId, memberId: historicalMember.id, periodId: (await tx.membershipPeriod.findUniqueOrThrow({ where: { paymentId: payment.id } })).id,
       startsAt: historicalCharge.intendedStart, endsAt: historicalCharge.intendedEnd } });
-    const historicalReceipt = await tx.paymentReceipt.create({ data: { gymId, paymentId: payment.id, reference: `HISTORICAL-RECEIPT-${suffix}` } });
+    const historicalReceipt = await tx.paymentReceipt.create({ data: { gymId, paymentId: payment.id, reference: `${prefix}-RECEIPT-${suffix}` } });
     await tx.digitalSettlement.create({ data: { gymId, claimId: claim.id, paymentId: payment.id, evidenceReference: `SYNTHETIC-${suffix}`, accountMatched: true } });
     return historicalReceipt;
   });
+  return { member: historicalMember, receipt: historicalReceipt };
+  }
+  const { member: historicalMember, receipt: historicalReceipt } = await seedHistorical("GCASH");
+  const bank = await seedHistorical("BANK");
+  const bankRecords = await paymentHistory(owner, { method: "BANK" });
+  assert.equal(bankRecords.payments.length, 1);
+  assert.equal(bankRecords.payments[0].memberId, bank.member.id);
+  assert.deepEqual(bankRecords.summary.bank, { amount: 80_000, count: 1 });
+  assert.deepEqual(bankRecords.summary.cash, { amount: 80_000, count: 1 });
+  assert.equal(bankRecords.summary.amount, 240_000, "all methods, including GCash, count in confirmed revenue");
+  assert.equal(bankRecords.summary.count, 3);
 
   async function get(path: string) {
     return fetch(new URL(path, origin), { headers: owner });
@@ -96,14 +110,31 @@ try {
   const historyResponse = await get(`/transactions?member=${encodeURIComponent(`Cash History ${suffix}`)}`);
   assert.equal(historyResponse.status, 200);
   const historyHtml = await historyResponse.text();
-  assert.ok(historyHtml.includes("Payment history"), "transaction page shows payment history");
+  assert.ok(historyHtml.includes("<h1>Payments</h1>"), "transaction page shows Payments");
+  assert.ok(!/<th\b[^>]*>Reference<\/th>/.test(historyHtml), "Reference column is removed");
+  assert.ok(historyHtml.includes('aria-label="Payment summary"'), "real payment summaries render");
   assert.ok(historyHtml.includes(confirmed.payment.reference), "transaction page shows the cash payment");
   assert.ok(historyHtml.includes(`/receipts/${receipt.id}`), "transaction page links the cash receipt");
+  const pendingHistory = await (await get("/transactions?status=PENDING")).text();
+  assert.ok(pendingHistory.includes("No pending payments in this history"));
+  assert.ok(!pendingHistory.includes('data-label="Receipt"'), "pending view invents no receipt rows");
+  const repeatedRange = await fetch(new URL("/transactions?from=2026-11-01&from=2026-11-02", origin), { headers: owner, redirect: "manual" });
+  if (repeatedRange.status === 307) {
+    assert.equal(new URL(repeatedRange.headers.get("location")!, origin).pathname, "/transactions");
+  } else {
+    // Next's loading boundary may stream the redirect after sending HTTP 200.
+    assert.equal(repeatedRange.status, 200);
+    const redirectMeta = (await repeatedRange.text()).match(/<meta[^>]*http-equiv="refresh"[^>]*>/)?.[0] ?? "";
+    assert.match(redirectMeta, /url=\/transactions/, "repeated filters produce a streaming redirect, not a filtered result");
+  }
   const historicalHistoryResponse = await get(`/transactions?member=${encodeURIComponent(`Historical Digital ${suffix}`)}`);
   assert.equal(historicalHistoryResponse.status, 200);
   const historicalHistory = await historicalHistoryResponse.text();
   assert.ok(historicalHistory.includes("GCash (historical)"), "transaction page labels retained GCash as historical");
   assert.ok(historicalHistory.includes(`/receipts/${historicalReceipt.id}`), "transaction page links the historical receipt");
+  const bankHistory = await (await get("/transactions?method=BANK")).text();
+  assert.ok(bankHistory.includes("Bank transfer (historical)"));
+  assert.ok(bankHistory.includes(`/receipts/${bank.receipt.id}`));
 
   const receiptResponse = await get(`/receipts/${receipt.id}`);
   assert.equal(receiptResponse.status, 200);
