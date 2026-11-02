@@ -32,7 +32,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const label = [...workspace, ...administration].find(item => current(item.href))?.label ?? "Workspace";
   const content = <div className={actor ? "app-workspace min-w-0 flex-1" : ""}>
     <header className="workspace-header"><div className="flex min-h-18 items-center justify-between gap-1 px-3 py-2 sm:gap-4 sm:px-8">
-      <div className="flex min-w-0 items-center gap-3 text-xs">{actor && <SidebarTrigger />}<span className="hidden truncate font-semibold md:inline">{actor ? label : "Operator access"}</span></div>
+      <div className="flex min-w-0 items-center gap-3 text-xs">{actor && <SidebarTrigger />}<span className="hidden truncate font-semibold md:inline">{pathname.startsWith("/join/") ? "Member registration" : actor ? label : "Operator access"}</span></div>
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3"><LiveClock /><ThemeControl />{actor && <AccountControl name={actor.name} owner={actor.owner} />}</div>
     </div>
     </header>

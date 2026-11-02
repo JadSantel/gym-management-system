@@ -116,6 +116,6 @@ test("S-01b restricted PostgreSQL RLS, scoped transactions and live capability c
     await assert.rejects(inGym(staffHeaders, "MEMBERS", async () => true));
     assert.equal(await inGym(owners[0], "CASH", async () => true), true);
     const [functions] = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef`;
-    assert.equal(Number(functions.count), 2);
+    assert.equal(Number(functions.count), 3); // identity binding, setup scope, public registration scope
   });
 });

@@ -1,5 +1,9 @@
 # Production and pilot readiness checklist
 
+## Registration/attendance readiness delta - 2026-11-02
+
+FR-13/14 is approved for two local synthetic tasks with a GitHub checkpoint between them. Do not infer public signup, real records, attendance readiness or release approval from that scope. Before public registration: verify reachable HTTPS, ingress/origin and abuse controls (current shared anonymous local bucket is not production client isolation), gym-link custody/expiry/replacement, member-contact privacy/retention/stewardship and operator training. Preserve the current local runtime guard. Before attendance operation: separately verify physical USB scanners/webcams/mobile cameras, permissions/error recovery, printed/downloaded personal QR decoding, identity checks, camera-track cleanup and day-boundary/correction procedures. No camera, hosted, pilot or live data claim is supplied by task 1. Existing financial/identity/restore/email gates remain open.
+
 **Reconciled:** October 26, 2026 (Asia/Manila), repository baseline `a472cf0`.
 **Verdict:** live release and real-data onboarding remain **BLOCKED**. This is an
 action plan derived from the [release audit](RELEASE_READINESS_AUDIT.md), its

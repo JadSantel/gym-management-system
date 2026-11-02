@@ -1,5 +1,13 @@
 # Current owner and staff guidance
 
+## Registration operating guidance - 2026-11-02
+
+Local synthetic demonstration only (FR-13). In Members, create the reception registration link and download its QR. The link expires after 30 days; replacing it immediately invalidates old printed codes. Use Open registration form on the same computer for local testing. A phone cannot reach another computer's loopback address; public access needs a separately verified reachable HTTPS deployment and current readiness gates.
+
+Visitors enter synthetic name/email/Philippine mobile. Saved profiles appear as Pending; contacts are unverified and no message is sent. If directed to reception, staff find the existing record without asking the visitor to create another one. Staff may add/edit optional contacts on a profile; matching email or mobile cannot belong to another profile in this gym. Name-only records remain supported. Do not treat a profile or contact as proof of identity, payment or access.
+
+Open the profile and use the existing approved plan/full-cash review. Collect full cash before confirmation; short payment grants nothing. Retrieve the receipt and recheck current eligibility. Registration uncertainty retries the same submission; cash uncertainty follows the existing original-key recovery. Task 1 has no personal attendance QR. Task 2 separately adds QR issuance/attendance/corrections after the GitHub checkpoint; staff will remain responsible for confirming the person presenting a personal QR. No real training or physical-device rehearsal is established by these instructions.
+
 **Revised:** 2026-11-01 (Asia/Manila). This guidance replaces the October 26, 2026 S-07 synthetic rehearsal instructions. It is not evidence of real staff training, pilot operation, or release readiness. `PROJECT.md` controls current behavior.
 
 ## Supported work

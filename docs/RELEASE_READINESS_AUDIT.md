@@ -1,5 +1,9 @@
 # Gym CRM release-readiness audit
 
+## Registration/attendance scope delta - 2026-11-02
+
+PROJECT.md FR-13/14 now permits public member registration and basic staff-operated QR attendance in two separately checkpointed local synthetic tasks. This supersedes earlier feature deferrals only; it resolves no hosted ingress, privacy/retention, device, training, pilot or live-readiness gate. Task 1 is registration through existing full-cash activation; personal QR and attendance remain task 2. Current runtime restrictions continue to fail closed outside the isolated synthetic environment. Review current IMPLEMENTATION_STATUS.md for executable evidence; historical audit results below are not reruns.
+
 **Original audit:** 2026-10-24 (Asia/Manila), HEAD `5362cd8` (`feat: validate member creation and search with Zod`); initial working tree clean. Original findings and commands below are historical evidence.
 **Repair review:** 2026-10-25 (Asia/Manila), task-6 baseline HEAD `71cb7c2444b3e25c47ea85335d6b80e47f1726ea`; initial working tree clean. See [implementation ledger](IMPLEMENTATION_STATUS.md) for each checkpoint.
 **S-01 checkpoint / milestone review:** CLOSED on 2026-10-25 at the user's request, for local synthetic acceptance at `fc9d17d5d7616f93dc86a7ab1880ba7f410fd1fc`. Initial tree clean; implementation preserved. Fresh closure checks: `npm.cmd test` PASS 73/73, zero skips; `npm.cmd run typecheck` and `npm.cmd run lint` PASS. Initial DB-unavailable failure resolved by starting the existing isolated cluster. Build/browser evidence below is retained from repair 6, not rerun for this documentation-only closure. Remote GitHub synchronization NOT VERIFIED; no commit/push or next task performed. See the ledger's closure matrix and reproduction steps.

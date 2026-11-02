@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { directoryMembership, type DirectoryMember } from "@/lib/member-directory";
 import { memberCreateSchema, memberFieldErrors, memberSearchSchema, type MemberFieldErrors } from "@/lib/member-schema";
+import { ContactFields } from "./contact-fields";
 import styles from "./member-directory.module.css";
 
 const features = tableFeatures({ rowSortingFeature, rowPaginationFeature,
@@ -88,7 +89,7 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
         await refresh(); setFeedback({ message: "Member list refreshed.", error: false }); return;
       }
       setCreateAttempted(true);
-      const input = { fullName: String(form.get("name") ?? ""), confirmDuplicate: form.has("confirmDuplicate") };
+      const input = { fullName: String(form.get("name") ?? ""), email: String(form.get("email") ?? ""), phone: String(form.get("phone") ?? ""), confirmDuplicate: form.has("confirmDuplicate") };
       const parsed = memberCreateSchema.safeParse(input);
       if (!parsed.success) { setCreateErrors(memberFieldErrors(parsed.error)); throw new Error("Check the member fields below."); }
       if (duplicate && !input.confirmDuplicate) {
@@ -99,10 +100,10 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
       const result = await response.json();
       if (!response.ok) {
         setCreateErrors(result.fieldErrors ?? {});
-        if (response.status === 409) { setDuplicate(true); setSearch(parsed.data.fullName); setFilter("All members"); table.setPageIndex(0); await refresh(); }
+        if (response.status === 409 && !result.fieldErrors?.email && !result.fieldErrors?.phone) { setDuplicate(true); setSearch(parsed.data.fullName); setFilter("All members"); table.setPageIndex(0); await refresh(); }
         throw new Error(result.error);
       }
-      setMembers(previous => [...previous, { id: result.id, fullName: result.fullName, email: null, phone: null, hasVerifiedMembership: false, entitlements: [] }]);
+      setMembers(previous => [...previous, { id: result.id, fullName: result.fullName, email: result.email, phone: result.phone, hasVerifiedMembership: false, entitlements: [] }]);
       setSearch(result.fullName); setFilter("All members"); table.setPageIndex(0); setDuplicate(false);
       setFeedback({ message: "Member created. Review the member record before collecting payment.", error: false });
     } catch (error) { setFeedback({ message: error instanceof Error ? error.message : "Unable to connect. Try again.", error: true }); }
@@ -164,7 +165,7 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
           </nav>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Email and phone are not recorded. Dates show the current, next scheduled, or latest expired membership in PHT; expiry is exclusive.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Recorded contacts are unverified; missing contacts show Not recorded. Dates show the current, next scheduled, or latest expired membership in PHT; expiry is exclusive.</p>
       <p className="mt-2 text-xs text-muted-foreground">Eligibility checked {pht.format(new Date(checkTime))} PHT. Refresh to update. Open a profile for the current access decision before admission.</p>
     </section>
     <section id="new-member" aria-labelledby="create-title" className="panel"><h2 id="create-title" className="panel-title">Create a member</h2><p className="mb-5 mt-2 text-sm text-muted-foreground">Search first to avoid duplicates. Creating a member records no payment and grants no paid access.</p>
@@ -175,6 +176,7 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
           setCreateErrors(createAttempted && !parsed.success ? { fullName: parsed.error.issues[0].message } : {});
         }} /></label>
         {createErrors.fullName && <p id="member-name-error" className="text-sm text-destructive">{createErrors.fullName}</p>}
+        <ContactFields prefix="member" errors={createErrors} disabled={busy} />
         {duplicate && <><label className="flex min-h-11 items-start gap-3 text-sm"><input id="duplicate-review" name="confirmDuplicate" type="checkbox" required disabled={busy} className="mt-1 size-5"
           aria-invalid={!!createErrors.confirmDuplicate} aria-describedby={createErrors.confirmDuplicate ? "duplicate-review-error" : undefined}
           onChange={event => setCreateErrors(event.currentTarget.checked ? {} : { confirmDuplicate: "Confirm that you reviewed the matches and this is a separate person." })} />I reviewed the matches. This is a separate person with the same name.</label>

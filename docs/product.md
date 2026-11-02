@@ -1,5 +1,9 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+### Approved registration and attendance extension - 2026-11-02
+
+PROJECT.md FR-13/14 now authorizes public gym-link member registration, unverified optional staff contacts, and basic staff-operated QR attendance. Profile, paid entitlement and attendance remain separate. Registration requires name/email/Philippine mobile, prevents gym-scoped duplicate email or phone, records public provenance without a staff creator, and grants no access. Name-only staff entry remains supported. Two deliveries have separate GitHub checkpoints: registration through full cash activation, then personal QR/attendance/corrections. Earlier deferrals below are superseded only for this specific extension. No member account, birthdate, suspension, email delivery, unattended kiosk or offline queue is added. Live privacy/stewardship, public access and hosted readiness remain gated.
+
 **Status:** Cash-only MVP scope approved; limited operational details and future pilot validation remain open
 **Last updated:** 2026-11-01 (aligned with PROJECT.md cash-only scope revision; prior S-03-S-06 approvals retained as historical context)
 **Document owner:** Product team (to assign)  

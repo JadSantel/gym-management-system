@@ -110,6 +110,7 @@ model Gym {
   entitlements EffectiveEntitlement[]
   idempotencyOperations IdempotencyOperation[]
   receipts PaymentReceipt[]
+  registrationLinks RegistrationLink[]
   @@map("gyms")
 }
 
@@ -171,16 +172,51 @@ model Member {
   fullName  String @map("full_name")
   nameKey   String @map("name_key")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy String @map("created_by") @db.Uuid
+  createdBy String? @map("created_by") @db.Uuid
+  email String?
+  phone String?
+  source String @default("STAFF")
   gym       Gym @relation(fields: [gymId], references: [id])
-  creator   Operator @relation(fields: [createdBy, gymId], references: [id, gymId])
+  creator   Operator? @relation(fields: [createdBy, gymId], references: [id, gymId])
   charges   Charge[]
   payments Payment[]
   membershipPeriods MembershipPeriod[]
   entitlements EffectiveEntitlement[]
+  registrations RegistrationAttempt[]
+  @@unique([gymId, email])
+  @@unique([gymId, phone])
   @@unique([id, gymId])
   @@index([gymId, nameKey])
   @@map("members")
+}
+
+model RegistrationLink {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  code String @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  gym Gym @relation(fields: [gymId], references: [id])
+  attempts RegistrationAttempt[]
+  @@unique([id, gymId])
+  @@map("registration_links")
+}
+
+model RegistrationAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  linkId String @map("link_id") @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  fingerprint String
+  outcome String
+  memberId String? @map("member_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  link RegistrationLink @relation(fields: [linkId, gymId], references: [id, gymId])
+  member Member? @relation(fields: [memberId, gymId], references: [id, gymId])
+  @@unique([linkId, requestId])
+  @@map("registration_attempts")
 }
 
 model Plan {

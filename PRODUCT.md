@@ -1,5 +1,9 @@
 # Product
 
+## Current scope override - 2026-11-02
+
+Follow docs/PROJECT.md: ordinary full-cash collection, receipts, member/payment history and eligibility remain active; digital collections, investigations/corrections/refunds, outage/custody and closing are retired. Preserve their historical records. The user now authorizes public gym-link member registration with unverified email/Philippine mobile and staff-managed optional contacts, followed by a separately checkpointed staff-operated personal-QR attendance task. Profile creation grants no paid access. Member login/portal, birthdate, suspension, email delivery, unattended kiosk and offline queue remain excluded. Initial operation is local/synthetic; hosted access, real records, devices and pilot readiness require separate evidence. Earlier product prose below remains historical where it conflicts with this scope.
+
 <!-- impeccable:product-schema 1 -->
 
 ## Platform

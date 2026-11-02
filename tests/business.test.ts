@@ -46,7 +46,7 @@ function paymentReq(headers: Headers, chargeId: string, amount: string, key: str
 after(async () => { await db.$disconnect(); await admin.$disconnect(); });
 
 test("Z-02 member schemas preserve normalization and reject malformed or expanded names", () => {
-  assert.deepEqual(memberCreateSchema.parse({ fullName: "  Ｍｅｍｂｅｒ　 Name  " }), { fullName: "Member Name", confirmDuplicate: false });
+  assert.deepEqual(memberCreateSchema.parse({ fullName: "  Ｍｅｍｂｅｒ　 Name  " }), { fullName: "Member Name", email: null, phone: null, confirmDuplicate: false });
   assert.equal(memberCreateSchema.safeParse({ fullName: "a".repeat(100), confirmDuplicate: true }).success, true);
   for (const fullName of [undefined, null, 123, [], {}, "", "   ", "a".repeat(101), "Hidden\u0000Name", "Hidden\u200bName", "ﷺ".repeat(6)]) {
     assert.equal(memberCreateSchema.safeParse({ fullName }).success, false);
@@ -237,7 +237,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     assert.equal(matches.length, 2);
     assert.notEqual(matches[0].id, matches[1].id);
   });
-  await t.test("R-09 runtime can lock members with only UPDATE(id); IDs and all member edits stay protected", async () => {
+  await t.test("R-09 runtime can lock members and edit contacts only; IDs and other member fields stay protected", async () => {
     const member = await createMember(owners[0], { fullName: "Immutable Lock Member" });
     const [privileges] = await db.$queryRaw<{ update: boolean; delete: boolean; truncate: boolean; rolsuper: boolean; rolbypassrls: boolean; owns: boolean }[]>`SELECT
       has_table_privilege(current_user, 'members', 'UPDATE') AS update,
@@ -249,7 +249,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const columns = await db.$queryRaw<{ attname: string }[]>`SELECT attname FROM pg_attribute
       WHERE attrelid = 'members'::regclass AND attnum > 0 AND NOT attisdropped
       AND has_column_privilege(current_user, 'members', attname, 'UPDATE') ORDER BY attname`;
-    assert.deepEqual(columns.map(column => column.attname), ["id"]);
+    assert.deepEqual(columns.map(column => column.attname), ["email", "id", "phone"]);
     assert.deepEqual(await inGym(owners[0], "CASH", tx => tx.$queryRaw`SELECT id FROM members
       WHERE id = ${member.id}::uuid AND gym_id = ${gyms[0]}::uuid FOR UPDATE`), [{ id: member.id }]);
     for (const id of [randomUUID(), member.id]) {
