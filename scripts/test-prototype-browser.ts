@@ -12,6 +12,7 @@ import { db } from "../src/lib/db";
 import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
+import { legacyCommand } from "../src/lib/legacy";
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
   const url = new URL(process.env[key]!);
@@ -39,6 +40,11 @@ function click(name: string) {
   browser("find", "role", "button", "click", "--name", name, "--exact");
 }
 function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
+function memberFilter(value: string) { browser("find", "role", "radio", "click", "--name", value, "--exact"); }
+function clearMemberSearch() {
+  browser("focus", "#search-name"); browser("press", "Control+a"); browser("press", "Backspace");
+  browser("wait", "--fn", "document.getElementById('search-name').value === '' && document.querySelectorAll('main td[data-label=Member]').length === 10");
+}
 function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
@@ -79,6 +85,15 @@ try {
   }
   const next = await prepareCharge(owner, fixture[2].id, monthly.id);
   await confirmCash(owner, next.id, "800.00", randomUUID());
+  for (const [name, daysLeft] of [["Z Expiring Member", 3], ["Z Expired Member", -1]] as const) {
+    const member = await createMember(owner, { fullName: name });
+    const proposal = await legacyCommand(owner, { action: "prepare", memberId: member.id, previousId: null,
+      sourceReference: `SYNTHETIC-${name.replaceAll(" ", "-")}-${suffix}`, sourceType: "GYM_REGISTER",
+      corroboratingReference: `SYNTHETIC-CARD-${daysLeft}-${suffix}`, interpretation: "INSTANTS",
+      claimedStart: new Date(Date.now() - 30 * 86_400_000).toISOString(), claimedEnd: new Date(Date.now() + daysLeft * 86_400_000).toISOString(),
+      uncertainty: "CERTAIN", notes: "Synthetic Members UI fixture only." }, randomUUID());
+    await legacyCommand(owner, { action: "review", proposalId: proposal.id, decision: "APPROVE", independentlyChecked: true, notes: "Synthetic fixture references checked." }, randomUUID());
+  }
   await inviteStaff(owner, { name: "Prototype Staff", username: `prototype_${suffix}`, email: `prototype-staff-${suffix}@example.test` }, sender);
   await completeSetup(token, password);
   const staff = await admin.operator.findFirstOrThrow({ where: { gymId, role: "STAFF" } });
@@ -158,6 +173,13 @@ try {
         if (device !== "desktop") assert.equal(evaluate("(() => { const nav=document.querySelector('nav[aria-label=\"Quick navigation\"]'),main=document.getElementById('main'); return Math.abs(nav.getBoundingClientRect().bottom-innerHeight)<1 && main.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top+1 && scrollY===0; })()"), true, `${name} navigation frame`);
         if (device !== "tablet") browser("screenshot", resolve(output, `${theme}-${name}-${device}-viewport.png`));
         browser("screenshot", resolve(output, `${theme}-${name}-${device}.png`), "--full");
+        if (name === "members" && device !== "desktop") {
+          evaluate("(() => {const main=document.getElementById('main');main.scrollTop+=document.getElementById('search-title').getBoundingClientRect().top-main.getBoundingClientRect().top-16;window.scrollTo(0,0);return true;})()");
+          assert.equal(evaluate("scrollY"), 0, "Members row capture preserves the fixed navigation frame");
+          audit(`${theme} members ${device} rows`);
+          browser("screenshot", resolve(output, `${theme}-members-${device}-rows.png`));
+          evaluate("document.getElementById('main').scrollTop=0; true");
+        }
         if (name === "transactions") {
           evaluate(`document.getElementById('main').scrollTop=${device === "phone" ? 800 : 500}; true`);
           audit(`${theme} transactions ${device} rows`);
@@ -190,7 +212,7 @@ try {
   browser("wait", "--fn", "location.hash === '#search-name' && !document.querySelector('[role=dialog]')");
   assert.equal(evaluate("location.pathname"), "/members");
   assert.equal(evaluate("(() => {const box=document.getElementById('search-name').getBoundingClientRect(),main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top && box.bottom<=main.bottom && scrollY===0;})()"), true, "Cash shortcut targets visible lookup");
-  browser("fill", "#search-name", newName); click("Search"); text(newName);
+  browser("fill", "#search-name", newName); click("Refresh members"); text(newName);
   browser("click", `main a[href="/members/${created.id}"]`); text("Member profile"); text(newName);
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Not eligible')"), true);
   click("Prepare charge preview"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
@@ -264,9 +286,41 @@ try {
   assert.equal(evaluate("document.getElementById('transaction-search').value"), "Maria Santos", "Back restores URL filters");
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Pending verification')"), false);
   browser("fill", "#transaction-search", "No matching transaction"); click("Search"); text("No matching payments"); audit("Empty transaction filter");
-  browser("open", `${origin}/members`); browser("fill", "#search-name", "Nobody with this name"); click("Search"); text("No matching members."); audit("Empty member search");
-  browser("fill", "#search-name", "Ana Cruz"); click("Search"); text("Paid next term scheduled"); click("Expired"); text("No members match this filter.");
-  browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
+  browser("set", "viewport", "1440", "1000"); browser("open", `${origin}/members`); text("Find a member");
+  const memberCounts = evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent");
+  memberFilter("Expiring soon"); text("Z Expiring Member");
+  assert.equal(evaluate("document.querySelectorAll('main td[data-label=Member]').length"), 1);
+  browser("screenshot", resolve(output, "dark-members-expiring.png"));
+  memberFilter("Active"); assert.equal(evaluate("Array.from(document.querySelectorAll('main td[data-label=Member]')).some(node=>node.textContent.includes('Z Expired Member'))"), false);
+  memberFilter("All members");
+  assert.equal(evaluate("document.querySelectorAll('main tbody tr').length"), 10);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('main th')).map(node=>node.textContent)"), ["Member", "Email", "Phone #", "Membership started", "Membership expires", "Actions"]);
+  click("Next"); assert.equal(evaluate("document.querySelector('nav[aria-label=\"Member pages\"]').textContent.includes('Page 2')"), true);
+  browser("fill", "#search-name", "Nobody with this name"); text("No members match this filter."); audit("Empty member search");
+  assert.equal(evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent"), memberCounts);
+  browser("fill", "#search-name", "Ana Cruz"); click("Refresh members"); text("Paid next term scheduled"); memberFilter("Pending"); text("No members match this filter.");
+  memberFilter("All members"); clearMemberSearch();
+  browser("click", "main th:first-child button"); assert.equal(evaluate("document.querySelector('main th').getAttribute('aria-sort')"), "descending");
+  assert.equal(evaluate("document.querySelector('main td a').textContent"), "Z Expiring Member");
+  browser("click", "main th:first-child button"); assert.equal(evaluate("document.querySelector('main td a').textContent"), "Ana Cruz");
+  browser("click", "main th:nth-child(2) button"); assert.equal(evaluate("document.querySelector('main th:nth-child(2)').getAttribute('aria-sort')"), "ascending");
+  browser("click", "main th:first-child button");
+  browser("focus", 'button[aria-label="Actions for Ana Cruz"]'); browser("press", "Enter"); browser("wait", '[role="menu"]');
+  browser("screenshot", resolve(output, "dark-members-actions.png"));
+  assert.equal(evaluate(`document.querySelector('[role=menuitem]:first-child').getAttribute('href')`), `/members/${fixture[2].id}`);
+  assert.equal(evaluate(`document.querySelector('[role=menuitem]:last-child').getAttribute('href')`), `/members/${fixture[2].id}#member-payments`);
+  browser("press", "Escape"); assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Actions for Ana Cruz");
+  browser("fill", "#search-name", "Carlo Lim"); memberFilter("Pending"); text("Carlo Lim");
+  assert.equal(evaluate("document.querySelectorAll('main tbody tr').length"), 1);
+  memberFilter("Active"); text("No members match this filter.");
+  memberFilter("All members"); clearMemberSearch();
+  browser("network", "route", "**/api/members/directory", "--abort"); click("Refresh members");
+  browser("wait", '[role="alert"]'); assert.equal(evaluate("document.activeElement.id"), "member-feedback");
+  text("Unable to refresh members. Showing the last loaded records. Try Refresh again.");
+  browser("screenshot", resolve(output, "dark-members-refresh-error.png"));
+  assert.equal(evaluate("document.querySelector('[aria-label=\"Member summary\"]').textContent"), memberCounts);
+  browser("network", "unroute"); click("Refresh members"); text("Member list refreshed.");
+  browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
   browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("set", "viewport", "320", "812"); audit("320px Members reflow");
@@ -314,6 +368,7 @@ try {
     assert.equal(evaluate("document.querySelector('main').textContent.includes('Maria Santos')"), false);
   }
   assert.equal(evaluate("fetch('/api/members').then(response => response.status)"), 403);
+  assert.equal(evaluate("fetch('/api/members/directory').then(response => response.status)"), 403);
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Management"], "empty action/workspace groups hidden");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Your account"]);

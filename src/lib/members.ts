@@ -8,6 +8,24 @@ export async function findMembers(headers: Headers, search: unknown) {
   return inGym(headers, "MEMBERS", tx => tx.member.findMany({ where: { fullName: { contains: parsed.data, mode: "insensitive" } }, orderBy: [{ fullName: "asc" }, { id: "asc" }], take: 25,
     include: { entitlements: { where: { isCurrentProjection: true }, select: { startsAt: true, endsAt: true, legacyRecordId: true } } } }));
 }
+
+export async function memberDirectory(headers: Headers) {
+  return inGym(headers, "MEMBERS", async tx => {
+    const checkedAt = new Date().toISOString();
+    const members = await tx.member.findMany({
+      orderBy: [{ fullName: "asc" }, { id: "asc" }],
+      select: { id: true, fullName: true, entitlements: {
+        select: { startsAt: true, endsAt: true, legacyRecordId: true, isCurrentProjection: true },
+      } },
+    });
+    return { checkedAt, members: members.map(member => ({ id: member.id, fullName: member.fullName, email: null, phone: null,
+      hasVerifiedMembership: member.entitlements.length > 0,
+      entitlements: member.entitlements.filter(interval => interval.isCurrentProjection).map(interval => ({
+        startsAt: interval.startsAt.toISOString(), endsAt: interval.endsAt.toISOString(), legacyRecordId: interval.legacyRecordId,
+      })),
+    })) };
+  });
+}
 export async function createMember(headers: Headers, input: unknown) {
   const parsed = memberCreateSchema.safeParse(input);
   if (!parsed.success) throw new IdentityError(400, "Check the member fields. Only full name and duplicate confirmation are accepted.", memberFieldErrors(parsed.error));

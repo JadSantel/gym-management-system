@@ -11,7 +11,8 @@ import { POST as identityPost } from "../src/app/api/identity/[action]/route";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { inGym } from "../src/lib/tenant";
 import { setGymContext } from "../src/lib/binding";
-import { createMember, findMembers } from "../src/lib/members";
+import { createMember, findMembers, memberDirectory } from "../src/lib/members";
+import { GET as directoryGet } from "../src/app/api/members/directory/route";
 import { workspaceOverview } from "../src/lib/workspace";
 import { memberCreateSchema, memberSearchSchema } from "../src/lib/member-schema";
 import { GET as memberGet, POST as memberPost } from "../src/app/api/members/route";
@@ -387,6 +388,23 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     await setCapabilities(owners[0], staff.id, { canManageMembers: false, canCollectCash: true });
     assert.equal((await chargeGet(req(`/api/charges?id=${chargeId}`, staffHeaders))).status, 403);
     assert.equal((await chargePost(req("/api/charges", staffHeaders, { memberId, planId: plans[0].id }))).status, 403);
+  });
+  await t.test("Members directory retrieves complete tenant records beyond 25, with protected fields and permission rechecks", async () => {
+    const foreign = await createMember(owners[1], { fullName: "Directory Foreign Person" });
+    for (let index = 0; index < 27; index++) await createMember(owners[0], { fullName: `Directory Person ${String(index).padStart(2, "0")}` });
+    const data = await memberDirectory(owners[0]);
+    assert.equal(data.members.length, await admin.member.count({ where: { gymId: gyms[0] } }));
+    assert.equal(data.members.some(member => member.id === foreign.id), false);
+    assert.equal(data.members.filter(member => member.fullName.startsWith("Directory Person")).length, 27);
+    assert.equal(data.members.every(member => member.email === null && member.phone === null && !("gymId" in member) && !("createdBy" in member)), true);
+    assert.ok(Number.isFinite(Date.parse(data.checkedAt)));
+    const response = await directoryGet(req("/api/members/directory", owners[0]));
+    assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store");
+    await setCapabilities(owners[0], staff.id, { canManageMembers: true, canCollectCash: false });
+    assert.equal((await directoryGet(req("/api/members/directory", staffHeaders))).status, 200);
+    await setCapabilities(owners[0], staff.id, { canManageMembers: false, canCollectCash: true });
+    assert.equal((await directoryGet(req("/api/members/directory", staffHeaders))).status, 403);
+    assert.equal((await directoryGet(req("/api/members/directory", new Headers()))).status, 401);
   });
   await t.test("S-01d runtime RLS and composite references reject foreign gym plans and members", async () => {
     const foreignMember = await createMember(owners[1], { fullName: "Other Gym Member" });
