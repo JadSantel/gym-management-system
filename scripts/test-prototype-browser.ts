@@ -32,6 +32,7 @@ const sender = { async send(message: { url: string }) { token = new URL(message.
 function browser(...args: string[]) {
   const result = spawnSync(binary, ["--session", session, ...args], { encoding: "utf8", windowsHide: true, timeout: 45_000 });
   if (result.status !== 0) throw new Error(`Prototype browser step '${args[0]}' failed; output withheld to protect credentials.`);
+  if (args[0] === "open") browser("wait", "--load", "load");
   return result.stdout;
 }
 function evaluate(code: string) { return JSON.parse(browser("eval", code, "--json")).data.result; }
@@ -47,6 +48,7 @@ function clearMemberSearch() {
 }
 function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
+  browser("wait", "--fn", "(() => { const ids = [...document.querySelectorAll('[id]')].map(node => node.id); return document.readyState === 'complete' && new Set(ids).size === ids.length; })()");
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
   const uncertainControls = result.incomplete?.filter((item: { id: string; nodes: { failureSummary: string }[] }) => item.id === "aria-valid-attr-value" && item.nodes.every(node => node.failureSummary.includes("Unable to determine if aria-controls referenced ID exists"))) ?? [];
@@ -353,7 +355,11 @@ try {
       browser("screenshot", resolve(output, `${theme}-members-${device}-pagination.png`));
     }
   }
-  browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`); browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
+  browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
+  browser("wait", "--url", `${origin}/members`); browser("wait", "--load", "load");
+  // Require one completed destination form before opening and auditing the mobile drawer.
+  browser("wait", "--fn", "document.querySelectorAll('#search-name').length === 1 && document.querySelectorAll('#member-name').length === 1");
+  browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
   browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("set", "viewport", "320", "812"); audit("320px Members reflow");

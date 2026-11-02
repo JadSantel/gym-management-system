@@ -21,4 +21,8 @@ FIRST VIEWPORT: Members heading and Add member action; three equal stat cards; c
 
 FORM: User-specified composition, code-led inside the established world. No concept roll or generated raster. Exact seven-day inclusive threshold on the active interval, exact PHT date/time display; profiles recheck admission. Counts ignore search, status and pagination. FR-13 adds optional contacts and the reception registration QR below the existing creation form; cash and navigation remain unchanged.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+## Shipped registration extension
+
+FR-13 replaces contact placeholders with recorded unverified values while preserving Not recorded for absent values and the existing Email sorting. Staff creation adds the shared optional contact fields below Full name. The reception registration QR remains after creation, outside the directory toolbar and member row actions. Contact editing belongs to the existing profile; profile storage and Pending status imply no payment or paid access.
+
+FINISH: `.impeccable/review/registration/finish-review.md` records ship for the registration extension and its targeted phone addendum. The incumbent directory composition, responsive records, tokens and visual world are preserved; personal QR and attendance remain task 2 after checkpoint.
