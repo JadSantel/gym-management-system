@@ -32,7 +32,11 @@ function browser(...args: string[]) {
   return result.stdout;
 }
 function evaluate(code: string) { return JSON.parse(browser("eval", code, "--json")).data.result; }
-function click(name: string) { browser("find", "role", "button", "click", "--name", name, "--exact"); }
+function click(name: string) {
+  if (name === "Sign out") browser("click", 'button[aria-label^="Account:"]');
+  browser("find", "role", "button", "click", "--name", name, "--exact");
+}
+function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
 function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
   const result = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
@@ -103,7 +107,7 @@ try {
     // Reset still issues a captured link and does not claim account activation.
     click("Send reset link"); text("Link captured for the recipient.");
     for (const theme of ["light", "dark"]) {
-      browser("select", 'select[aria-label="Appearance"]', theme);
+      appearance(theme);
       browser("wait", "--fn", `document.documentElement.classList.contains('dark') === ${theme === "dark"}`);
       browser("open", `${origin}/team`); text("Front Desk Operator");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
@@ -131,12 +135,13 @@ try {
       assert.equal(evaluate("document.querySelector('[data-sidebar=trigger]').getAttribute('aria-expanded')"), "true");
       audit(`${theme} desktop navigation restored`);
     }
-    browser("set", "media", "dark"); browser("select", 'select[aria-label="Appearance"]', "system");
+    browser("set", "media", "dark"); appearance("system");
     browser("wait", "--fn", "document.documentElement.classList.contains('dark')");
     browser("set", "media", "light"); browser("wait", "--fn", "!document.documentElement.classList.contains('dark')");
-    browser("open", `${origin}/team`); assert.equal(evaluate("document.querySelector('select[aria-label=Appearance]').value"), "system");
+    browser("open", `${origin}/team`); click("Appearance");
+    assert.equal(evaluate("document.querySelector('[aria-label=\"Color theme\"] button[aria-pressed=true]').textContent"), "System"); browser("press", "Escape");
     for (const theme of ["light", "dark"]) {
-      browser("select", 'select[aria-label="Appearance"]', theme);
+      appearance(theme);
       // UI-only response stubs exercise exceptional list states, then are removed.
       browser("network", "route", "**/api/identity/operators", "--body", "[]");
       browser("open", `${origin}/team`); text("No operators to display"); audit(`${theme} empty list`);

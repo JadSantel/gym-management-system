@@ -34,7 +34,11 @@ function browser(...args: string[]) {
   return result.stdout;
 }
 function evaluate(code: string) { return JSON.parse(browser("eval", code, "--json")).data.result; }
-function click(name: string) { browser("find", "role", "button", "click", "--name", name, "--exact"); }
+function click(name: string) {
+  if (name === "Sign out") browser("click", 'button[aria-label^="Account:"]');
+  browser("find", "role", "button", "click", "--name", name, "--exact");
+}
+function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
 function text(value: string) { browser("wait", "--text", value); }
 function audit(label: string) {
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
@@ -81,6 +85,38 @@ try {
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: false });
   browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Alex Prototype");
   browser("set", "viewport", "1440", "1000");
+  browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
+  const clock = evaluate("document.querySelector('header time').textContent");
+  browser("wait", "--fn", `document.querySelector('header time').textContent!==${JSON.stringify(clock)}`);
+  assert.equal(evaluate("Math.abs(Date.now()-Date.parse(document.querySelector('header time').dateTime))<2500"), true);
+  assert.equal(evaluate("document.querySelector('header time').textContent===new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true}).format(new Date(document.querySelector('header time').dateTime))"), true, "clock uses Manila time");
+  assert.equal(evaluate("document.querySelector('[data-sidebar=footer]').textContent.includes('Alex Prototype')"), false);
+  browser("focus", 'button[aria-label="Appearance"]'); browser("press", "Enter");
+  audit("Appearance options"); browser("press", "Escape");
+  assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Appearance");
+  appearance("system"); browser("set", "media", "dark");
+  browser("wait", "--fn", "document.documentElement.classList.contains('dark')");
+  browser("reload"); browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
+  click("Appearance"); assert.equal(evaluate("document.querySelector('[role=group][aria-label=\"Color theme\"] button[aria-pressed=true]').textContent"), "System");
+  browser("press", "Escape"); browser("set", "media", "light");
+  browser("wait", "--fn", "!document.documentElement.classList.contains('dark')");
+  evaluate("window.navbarSetItem=Storage.prototype.setItem; Storage.prototype.setItem=()=>{throw new DOMException('Storage unavailable','QuotaExceededError')}; true");
+  appearance("dark"); browser("wait", "--fn", "document.documentElement.classList.contains('dark')");
+  appearance("light"); browser("wait", "--fn", "!document.documentElement.classList.contains('dark')");
+  evaluate("Storage.prototype.setItem=window.navbarSetItem; delete window.navbarSetItem; true");
+  browser("reload"); browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
+  browser("focus", 'button[aria-label^="Account:"]'); browser("press", "Enter");
+  audit("Owner account"); assert.equal(evaluate("document.querySelector('[role=dialog] a').getAttribute('href')"), "/team");
+  browser("press", "Escape"); assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Account: Alex Prototype, Owner");
+  for (const theme of ["light", "dark"]) {
+    appearance(theme);
+    for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812], ["narrow", 320, 812]] as const) {
+      browser("set", "viewport", String(width), String(height)); audit(`${theme} navbar ${device}`);
+      assert.equal(evaluate("(() => {const header=document.querySelector('header'), buttons=[...header.querySelectorAll('button')].filter(button=>button.getClientRects().length);return buttons.every(button=>{const box=button.getBoundingClientRect();return box.width>=44 && box.height>=44 && box.left>=0 && box.right<=innerWidth;})})()"), true, "Navbar buttons remain visible with 44px targets");
+      browser("screenshot", resolve(output, `navbar-${theme}-${device}.png`));
+    }
+  }
+  browser("set", "viewport", "1440", "1000");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Workspace", "Management"]);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
     ["Add Member", "/members#member-name"], ["Record Cash Payment", "/members#search-name"],
@@ -96,9 +132,10 @@ try {
   const paths: string[][] = [["overview", "/"], ["members", "/members"], ["profile", `/members/${fixture[2].id}`], ["payment", `/members/${fixture[5].id}?charge=${(await prepareCharge(owner, fixture[5].id, monthly.id)).id}`], ["transactions", "/transactions"], ["team", "/team"], ["plans", "/plans"], ["pilot", "/pilot"], ["receipt", `/receipts/${(await admin.paymentReceipt.findFirstOrThrow({ where: { gymId } })).id}`]];
   for (const theme of ["light", "dark"]) {
     if (process.argv.includes("--skip-matrix")) break;
-    browser("select", 'select[aria-label="Appearance"]', theme);
+    appearance(theme);
     for (const [name, path] of paths.filter(([name]) => !process.argv.includes("--review-only") || ["members", "profile", "payment"].includes(name))) {
       browser("open", `${origin}${path}`); browser("wait", "--fn", "document.fonts.status === 'loaded'");
+      browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
       if (name === "profile") assert.equal(evaluate("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Renew membership')?.disabled && document.querySelector('#charge-plan').disabled"), true);
       if (name === "payment") browser("wait", "--fn", "document.activeElement?.id === 'charge-title'");
@@ -135,7 +172,7 @@ try {
       console.log(`${theme} ${name}: desktop/tablet/phone, overflow, axe PASS`);
     }
   }
-  browser("select", 'select[aria-label="Appearance"]', "dark");
+  appearance("dark");
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
   text("Find a member"); assert.equal(evaluate("location.pathname"), "/members", "Owner compatibility redirect");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
@@ -238,10 +275,19 @@ try {
   assert.equal(evaluate("document.getElementById('legacy-independentlyChecked').checked"), true);
   assert.equal(evaluate("(() => { const box=document.getElementById('legacy-independentlyChecked').getBoundingClientRect(),nav=document.querySelector('nav[aria-label=\"Quick navigation\"]').getBoundingClientRect(); return box.top>=0 && box.bottom<=nav.top && scrollY===0; })()"), true, "Mobile historical review checkbox stays above navigation");
   audit("Mobile historical review checkbox"); browser("screenshot", resolve(output, "dark-legacy-checkbox-phone.png"));
+  browser("click", 'button[aria-label^="Account:"]');
+  browser("network", "route", "**/api/auth/sign-out", "--abort");
+  browser("find", "role", "button", "click", "--name", "Sign out", "--exact"); text("Unable to sign out. Try again.");
+  assert.equal(evaluate("document.querySelector('[role=dialog] button').disabled"), false, "Failed sign-out remains retryable in account popover");
+  browser("network", "unroute"); browser("press", "Escape");
   click("Sign out"); text("You are signed out.");
   browser("open", `${origin}/operate`); browser("wait", "#identifier");
   assert.equal(evaluate("location.pathname"), "/login", "Signed-out compatibility redirect grants no access");
   browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Find a member");
+  assert.equal(evaluate("document.querySelector('header button[aria-label^=\"Account:\"]').getAttribute('aria-label')"), "Account: Prototype Staff, Staff");
+  browser("click", 'button[aria-label^="Account:"]'); audit("Staff account");
+  assert.equal(evaluate("document.querySelector('[role=dialog] a').textContent"), "Your account");
+  browser("screenshot", resolve(output, "navbar-staff-phone.png")); browser("press", "Escape");
   assert.equal(new URL(evaluate("location.href")).pathname, "/members");
   for (const path of ["/", "/plans", "/operate"]) {
     browser("open", `${origin}${path}`); text("Find a member");

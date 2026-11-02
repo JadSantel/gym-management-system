@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeControl } from "./theme-control";
-import { SignOut } from "./sign-out";
+import { AccountControl } from "./account-control";
+import { LiveClock } from "./live-clock";
 import { WorkspaceIcon } from "./workspace-icon";
 import { AppSidebar, type Destination } from "./app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "./ui/sidebar";
@@ -30,9 +31,9 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const current = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   const label = [...workspace, ...administration].find(item => current(item.href))?.label ?? "Workspace";
   const content = <div className={actor ? "app-workspace min-w-0 flex-1" : ""}>
-    <header className="workspace-header"><div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
-      <div className="flex min-w-0 items-center gap-3 text-xs">{actor && <SidebarTrigger />}<span className="hidden text-muted-foreground sm:inline">FORM & FUNCTION</span><span className="hidden text-muted-foreground sm:inline">/</span><span className="font-semibold">{actor ? label : "Operator access"}</span></div>
-      <div className="flex flex-wrap items-center gap-3"><ThemeControl />{actor && <><span className="rounded border border-border bg-muted px-2 py-1 text-xs font-medium">{actor.owner ? "Owner" : "Staff"}</span><SignOut /></>}</div>
+    <header className="workspace-header"><div className="flex min-h-18 items-center justify-between gap-1 px-3 py-2 sm:gap-4 sm:px-8">
+      <div className="flex min-w-0 items-center gap-3 text-xs">{actor && <SidebarTrigger />}<span className="hidden truncate font-semibold md:inline">{actor ? label : "Operator access"}</span></div>
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3"><LiveClock /><ThemeControl />{actor && <AccountControl name={actor.name} owner={actor.owner} />}</div>
     </div>
     </header>
     <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>

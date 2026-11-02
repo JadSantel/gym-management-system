@@ -46,7 +46,6 @@ export function AppSidebar({ actor, groups, current }: {
       </nav>
     </SidebarContent>
     <SidebarFooter className="gap-4 border-t border-sidebar-border p-4">
-      <div className="flex items-center gap-3"><span className="initial-avatar">{actor.name.split(" ").map(word => word[0]).slice(0, 2).join("")}</span><div className="min-w-0"><p className="break-words text-sm font-semibold">{actor.name}</p><p className="mt-1 text-xs text-muted-foreground">{actor.owner ? "Gym owner" : "Staff"}</p></div></div>
       <div><p className="flex items-center gap-1.5 text-xs text-muted-foreground"><WorkspaceIcon name="shield" className="size-3.5" /> Synthetic development</p><p className="mt-1 break-words text-xs text-muted-foreground">{actor.gym}</p></div>
     </SidebarFooter>
   </Sidebar>;

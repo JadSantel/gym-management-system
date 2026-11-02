@@ -1,18 +1,25 @@
 "use client";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Monitor, Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 type Appearance = "light" | "dark" | "system";
 const key = "gym-appearance";
 let temporaryAppearance: Appearance = "system";
+let storageUnavailable = false;
 function readAppearance(): Appearance {
+  if (storageUnavailable) return temporaryAppearance;
   try { const value = localStorage.getItem(key); return value === "light" || value === "dark" ? value : "system"; }
-  catch { return temporaryAppearance; }
+  catch { storageUnavailable = true; return temporaryAppearance; }
 }
 function subscribe(update: () => void) {
   window.addEventListener("storage", update); window.addEventListener("gym-appearance", update);
   return () => { window.removeEventListener("storage", update); window.removeEventListener("gym-appearance", update); };
 }
 export function ThemeControl() {
+  const [open, setOpen] = useState(false);
   const appearance = useSyncExternalStore(subscribe, readAppearance, () => "system" as const);
+  const Icon = appearance === "system" ? Monitor : appearance === "dark" ? Moon : Sun;
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     function apply() {
@@ -23,13 +30,18 @@ export function ThemeControl() {
     apply(); media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [appearance]);
-  return <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><span>Appearance</span>
-    <select aria-label="Appearance" value={appearance} onChange={event => {
-      const value = event.target.value as Appearance;
-      temporaryAppearance = value;
-      try { localStorage.setItem(key, value); } catch { /* Keep the choice for this page when storage is unavailable. */ }
-      window.dispatchEvent(new Event("gym-appearance"));
-    }} className="min-h-11 rounded-md border border-border bg-card px-2 text-sm text-foreground">
-      <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
-    </select></label>;
+  return <Popover open={open} onOpenChange={setOpen}>
+    <PopoverTrigger asChild><Button variant="outline" aria-label="Appearance" title={`Appearance: ${appearance}`} className="size-11 shrink-0 border-transparent bg-transparent p-0 text-muted-foreground"><Icon aria-hidden="true" className="size-5" /></Button></PopoverTrigger>
+    <PopoverContent align="end" className="w-44 p-2" aria-label="Appearance options">
+      <div role="group" aria-label="Color theme" className="grid gap-1">{(["light", "dark", "system"] as const).map(value => {
+        const ChoiceIcon = value === "light" ? Sun : value === "dark" ? Moon : Monitor;
+        return <Button key={value} variant="outline" aria-pressed={appearance === value} className="justify-start border-transparent aria-pressed:bg-muted" onClick={() => {
+          temporaryAppearance = value;
+          try { localStorage.setItem(key, value); } catch { storageUnavailable = true; }
+          window.dispatchEvent(new Event("gym-appearance"));
+          setOpen(false);
+        }}><ChoiceIcon aria-hidden="true" className="size-4" />{value === "light" ? "Light" : value === "dark" ? "Dark" : "System"}</Button>;
+      })}</div>
+    </PopoverContent>
+  </Popover>;
 }
