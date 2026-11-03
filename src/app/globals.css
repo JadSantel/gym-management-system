@@ -119,3 +119,11 @@
   .record-table td::before { content: attr(data-label); color: var(--muted-foreground); font-size: 12px; flex-shrink: 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: 0s !important; scroll-behavior: auto !important; } }
+
+@media print {
+  body:has(#member-qr-print) .panel { color: CanvasText; background: Canvas; color-scheme: light; }
+  #member-qr-print .text-muted-foreground { color: CanvasText; }
+  body:has(#member-qr-print) :is([data-sidebar], .workspace-header, .mobile-bottom-nav, .page-heading, body > a) { display: none !important; }
+  body:has(#member-qr-print) .app-workspace { position: static; height: auto; overflow: visible; }
+  body:has(#member-qr-print) .workspace-content { overflow: visible; padding: 0; }
+}

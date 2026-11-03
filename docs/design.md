@@ -1,5 +1,9 @@
 # Gym CRM — Product Interface and Interaction Design (`design.md`)
 
+## Personal QR and attendance implementation (FR-14)
+
+UX-14: Attendance navigation uses member-management permission; Scanner is its Quick Action. /attendance defaults to Manila today, with From/To, member-name and All visits/Currently in gym/Missing checkout filters, 20-row pages, explicit missing departure, original actor/event history and reasoned correction/void forms. /attendance/scanner pairs keyboard input/Enter with a start/stop camera panel and text-backed IN/OUT/SUPPRESSED/DENIED/not-confirmed feedback. Uncertain requests freeze new scans and retry the original ID. /members/[id]/qr offers issue/download/print/replace and explicit presenter checks; the profile links it. All surfaces inherit DESIGN.md and local Button/Input/Table, in both themes; no new identity or financial workflow.
+
 ## Registration extension - 2026-11-02 (UX-13; FR-13)
 
 The supplied prototype pins the existing visual world and simple registration, Pending confirmation, reception review and full-cash activation composition. `/join/[code]` is a public, focused Operate form: gym name, visible full-name/email/Philippine-mobile labels, unverified-contact explanation and Save my profile. Submission shows saving, field errors with focusable summary, saved Pending, generic reception referral, expired/unavailable link and uncertain-network states. Uncertain attempts freeze details and retry the same request; no offline queue. No member data is returned. Light/Dark/System uses the existing tokens and theme control; local synthetic wording is visible.

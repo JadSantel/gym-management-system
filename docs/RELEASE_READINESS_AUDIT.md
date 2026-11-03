@@ -1,5 +1,9 @@
 # Gym CRM release-readiness audit
 
+## Personal QR and attendance implementation (FR-14)
+
+FR-14 attendance implementation remains local/synthetic and separate from financial corrections/refunds (still retired). Attendance correction only changes visit projections and appends audited events. Device, HTTPS, ingress, privacy, training and hosted gates remain open. Consult IMPLEMENTATION_STATUS.md for actual executable evidence.
+
 ## Registration/attendance scope delta - 2026-11-02
 
 PROJECT.md FR-13/14 now permits public member registration and basic staff-operated QR attendance in two separately checkpointed local synthetic tasks. This supersedes earlier feature deferrals only; it resolves no hosted ingress, privacy/retention, device, training, pilot or live-readiness gate. Task 1 is registration through existing full-cash activation; personal QR and attendance remain task 2. Current runtime restrictions continue to fail closed outside the isolated synthetic environment. Review current IMPLEMENTATION_STATUS.md for executable evidence; historical audit results below are not reruns.

@@ -14,6 +14,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const members = actor && (actor.owner || actor.members);
   const actions: Destination[] = actor ? [
     ...(members ? [{ href: "/members#member-name", label: "Add Member", icon: "plus" as const }] : []),
+    ...(members ? [{ href: "/attendance/scanner", label: "Scanner", icon: "search" as const }] : []),
     ...(members && (actor.owner || actor.cash) ? [{ href: "/members#search-name", label: "Record Cash Payment", icon: "wallet" as const }] : []),
   ] : [];
   const workspace: Destination[] = actor ? [
@@ -21,6 +22,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
     ...(members ? [
       { href: "/members", label: "Members", icon: "members" as const },
       { href: "/transactions", label: "Payments", icon: "receipt" as const },
+      { href: "/attendance", label: "Attendance", icon: "clock" as const },
     ] : []),
   ] : [];
   const administration: Destination[] = actor ? [

@@ -1,5 +1,9 @@
 # Production and pilot readiness checklist
 
+## Personal QR and attendance implementation (FR-14)
+
+FR-14 implementation does not lift hosted or physical-device gates. Separately exercise real QR USB input, webcam/mobile permissions and decoding, presenter confirmation, printed/downloaded QR durability, camera cleanup on leave, midnight handoff/missing checkout, audited correction procedure, privacy/retention and reachable phone HTTPS. Current local-only runtime restrictions remain. No physical device or live readiness is certified by synthetic tests.
+
 ## Registration/attendance readiness delta - 2026-11-02
 
 FR-13/14 is approved for two local synthetic tasks with a GitHub checkpoint between them. Do not infer public signup, real records, attendance readiness or release approval from that scope. Before public registration: verify reachable HTTPS, ingress/origin and abuse controls (current shared anonymous local bucket is not production client isolation), gym-link custody/expiry/replacement, member-contact privacy/retention/stewardship and operator training. Preserve the current local runtime guard. Before attendance operation: separately verify physical USB scanners/webcams/mobile cameras, permissions/error recovery, printed/downloaded personal QR decoding, identity checks, camera-track cleanup and day-boundary/correction procedures. No camera, hosted, pilot or live data claim is supplied by task 1. Existing financial/identity/restore/email gates remain open.

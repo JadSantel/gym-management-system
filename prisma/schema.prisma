@@ -219,6 +219,64 @@ model RegistrationAttempt {
   @@map("registration_attempts")
 }
 
+model MemberQr {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  code String @unique
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  @@unique([id, gymId])
+  @@map("member_qrs")
+}
+
+model AttendanceVisit {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  arrivedAt DateTime @map("arrived_at") @db.Timestamptz(3)
+  departedAt DateTime? @map("departed_at") @db.Timestamptz(3)
+  day DateTime @db.Date
+  isOpen Boolean @default(true) @map("is_open")
+  voided Boolean @default(false)
+  revision Int @default(1)
+  @@unique([id, gymId])
+  @@index([gymId, arrivedAt])
+  @@map("attendance_visits")
+}
+
+model AttendanceEvent {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  visitId String @map("visit_id") @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  kind String
+  revision Int
+  arrivedAt DateTime @map("arrived_at") @db.Timestamptz(3)
+  departedAt DateTime? @map("departed_at") @db.Timestamptz(3)
+  reason String?
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  @@unique([visitId, revision])
+  @@unique([gymId, requestId])
+  @@index([gymId, memberId, createdAt])
+  @@map("attendance_events")
+}
+
+model AttendanceOperation {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  memberId String? @map("member_id") @db.Uuid
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([gymId, requestId])
+  @@map("attendance_operations")
+}
+
 model Plan {
   id            String @id @default(uuid()) @db.Uuid
   gymId         String @map("gym_id") @db.Uuid

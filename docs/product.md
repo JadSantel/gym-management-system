@@ -1,5 +1,9 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+## Personal QR and attendance implementation (FR-14)
+
+FR-14 implementation keeps attendance separate from paid entitlement. Member-management operators issue a personal opaque QR to eligible members, retain it across renewals and revoke old codes on replacement. Signed-in scanners alternate arrivals/departures, suppress repeats for eight seconds and replay request IDs. Past-Manila-day visits without a departure are Missing checkout. Existing visits can be corrected/voided with an audited reason and current revision; missed historical visits cannot be created. No member login, unattended kiosk or offline queue. Physical/hosted evidence remains separate.
+
 ### Approved registration and attendance extension - 2026-11-02
 
 PROJECT.md FR-13/14 now authorizes public gym-link member registration, unverified optional staff contacts, and basic staff-operated QR attendance. Profile, paid entitlement and attendance remain separate. Registration requires name/email/Philippine mobile, prevents gym-scoped duplicate email or phone, records public provenance without a staff creator, and grants no access. Name-only staff entry remains supported. Two deliveries have separate GitHub checkpoints: registration through full cash activation, then personal QR/attendance/corrections. Earlier deferrals below are superseded only for this specific extension. No member account, birthdate, suspension, email delivery, unattended kiosk or offline queue is added. Live privacy/stewardship, public access and hosted readiness remain gated.

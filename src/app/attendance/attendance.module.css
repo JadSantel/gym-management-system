@@ -1,0 +1,15 @@
+.history { container-type: inline-size; }
+.table th, .table td { padding: 12px; border-bottom: 1px solid var(--border); }
+.table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.table th { font-size: 12px; }
+.table td:last-child { min-width: 220px; }
+@container (max-width: 900px) {
+  .table, .table tbody { display: block; }
+  .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .table tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .table td { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border: none; min-width: 0; }
+  .table td::before { content: attr(data-label); flex-shrink: 0; max-width: 35%; color: var(--muted-foreground); font-size: 12px; }
+  .table td:last-child { display: block; }
+  .table td:last-child::before { display: block; margin-bottom: 4px; }
+  .table tr:last-child { border: none; }
+}

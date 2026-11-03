@@ -136,8 +136,8 @@ try {
   browser("set", "viewport", "1440", "1000");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Workspace", "Management"]);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
-    ["Add Member", "/members#member-name"], ["Record Cash Payment", "/members#search-name"],
-    ["Dashboard", "/"], ["Members", "/members"], ["Payments", "/transactions"],
+    ["Add Member", "/members#member-name"], ["Scanner", "/attendance/scanner"], ["Record Cash Payment", "/members#search-name"],
+    ["Dashboard", "/"], ["Members", "/members"], ["Payments", "/transactions"], ["Attendance", "/attendance"],
     ["Plans & pricing", "/plans"], ["Team & access", "/team"], ["Historical pilot evidence", "/pilot"],
   ]);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
@@ -387,7 +387,7 @@ try {
     assert.equal(evaluate("location.pathname"), "/members", `${path} resolves to authorized Members workspace for staff`);
   }
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Members", "Payments", "Your account", "Historical pilot evidence"]);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Scanner", "Members", "Payments", "Attendance", "Your account", "Historical pilot evidence"]);
   assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/members", "Staff brand uses Members home");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
