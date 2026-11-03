@@ -10,6 +10,7 @@ const paths = {
   wallet: "M3 6h18v14H3zM3 6V3h15v3M16 12h5v4h-5z",
   clock: "M12 8v4l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
   search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
+  scanner: "M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z",
   arrow: "M4 12h16M14 6l6 6-6 6",
   plus: "M12 5v14M5 12h14",
   shield: "m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3ZM8 12l3 3 5-6",

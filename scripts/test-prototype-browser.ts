@@ -123,7 +123,7 @@ try {
   evaluate("Storage.prototype.setItem=window.navbarSetItem; delete window.navbarSetItem; true");
   browser("reload"); browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
   browser("focus", 'button[aria-label^="Account:"]'); browser("press", "Enter");
-  audit("Owner account"); assert.equal(evaluate("document.querySelector('[role=dialog] a').getAttribute('href')"), "/team");
+  audit("Owner account"); assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [["Plans & Pricing", "/plans"], ["Team & Access", "/team"], ["Historical Pilot Evidence", "/pilot"]]);
   browser("press", "Escape"); assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Account: Alex Prototype, Owner");
   for (const theme of ["light", "dark"]) {
     appearance(theme);
@@ -131,15 +131,37 @@ try {
       browser("set", "viewport", String(width), String(height)); audit(`${theme} navbar ${device}`);
       assert.equal(evaluate("(() => {const header=document.querySelector('header'), buttons=[...header.querySelectorAll('button')].filter(button=>button.getClientRects().length);return buttons.every(button=>{const box=button.getBoundingClientRect();return box.width>=44 && box.height>=44 && box.left>=0 && box.right<=innerWidth;})})()"), true, "Navbar buttons remain visible with 44px targets");
       browser("screenshot", resolve(output, `navbar-${theme}-${device}.png`));
+      browser("focus", 'button[aria-label^="Account:"]'); browser("press", "Enter");
+      audit(`${theme} account ${device}`);
+      browser("screenshot", resolve(output, `account-${theme}-${device}.png`));
+      browser("press", "Escape");
+      assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Account: Alex Prototype, Owner");
+      if (device !== "desktop") { click("Toggle Sidebar"); browser("wait", '[role="dialog"]'); }
+      audit(`${theme} navigation ${device}`);
+      assert.equal(evaluate("(() => {const item=document.querySelector('[aria-disabled=true][data-sidebar=menu-sub-button]');return !!item && item.textContent.includes('Reports') && !item.hasAttribute('href') && item.tabIndex===-1;})()"), true, "Reports is labelled and has no interactive destination");
+      browser("screenshot", resolve(output, `navigation-${theme}-${device}.png`));
+      if (device !== "desktop") { browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')"); }
     }
   }
   browser("set", "viewport", "1440", "1000");
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Workspace", "Management"]);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Overview", "Management"]);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
-    ["Add Member", "/members#member-name"], ["Scanner", "/attendance/scanner"], ["Record Cash Payment", "/members#search-name"],
+    ["Add Members", "/members#member-name"], ["Record Payment", "/members#search-name"],
     ["Dashboard", "/"], ["Members", "/members"], ["Payments", "/transactions"], ["Attendance", "/attendance"],
-    ["Plans & pricing", "/plans"], ["Team & access", "/team"], ["Historical pilot evidence", "/pilot"],
+    ["QR Scanner", "/attendance/scanner"],
   ]);
+  for (const path of ["/attendance", "/attendance/scanner"]) {
+    browser("open", `${origin}${path}`);
+    assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [path], "Attendance and QR Scanner have distinct active states");
+    assert.equal(evaluate("document.querySelector('header').textContent.includes('QR Scanner')"), path.endsWith("scanner"));
+  }
+  for (const path of ["/plans", "/team", "/pilot"]) {
+    browser("open", `${origin}${path}`); browser("click", 'button[aria-label^="Account:"]');
+    assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [path]);
+    browser("click", `nav[aria-label="Account navigation"] a[href="${path}"]`);
+    browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  }
+  browser("open", origin);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
   for (let index = 0; index < 11; index++) {
     const member = await createMember(owner, { fullName: `Pagination member ${index}` });
@@ -162,7 +184,7 @@ try {
         if (["overview", "members", "profile", "transactions", "team", "plans", "pilot"].includes(name)) {
           if (device !== "desktop") { click("Toggle Sidebar"); browser("wait", '[role="dialog"]'); }
           const expected = name === "profile" ? "/members" : path;
-          assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [expected], `${theme} ${name} ${device} single active destination`);
+          assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), ["team", "plans", "pilot"].includes(name) ? [] : [expected], `${theme} ${name} ${device} active destination`);
           if (device !== "desktop") {
             audit(`${theme} ${name} ${device} drawer`);
             if (name === "overview") browser("screenshot", resolve(output, `${theme}-sidebar-${device}.png`));
@@ -211,7 +233,7 @@ try {
   const created = await admin.member.findFirstOrThrow({ where: { gymId, fullName: newName } });
   assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Creation alone records no payment");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  browser("find", "role", "link", "click", "--name", "Record Cash Payment", "--exact");
+  browser("find", "role", "link", "click", "--name", "Record Payment", "--exact");
   browser("wait", "--fn", "location.hash === '#search-name' && !document.querySelector('[role=dialog]')");
   assert.equal(evaluate("location.pathname"), "/members");
   assert.equal(evaluate("(() => {const box=document.getElementById('search-name').getBoundingClientRect(),main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top && box.bottom<=main.bottom && scrollY===0;})()"), true, "Cash shortcut targets visible lookup");
@@ -387,7 +409,7 @@ try {
     assert.equal(evaluate("location.pathname"), "/members", `${path} resolves to authorized Members workspace for staff`);
   }
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Member", "Scanner", "Members", "Payments", "Attendance", "Your account", "Historical pilot evidence"]);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Members", "Members", "Payments", "Attendance", "QR Scanner"]);
   assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/members", "Staff brand uses Members home");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
@@ -399,7 +421,7 @@ try {
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: true });
   browser("open", `${origin}/team`); text("Your account"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Your account"], "cash-only staff cannot use member-based shortcuts");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), [], "cash-only staff cannot use member-based shortcuts");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: false });
   for (const path of ["/", "/operate", "/members", "/transactions", "/team"]) {
@@ -409,8 +431,12 @@ try {
   assert.equal(evaluate("fetch('/api/members').then(response => response.status)"), 403);
   assert.equal(evaluate("fetch('/api/members/directory').then(response => response.status)"), 403);
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Management"], "empty action/workspace groups hidden");
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Your account"]);
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), [], "all empty sidebar groups hidden");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), []);
+  assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/team");
+  browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+  browser("click", 'button[aria-label^="Account:"]');
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a')).map(item => item.textContent)"), ["Your account"], "revoked member access also removes historical evidence from Account");
   console.log("Transaction/member filters, empty states, keyboard, 320px reflow, staff landing, denied cash preparation and immediate capability revocation PASS.");
 } catch (error) { try { browser("screenshot", resolve(output, "failure.png"), "--full"); } catch {} failure = error; }
 finally {

@@ -2,7 +2,7 @@
 
 ## Personal QR and attendance implementation (FR-14)
 
-UX-14: Attendance navigation uses member-management permission; Scanner is its Quick Action. /attendance defaults to Manila today, with From/To, member-name and All visits/Currently in gym/Missing checkout filters, 20-row pages, explicit missing departure, original actor/event history and reasoned correction/void forms. /attendance/scanner pairs keyboard input/Enter with a start/stop camera panel and text-backed IN/OUT/SUPPRESSED/DENIED/not-confirmed feedback. Uncertain requests freeze new scans and retry the original ID. /members/[id]/qr offers issue/download/print/replace and explicit presenter checks; the profile links it. All surfaces inherit DESIGN.md and local Button/Input/Table, in both themes; no new identity or financial workflow.
+UX-14: Attendance navigation uses member-management permission; QR Scanner is a Management destination. /attendance defaults to Manila today, with From/To, member-name and All visits/Currently in gym/Missing checkout filters, 20-row pages, explicit missing departure, original actor/event history and reasoned correction/void forms. /attendance/scanner pairs keyboard input/Enter with a start/stop camera panel and text-backed IN/OUT/SUPPRESSED/DENIED/not-confirmed feedback. Uncertain requests freeze new scans and retry the original ID. /members/[id]/qr offers issue/download/print/replace and explicit presenter checks; the profile links it. All surfaces inherit DESIGN.md and local Button/Input/Table, in both themes; no new identity or financial workflow.
 
 ## Registration extension - 2026-11-02 (UX-13; FR-13)
 
@@ -57,22 +57,25 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 | Primary owner | “Which actions and receipts are attributable?” | Filterable history, capabilities and account lifecycle. Historical records are clearly read-only. |
 | Platform administrator (separate trust boundary) | “Has independent gym ownership been verified?” | **Private and audited** pending-owner bootstrap/recovery; never exposed in normal gym navigation. |
 
-### 3.2 Implemented navigation - November 1, 2026
+### 3.2 Implemented navigation - November 3, 2026
 
-The sidebar and responsive drawer use **Quick Actions**, **Workspace**, and **Management**, in that order. Empty groups are hidden. The shortcuts deliberately add rows for faster access; grouping alone does not reduce the destination count.
+The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Management**, in that order. Empty groups are hidden. Secondary administration destinations live in the top-navbar Account popover, reducing sidebar choices. Reports is a user-approved disabled “Reports — Coming soon” row, without a link or implemented reporting workflow.
 
 | Group | Label | Route | Visibility / purpose |
 |---|---|---|---|
-| Quick Actions | Add Member | `/members#member-name` | Owner or staff with member access; targets the existing name field. Creation records no payment and grants no paid access. |
-| Quick Actions | Record Cash Payment | `/members#search-name` | Owner or staff with both member access and cash collection permission; targets lookup in Members, then opens the existing profile/full-cash flow. |
-| Workspace | Dashboard | `/` | Owner only; existing overview page. |
-| Workspace | Members | `/members` | Owner or staff with member access; unified operational lookup, search/create, paid periods, eligibility and profile/payment access. |
-| Workspace | Payments | `/transactions` | Owner or staff with member access; confirmed payment history. Historical non-cash records remain read-only. |
-| Management | Plans & pricing | `/plans` | Owner only. |
-| Management | Team & access / Your account | `/team` | Owner sees Team & access; staff see Your account with existing account permissions. |
-| Management | Historical pilot evidence | `/pilot` | Owner or staff with member access; archive only, no current pilot authorization. |
+| Quick Actions | Add Members | `/members#member-name` | Owner or staff with member access; targets the existing name field. Creation records no payment and grants no paid access. |
+| Quick Actions | Record Payment | `/members#search-name` | Owner or staff with both member access and cash collection permission; existing full-cash flow. |
+| Overview | Dashboard | `/` | Owner only; existing overview page. |
+| Overview | Reports — Coming soon | None | Owner-only disabled text; excluded from keyboard stops. |
+| Management | Members | `/members` | Owner or staff with member access; search/create, eligibility and profile/payment access. |
+| Management | Payments | `/transactions` | Owner or staff with member access; confirmed payment history, historical non-cash read-only. |
+| Management | Attendance | `/attendance` | Owner or staff with member access; existing visit history/corrections. |
+| Management | QR Scanner | `/attendance/scanner` | Same member permission; existing staff-operated scanning. |
+| Account | Plans & Pricing | `/plans` | Owner only. |
+| Account | Team & Access / Your account | `/team` | Existing owner/staff account permissions. |
+| Account | Historical Pilot Evidence | `/pilot` | Owner or staff with member access; archive only. |
 
-Workspace and Management destinations use exact or descendant route highlighting; Dashboard matches `/` only. Quick Actions are shortcuts, without current-page styling, so Record Cash Payment and Add Member do not duplicate Members' active state. The header uses the destination label. Desktop and mobile both say **Payments**. Below 1024px the drawer contains all permitted groups and the bottom navigation contains Members and Payments for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. The brand link preserves owner `/`, member-capable staff `/members`, other staff `/team`.
+Live destinations use exact or descendant highlighting; Dashboard matches `/` only and QR Scanner takes precedence over Attendance. Quick Actions have no current-page styling. The header uses the destination label, including Account destinations. Below 1024px the drawer contains all permitted groups and bottom navigation contains the four Management destinations for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. Account links close the popover on selection and highlight their current route. The brand link preserves owner `/`, member-capable staff `/members`, other staff `/team`.
 
 **Authorization:** Navigation reflects existing capabilities; server/API checks remain authoritative, including direct requests, fresh capability checks and tenant isolation. Cash permission alone does not expose the shortcut because member lookup/charge preparation also requires member access.
 
@@ -102,7 +105,7 @@ The six columns are Member, Email, Phone #, Membership started, Membership expir
 
 Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses a warm neutral canvas and off-white panels; dark uses near-black layers. Primary actions reverse ink/paper between themes. Orange marks navigation, selected controls and focus; green means confirmed/effective, amber pending/attention, red blocked/destructive. The prototype's dark front-desk banner is adapted to neutral light in light mode under the existing AGENTS.md contract. All text/control contrast still requires rendered checks.
 
-Navigation follows the implemented Quick Actions, Workspace and Management groups in section 3.2: Dashboard, Members and Payments, with Plans & pricing, Team & access and Historical pilot evidence under Management. Digital collection, Exceptions, outage receipt/custody, and daily closing are absent. Owners land at `/`; staff with member access land at `/members`; other staff land at `/team`. Authenticated account identity determines role and capabilities; the prototype's role switch is not implemented.
+Navigation follows section 3.2: Quick Actions, Overview and Management, with Plans & Pricing, Team & Access and Historical Pilot Evidence in Account. Reports is disabled pending separate implementation. Digital collection, Exceptions, outage receipt/custody and daily closing remain absent. Owners land at `/`; member-capable staff at `/members`; other staff at `/team`. Server authorization remains authoritative.
 
 Member profiles separate current access, queued paid periods, cash payment/receipt history, and retained historical digital, case, adjustment and outage records. Payment follows Plan / Payment / Review using an exact full-cash charge and same-key recovery. Retired historical records are read-only. Fictional metrics remain outside scope. FR-13 adds optional contacts; FR-14 attendance is the separately checkpointed next task. Current eligibility remains authoritative.
 
@@ -114,7 +117,7 @@ Use actual local shadcn Button/Input/Card/Badge and native accessible controls w
 
 **Sidebar selection (2026-10-31):** the user selected shadcn `sidebar-04`: floating 19rem desktop navigation, grouped submenus, and a header toggle. Below 1024px use its labelled Sheet drawer with keyboard focus containment, visible close, Escape dismissal, and focus return; retain the existing bottom quick navigation. Map sidebar tokens to the current light/dark system and preserve all route permission checks.
 
-**Navbar refinement (2026-11-02):** the supplied reference governs the right-hand utility group: live 12-hour time with seconds, PHT (UTC+8) and Manila date; an icon Appearance button opening Light/Dark/System choices; then the authenticated operator's initials, name and Owner/Staff role at the far right. The account button opens the existing Team & access / Your account link and sign-out. The sidebar footer retains gym/synthetic context but no longer duplicates the operator identity. On phones the route label and operator name collapse, while initials, role, clock, theme and sidebar controls remain visible. Keep persisted/system-aware themes, labelled keyboard-operable popovers and existing authorization. The clock uses the device clock for display only; server eligibility/payment timestamps stay authoritative. No gym/location dropdown, notifications or role switch is added.
+**Navbar refinement (2026-11-02):** the supplied reference governs the right-hand utility group: live 12-hour time with seconds, PHT (UTC+8) and Manila date; an icon Appearance button opening Light/Dark/System choices; then the authenticated operator's initials, name and Owner/Staff role at the far right. The account button opens permission-filtered Plans & Pricing, Team & Access / Your account, Historical Pilot Evidence and sign-out. The sidebar footer retains gym/synthetic context but no longer duplicates the operator identity. On phones the route label and operator name collapse, while initials, role, clock, theme and sidebar controls remain visible. Keep persisted/system-aware themes, labelled keyboard-operable popovers and existing authorization. The clock uses the device clock for display only; server eligibility/payment timestamps stay authoritative. No gym/location dropdown, notifications or role switch is added.
 
 - **Wide desktop (≥1024px):** persistent labeled side navigation, page title + context, main content and compact task/status summary. Use tables with aligned monetary amounts and secondary detail sections.
 - **Tablet (768–1023px):** collapsible side navigation; important action and access status appear above supplementary history. Avoid hidden destructive action menus.

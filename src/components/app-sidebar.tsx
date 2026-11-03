@@ -8,7 +8,7 @@ import {
   SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar,
 } from "@/components/ui/sidebar";
 
-export type Destination = { href: string; label: string; icon: React.ComponentProps<typeof WorkspaceIcon>["name"] };
+export type Destination = { href?: string; label: string; icon: React.ComponentProps<typeof WorkspaceIcon>["name"] };
 
 // sidebar-04's floating, grouped submenu layout with the real gym destinations.
 export function AppSidebar({ actor, groups, current }: {
@@ -33,11 +33,11 @@ export function AppSidebar({ actor, groups, current }: {
           <SidebarMenuItem key={group.title}>
             <SidebarGroupLabel className="uppercase tracking-wider">{group.title}</SidebarGroupLabel>
             <SidebarMenuSub className="ml-0 border-l-0 px-1.5">{group.items.map(item =>
-              <SidebarMenuSubItem key={item.href}>
-                <SidebarMenuSubButton asChild isActive={!group.actions && current(item.href)} className="h-auto min-h-11 translate-x-0 py-2 text-[13px] text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-brand-foreground [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible">
-                  <Link href={item.href} aria-current={!group.actions && current(item.href) ? "page" : undefined} onClick={closeNavigation}>
+              <SidebarMenuSubItem key={item.label}>
+                <SidebarMenuSubButton asChild isActive={!!item.href && !group.actions && current(item.href)} className="h-auto min-h-11 translate-x-0 py-2 text-[13px] text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-brand-foreground [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible">
+                  {item.href ? <Link href={item.href} aria-current={!group.actions && current(item.href) ? "page" : undefined} onClick={closeNavigation}>
                     <WorkspaceIcon name={item.icon} /><span>{item.label}</span>
-                  </Link>
+                  </Link> : <span aria-disabled="true"><WorkspaceIcon name={item.icon} /><span>{item.label} <span className="ml-1 text-xs">— Coming soon</span></span></span>}
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             )}</SidebarMenuSub>

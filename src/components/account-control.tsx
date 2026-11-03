@@ -6,8 +6,10 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SignOut } from "@/components/sign-out";
+import { WorkspaceIcon } from "@/components/workspace-icon";
+import type { Destination } from "@/components/app-sidebar";
 
-export function AccountControl({ name, owner }: { name: string; owner: boolean }) {
+export function AccountControl({ name, owner, destinations, current }: { name: string; owner: boolean; destinations: Destination[]; current: (href: string) => boolean }) {
   const [open, setOpen] = useState(false);
   const role = owner ? "Owner" : "Staff";
   return <Popover open={open} onOpenChange={setOpen}>
@@ -24,7 +26,7 @@ export function AccountControl({ name, owner }: { name: string; owner: boolean }
     <PopoverContent align="end" className="w-64" aria-label="Operator account">
       <p className="break-words text-sm font-semibold">{name}</p>
       <p className="mt-1 text-xs text-muted-foreground">{role}</p>
-      <Link href="/team" onClick={() => setOpen(false)} className="mt-4 mb-3 flex min-h-11 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">{owner ? "Team & access" : "Your account"}</Link>
+      <nav aria-label="Account navigation" className="mt-4 mb-3 space-y-1">{destinations.map(item => item.href && <Link key={item.href} href={item.href} aria-current={current(item.href) ? "page" : undefined} onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-brand-foreground"><WorkspaceIcon name={item.icon} /><span>{item.label}</span></Link>)}</nav>
       <SignOut />
     </PopoverContent>
   </Popover>;
