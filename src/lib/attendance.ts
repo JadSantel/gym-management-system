@@ -6,6 +6,7 @@ import { inGym } from "./tenant";
 import { IdentityError } from "./identity";
 import { recordParamsSchema } from "./route-schema";
 import { assessEligibility } from "./eligibility";
+import { summarizeAttendance } from "./attendance-summary";
 import { attendanceQuerySchema, correctionSchema, dayStart, manilaDay, qrCommandSchema, scanSchema, visitStatus } from "./attendance-schema";
 
 type Clock = () => Date;
@@ -133,12 +134,16 @@ export async function attendanceHistory(headers: Headers, input: unknown, clock:
     const names = await tx.member.findMany({ where: { fullName: { contains: query.member, mode: "insensitive" } }, select: { id: true, fullName: true } });
     const end = dayStart(to); end.setUTCDate(end.getUTCDate() + 1);
     const where: Prisma.AttendanceVisitWhereInput = { memberId: { in: names.map(row => row.id) }, arrivedAt: { gte: dayStart(from), lt: end },
-      ...(query.view === "IN" ? { voided: false, departedAt: null, day: new Date(today) } : query.view === "MISSING" ? { voided: false, departedAt: null, day: { lt: new Date(today) } } : {}) };
-    const count = await tx.attendanceVisit.count({ where }), pages = Math.max(1, Math.ceil(count / 20)), page = Math.min(query.page, pages);
-    const rows = await tx.attendanceVisit.findMany({ where, orderBy: [{ arrivedAt: "desc" }, { id: "asc" }], take: 20, skip: (page - 1) * 20 });
+      ...(query.view === "IN" ? { voided: false, departedAt: null, day: new Date(today) } : query.view === "OUT" ? { voided: false, departedAt: { not: null } } : query.view === "MISSING" ? { voided: false, departedAt: null, day: { lt: new Date(today) } } : {}) };
+    const count = await tx.attendanceVisit.count({ where }), pages = Math.max(1, Math.ceil(count / query.pageSize)), page = Math.min(query.page, pages);
+    const rows = await tx.attendanceVisit.findMany({ where, orderBy: [{ arrivedAt: "desc" }, { id: "asc" }], take: query.pageSize, skip: (page - 1) * query.pageSize });
+    const summary = summarizeAttendance(await tx.attendanceVisit.findMany({
+      where: { voided: false, arrivedAt: { lte: now }, OR: [{ arrivedAt: { gte: dayStart(today) } }, { departedAt: { gt: dayStart(today) } }] },
+      select: { arrivedAt: true, departedAt: true },
+    }), now);
     const events = await tx.attendanceEvent.findMany({ where: { visitId: { in: rows.map(row => row.id) } }, orderBy: [{ createdAt: "asc" }, { revision: "asc" }] });
     const actors = await tx.operator.findMany({ where: { id: { in: events.map(row => row.actorId) } }, select: { id: true, user: { select: { name: true } } } });
-    return { from, to, member: query.member, view: query.view, page, pages, count, checkedAt: now.toISOString(), visits: rows.map(row => ({
+    return { from, to, member: query.member, view: query.view, page, pages, pageSize: query.pageSize, count, summary, checkedAt: now.toISOString(), visits: rows.map(row => ({
       id: row.id, memberId: row.memberId, memberName: names.find(name => name.id === row.memberId)!.fullName, revision: row.revision, voided: row.voided,
       arrivedAt: row.arrivedAt.toISOString(), departedAt: row.departedAt?.toISOString() ?? null, status: visitStatus(row, now),
       events: events.filter(event => event.visitId === row.id).map(event => ({ kind: event.kind, revision: event.revision, reason: event.reason,

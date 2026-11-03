@@ -10,7 +10,8 @@ export const correctionSchema = z.discriminatedUnion("action", [
 ]);
 export const attendanceQuerySchema = z.strictObject({
   from: z.iso.date().optional(), to: z.iso.date().optional(), member: z.string().trim().max(100).default(""),
-  view: z.enum(["ALL", "IN", "MISSING"]).default("ALL"), page: z.string().regex(/^[1-9]\d{0,6}$/).default("1").transform(Number),
+  view: z.enum(["ALL", "IN", "OUT", "MISSING"]).default("ALL"), page: z.string().regex(/^[1-9]\d{0,6}$/).default("1").transform(Number),
+  pageSize: z.enum(["10", "20", "30"]).default("20").transform(Number),
 }).refine(value => !value.from || !value.to || value.from <= value.to, "The end date must follow the start date.");
 export function manilaDay(now: Date) { return new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10); }
 export function dayStart(day: string) { return new Date(`${day}T00:00:00+08:00`); }

@@ -13,8 +13,8 @@ import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
 import { legacyCommand } from "../src/lib/legacy";
-import { memberQr, scanAttendance } from "../src/lib/attendance";
-import { manilaDay } from "../src/lib/attendance-schema";
+import { attendanceHistory, memberQr, scanAttendance } from "../src/lib/attendance";
+import { dayStart, manilaDay } from "../src/lib/attendance-schema";
 assertSynthetic();
 for (const key of ["DATABASE_URL","MIGRATION_DATABASE_URL"]) { const u=new URL(process.env[key]!); assert.equal(u.hostname,"127.0.0.1");assert.equal(u.port,"55432");assert.equal(u.pathname,"/gym_crm_synthetic"); }
 const admin=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.MIGRATION_DATABASE_URL,options:"-c timezone=UTC"})});
@@ -25,8 +25,33 @@ function browser(...args:string[]){const r=spawnSync(binary,["--session",session
 function evaluate(code:string){return JSON.parse(browser("eval",code,"--json")).data.result;}
 const text=(value:string)=>browser("wait","--text",value), click=(name:string)=>browser("find","role","button","click","--name",name,"--exact");
 function open(url:string){browser("open",url);browser("wait","--load","load");}
-function capture(name:string){const r=browser("screenshot","--full"),path=r.match(/Screenshot saved to (.+)/)?.[1]?.trim();assert.ok(path);copyFileSync(path,resolve(output,`${name}.png`));}
-function audit(name:string){browser("wait","--fn","document.getAnimations().every(a=>a.playState!=='running')");assert.equal(evaluate("document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll('[data-slot=\"table-container\"]')].every(e=>e.scrollWidth<=e.clientWidth)"),true,`${name} overflow`);const result=JSON.parse(browser("a11y","--tags","wcag2a,wcag2aa","--json")).data;assert.equal(result.counts.violations,0,JSON.stringify({name,violations:result.violations}));assert.equal(result.counts.incomplete,0,JSON.stringify({name,incomplete:result.incomplete}));}
+function capture(name:string){browser("wait","--fn","!document.querySelector('[data-slot=chart]')||document.querySelectorAll('[data-slot=chart] text').length>0");evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))");const r=browser("screenshot"),path=r.match(/Screenshot saved to (.+)/)?.[1]?.trim();assert.ok(path);copyFileSync(path,resolve(output,`${name}.png`));}
+function audit(name:string){
+ browser("wait","--fn","document.getAnimations().every(a=>a.playState!=='running')");
+ browser("wait","--fn","!document.querySelector('[data-slot=chart]')||document.querySelectorAll('[data-slot=chart] text').length>0");
+ assert.equal(evaluate("document.documentElement.scrollWidth<=innerWidth&&[...document.querySelectorAll('[data-slot=\"table-container\"]')].every(e=>e.scrollWidth<=e.clientWidth)"),true,`${name} overflow`);
+ const modal=evaluate("!!document.querySelector('[role=dialog]')");
+ const result=JSON.parse(browser("a11y","--tags","wcag2a,wcag2aa",...(modal?["--selector","[role=dialog]"]:[]),"--json")).data;
+ assert.equal(result.counts.violations,0,JSON.stringify({name,violations:result.violations}));
+ let resolved=0;
+ for(const item of result.incomplete??[]){
+  if(item.id==="color-contrast"&&item.nodes.every((node:{target:string[]})=>node.target.every(selector=>evaluate(`(() => {const el=document.querySelector(${JSON.stringify(selector)});return !!el&&(!!el.closest('[data-slot=chart]')||el.matches('[data-slot=sheet-description]'))})()`)))){
+   // Resolve only chart SVG/background and Sheet description overlap uncertainties, not arbitrary contrast findings.
+   const ratios=evaluate(`(() => {
+    const luminance=color=>{const rgb=color.match(/[\\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
+    return [...document.querySelectorAll('[data-slot=chart] text, [data-slot=sheet-description]')].map(el=>{const foreground=luminance(el instanceof SVGElement?getComputedStyle(el).fill:getComputedStyle(el).color),surface=el.closest('[role=dialog]')??el.closest('[data-slot=card]'),background=luminance(getComputedStyle(surface).backgroundColor);return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05)});
+   })()`);
+   assert.ok(ratios.length>0&&ratios.every((ratio:number)=>ratio>=4.5),`${name} rendered label contrast ${JSON.stringify(ratios)}`);
+   if(modal) assert.equal(evaluate("(() => {const el=document.querySelector('[data-slot=sheet-description]');if(!el)return true;const r=el.getBoundingClientRect(),top=document.elementFromPoint((r.left+r.right)/2,Math.max(0,Math.min(innerHeight-1,(r.top+r.bottom)/2))),style=getComputedStyle(el.closest('[role=dialog]'));return (top===el||el.contains(top))&&style.opacity==='1'&&style.backgroundImage==='none'&&!style.backgroundColor.includes('rgba')})()"),true,`${name} description is unobstructed on an opaque dialog`);
+   resolved++;console.log(`${name}: axe contrast uncertainty resolved by computed contrast >=4.5:1${modal?" and unobstructed opaque dialog geometry":""}.`);
+  }
+ }
+ assert.equal(result.counts.incomplete-resolved,0,JSON.stringify({name,incomplete:result.incomplete}));
+ if(modal){
+  const stops="[...document.querySelector('[role=dialog]').querySelectorAll('a[href],summary,button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex=\"0\"]')].filter(el=>el.getClientRects().length&&!el.closest('[hidden],[inert]'))";
+  evaluate(`(${stops}).at(-1).focus();true`);browser("press","Tab");assert.equal(evaluate(`document.activeElement===(${stops})[0]`),true,`${name} forward focus wrap`);browser("press","Shift+Tab");assert.equal(evaluate(`document.activeElement===(${stops}).at(-1)`),true,`${name} reverse focus wrap`);
+ }
+}
 function theme(value:string){browser("wait","--fn","!!document.querySelector('header time')?.getAttribute('datetime')");click("Appearance");browser("wait",'[role="dialog"]');click(value);}
 let failure:unknown;
 try{
@@ -48,6 +73,7 @@ try{
  assert.equal((await fetch(origin+"/api/attendance")).status,401);
  assert.equal((await fetch(origin+`/api/members/${keyboard.id}/qr`)).status,401);
  open(origin+"/login");browser("fill","#identifier",email);browser("fill","#password",password);click("Sign in");text("Welcome, Attendance Reviewer");
+ if(!process.argv.includes("--history-only")){
  open(origin+"/attendance/scanner");text("Keyboard scanner");
  browser("network","route","**/api/attendance/scan","--abort");browser("fill","#attendance-code",keyboardQr.code);browser("press","Enter");text("Attendance not confirmed.");assert.equal(evaluate("document.getElementById('attendance-code').disabled"),true);audit("uncertain scan");capture("scan-not-confirmed");
  browser("network","unroute");click("Retry same scan");text("IN: Check-in confirmed.");assert.equal(evaluate("document.activeElement.getAttribute('role')"),"status");
@@ -63,13 +89,19 @@ try{
  click("Stop camera");assert.equal(evaluate("attendanceStream.getTracks().every(track=>track.readyState==='ended')"),true);
  click("Start camera");browser("wait","--fn","document.querySelector('video').srcObject?.active===true");browser("find","role","link","click","--name","Review attendance history and corrections","--exact");text("Recorded arrivals, departures");browser("wait","--fn","attendanceStream.getTracks().every(track=>track.readyState==='ended')");assert.equal(evaluate("attendanceStream.getTracks().every(track=>track.readyState==='ended')"),true,"navigation stops camera tracks");
  console.log("USB-style Enter, uncertain retry, suppression, real canvas QR decode, leave-view rearm, permission recovery and camera cleanup PASS.");
+ }else{
+  const scanTime=Date.now()-20000;
+  await scanAttendance(owner,{code:keyboardQr.code,requestId:randomUUID()},()=>new Date(scanTime));
+  await scanAttendance(owner,{code:cameraQr.code,requestId:randomUUID()},()=>new Date(scanTime));
+  await scanAttendance(owner,{code:cameraQr.code,requestId:randomUUID()},()=>new Date(scanTime+10000));
+ }
  const historyUrl=`${origin}/attendance?from=${manilaDay(old)}&to=${manilaDay(new Date())}`;
  for(const appearance of ["Light","Dark"]){
   for(const [surface,path] of [["history",historyUrl],["scanner",origin+"/attendance/scanner"],["qr",`${origin}/members/${keyboard.id}/qr`]]){
    open(path);theme(appearance);
    for(const [device,width,height] of [["desktop",1440,1000],["tablet",768,1000],["phone",375,900]] as const){
     browser("set","viewport",String(width),String(height));evaluate("scrollTo(0,0);document.getElementById('main').scrollTop=0;true");audit(`${appearance} ${surface} ${device}`);
-    if(surface==="history"&&device==="phone")assert.equal(evaluate("['Member','Status'].every(label=>{const box=document.querySelector('tbody tr:first-child td[data-label='+label+']').getBoundingClientRect();const main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top&&box.bottom<=main.bottom})"),true,"first phone visit identity and status stay above bottom navigation");
+    if(surface==="history") { assert.equal(evaluate("document.querySelectorAll('[aria-label=\"Today’s attendance summary\"] [data-slot=card]').length"),3); assert.equal(evaluate("document.querySelectorAll('thead th').length"),5); }
     capture(`${appearance.toLowerCase()}-${surface}-${device}`);
     if(device!=="desktop"&&surface==="history"){
      evaluate("document.querySelector('tbody').scrollIntoView({block:'start'});true");capture(`${appearance.toLowerCase()}-history-${device}-records`);
@@ -82,19 +114,54 @@ try{
   }
  }
  console.log("Attendance/history, scanner and personal QR Light/Dark desktop/tablet/phone matrix PASS.");
- open(historyUrl);browser("select","#attendance-view","MISSING");click("Apply filters");text("Synthetic Missing Checkout");assert.equal(evaluate("document.querySelectorAll('tbody tr').length"),1);capture("dark-missing-phone");
- open(historyUrl+"&member=Synthetic+Keyboard+Member");evaluate("[...document.querySelectorAll('summary')].find(e=>e.textContent==='Correct or void this visit').scrollIntoView({block:'center'});true");browser("find","text","Correct or void this visit","click","--exact");click("Save audited change");text("Enter a required reason");
- for(const appearance of ["Light","Dark"]){theme(appearance);for(const width of [1440,375]){browser("set","viewport",String(width),"1000");evaluate("document.querySelector('details[open]').scrollIntoView({block:'start'});true");audit(`${appearance} open correction ${width}`);capture(`${appearance.toLowerCase()}-correction-form-${width}`);}}
+ open(historyUrl);click("Date range");click("Missing checkout");text("Synthetic Missing Checkout");browser("wait","--fn","document.querySelectorAll('tbody tr').length===1");capture("dark-missing-phone");
+ open(historyUrl+"&member=Synthetic+Keyboard+Member");click("View visit for Synthetic Keyboard Member");browser("wait",'[role="dialog"]');evaluate("[...document.querySelectorAll('summary')].find(e=>e.textContent==='Correct or void this visit').scrollIntoView({block:'center'});true");browser("find","text","Correct or void this visit","click","--exact");click("Save audited change");text("Enter a required reason");
+ for(const appearance of ["Light","Dark"]){browser("press","Escape");theme(appearance);click("View visit for Synthetic Keyboard Member");browser("wait",'[role="dialog"]');browser("find","text","Correct or void this visit","click","--exact");for(const width of [1440,375]){browser("set","viewport",String(width),"1000");evaluate("document.querySelector('details[open]').scrollIntoView({block:'start'});true");audit(`${appearance} open correction ${width}`);capture(`${appearance.toLowerCase()}-correction-form-${width}`);}}
  browser("set","viewport","320","900");audit("320px correction form");browser("set","viewport","375","900");
  const visit=await admin.attendanceVisit.findFirstOrThrow({where:{memberId:keyboard.id}});browser("select",`#action-${visit.id}`,"void");browser("fill",`#reason-${visit.id}`,"Synthetic accidental visit reviewed");click("Save audited change");text("Voided");assert.equal((await admin.attendanceVisit.findUniqueOrThrow({where:{id:visit.id}})).voided,true);evaluate("[...document.querySelectorAll('summary')].find(e=>e.textContent==='Original events and changes').scrollIntoView({block:'center'});true");browser("find","text","Original events and changes","click","--exact");text("Synthetic accidental visit reviewed");audit("audited void");capture("dark-correction-phone");
  open(`${origin}/members/${keyboard.id}/qr`);assert.equal(evaluate("document.querySelector('a[download]').getAttribute('download')"),"personal-member-qr.png");assert.equal(evaluate("document.querySelector('a[download]').href===document.querySelector('img[alt=\"Personal member QR\"]').src"),true);
  evaluate("window.attendancePrintCount=0;window.print=()=>{window.attendancePrintCount++};true");click("Print personal QR");assert.equal(evaluate("attendancePrintCount"),1);
  click("Replace personal QR");text("The previous code is now invalid.");const oldResponse=await fetch(origin+"/api/attendance/scan",{method:"POST",headers:{origin,"content-type":"application/json",cookie:owner.get("cookie")!},body:JSON.stringify({code:keyboardQr.code,requestId:randomUUID()})});assert.equal((await oldResponse.json()).status,"DENIED");
  open(origin+"/attendance/scanner");browser("fill","#attendance-code",keyboardQr.code);browser("press","Enter");text("DENIED:");audit("revoked QR feedback");capture("dark-scan-denied-phone");
- open(historyUrl+"&member=No+matching+synthetic+member");text("No visits match these filters.");audit("empty history");capture("dark-history-empty-phone");
+ open(historyUrl+"&member=No+matching+synthetic+member");text("No visits match these filters.");audit("empty history");evaluate("document.querySelector('[role=search]').scrollIntoView({block:'start'});true");capture("dark-history-empty-phone");
+ // More than one page of real tenant-scoped visits; deterministic recorded intervals.
+ await reauthenticate(owner,password);
+ const paginated=await paid("Synthetic Pagination Member"), start=dayStart(manilaDay(new Date())), paginationQr=await memberQr(owner,paginated.id,{action:"issue",requestId:randomUUID()});assert.ok(paginationQr);
+ const elapsed=Date.now()-start.getTime(), step=Math.min(120000,Math.floor(elapsed/60));
+ assert.ok(step>=16000,"pagination fixtures need at least sixteen elapsed minutes today");
+ for(let index=0;index<23;index++){
+  const arrivedAt=new Date(start.getTime()+index*step),departedAt=new Date(arrivedAt.getTime()+Math.floor(step/2));
+  assert.equal((await scanAttendance(owner,{code:paginationQr.code,requestId:randomUUID()},()=>arrivedAt)).status,"IN");
+  assert.equal((await scanAttendance(owner,{code:paginationQr.code,requestId:randomUUID()},()=>departedAt)).status,"OUT");
+ }
+ open(origin+"/attendance");browser("set","viewport","1440","1000");text("Showing 1–10 of 25 visits");
+ const stats=()=>evaluate("[...document.querySelectorAll('[aria-label=\"Today’s attendance summary\"] [data-slot=card] p')].map(e=>Number(e.textContent))");
+ assert.deepEqual(stats(),[24,0,24]);
+ browser("fill","#attendance-member","Synthetic Pagination Member");click("Search");text("Showing 1–10 of 23 visits");assert.deepEqual(stats(),[24,0,24]);
+ click("Last page");text("Showing 21–23 of 23 visits");assert.equal(evaluate("document.querySelectorAll('tbody tr').length"),3);assert.equal(evaluate("document.querySelector('[aria-label=\"Last page\"]').disabled"),true);
+ click("First page");text("Showing 1–10 of 23 visits");browser("select","#attendance-page-size","20");text("Showing 1–20 of 23 visits");click("Next page");text("Showing 21–23 of 23 visits");click("Previous page");text("Showing 1–20 of 23 visits");browser("select","#attendance-page-size","30");text("Showing 1–23 of 23 visits");
+ browser("find","role","radio","click","--name","Inside","--exact");text("No visits match these filters.");assert.deepEqual(stats(),[24,0,24]);browser("find","role","radio","click","--name","Finished","--exact");text("Showing 1–23 of 23 visits");assert.ok(evaluate("[...document.querySelectorAll('td[data-label=Status]')].every(e=>e.textContent==='Finished')"));
+ const summary=(await attendanceHistory(owner,{})).summary;assert.equal(summary.hours.some(hour=>(hour.occupancy??0)>0),true);
+ browser("find","role","radio","click","--name","All","--exact");browser("wait","--fn","document.querySelector('[aria-label=\"Visit status\"] [aria-checked=true]').textContent==='All'&&document.querySelector('section[aria-label=\"Attendance history\"]').getAttribute('aria-busy')==='false'");browser("fill","#attendance-member","No matching person");click("Search");text("No visits match these filters.");click("Reset filters");text("Showing 1–25 of 25 visits");
+ evaluate("window.attendanceFetch=window.fetch;window.fetch=async(...args)=>{if(String(args[0]).includes('/attendance?'))await new Promise(resolve=>window.attendanceRelease=resolve);return window.attendanceFetch(...args)};true");
+ browser("fill","#attendance-member","Pagination");click("Search");browser("wait","--fn","typeof window.attendanceRelease==='function'");assert.equal(evaluate("document.querySelector('section[aria-label=\"Attendance history\"]').getAttribute('aria-busy')"),"true");text("Loading attendance…");capture("dark-history-loading");evaluate("window.fetch=window.attendanceFetch;window.attendanceRelease();true");text("Showing 1–23 of 23 visits");click("Reset filters");text("Showing 1–25 of 25 visits");
+ open(origin+"/attendance?pageSize=11");text("Check attendance filters");audit("invalid server filters");capture("invalid-attendance-filters");browser("find","role","link","click","--name","Reset to today","--exact");text("Showing 1–10 of 25 visits");browser("select","#attendance-page-size","30");text("Showing 1–25 of 25 visits");
+ // Date validation, persisted theme, table/toolbar/footer and chart keyboard accessibility.
+ for(const appearance of ["Light","Dark"]){
+  theme(appearance);browser("reload");browser("wait","--fn",`document.documentElement.classList.contains('dark')===${appearance==="Dark"}`);
+  for(const [device,width,height] of [["desktop",1440,1000],["tablet",768,1024],["phone",375,900],["narrow",320,900]] as const){
+   browser("set","viewport",String(width),String(height));evaluate("document.getElementById('main').scrollTop=0;true");audit(`${appearance} populated attendance ${device}`);capture(`${appearance.toLowerCase()}-redesign-${device}`);
+   evaluate("document.querySelector('tbody').scrollIntoView({block:'start'});true");capture(`${appearance.toLowerCase()}-redesign-${device}-records`);
+   evaluate("document.querySelector('[aria-label=\"Attendance pages\"]').scrollIntoView({block:'center'});true");capture(`${appearance.toLowerCase()}-redesign-${device}-pagination`);
+  }
+   click("Today");evaluate("(() => {const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [id,value] of [['attendance-from','2026-11-04'],['attendance-to','2026-11-03']]){const el=document.getElementById(id);set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}return true})()");click("Apply dates");text("End date must be on or after start date.");audit(`${appearance} date validation`);browser("press","Escape");
+ }
+ browser("set","viewport","1440","1000");evaluate("document.querySelector('.recharts-surface').focus();true");browser("press","ArrowRight");assert.equal(evaluate("document.activeElement.classList.contains('recharts-surface')"),true);assert.equal(evaluate("document.querySelector('[data-slot=chart]').textContent.includes('NaN')"),false);audit("chart keyboard tooltip");
+ click("View visit for Synthetic Camera Member");browser("wait",'[role="dialog"]');browser("press","Escape");assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"),"View visit for Synthetic Camera Member");
+ console.log("Daily tenant stats, peak chart, search/status, 10/20/30 pagination, theme persistence, date error, keyboard/focus and Light/Dark 1440/768/375/320 matrix PASS.");
  await reauthenticate(owner,password);await inviteStaff(owner,{name:"Attendance Browser Staff",username:`att_ui_${suffix}`,email:`att-ui-${suffix}@example.test`},sender);await completeSetup(token,password);const staff=await admin.operator.findFirstOrThrow({where:{gymId,role:"STAFF"}});await setCapabilities(owner,staff.id,{canManageMembers:true,canCollectCash:false});
  const signed=await auth.handler(new Request(origin+"/api/auth/sign-in/username",{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify({username:`att_ui_${suffix}`,password})}));const staffHeaders={cookie:signed.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ")};assert.equal((await fetch(origin+"/api/attendance",{headers:staffHeaders})).status,200);await setCapabilities(owner,staff.id,{canManageMembers:false,canCollectCash:false});assert.equal((await fetch(origin+"/api/attendance",{headers:staffHeaders})).status,403);
  console.log("Missing-checkout filtering, required reason, audited void/original events, QR revocation and immediate staff-revocation HTTP checks PASS.");
-}catch(error){failure=error;try{capture("failure");}catch{}}
+}catch(error){failure=error;try{console.log("Chart diagnostic",evaluate("[...document.querySelectorAll('[data-slot=chart],.recharts-responsive-container,.recharts-wrapper,svg.recharts-surface')].map(el=>({tag:el.tagName,cls:el.getAttribute('class'),width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,texts:el.querySelectorAll('text').length}))"));capture("failure");}catch{}}
 finally{try{browser("close");}catch(error){failure??=error;}await db.$disconnect();await admin.$disconnect();}
 if(failure)throw failure;

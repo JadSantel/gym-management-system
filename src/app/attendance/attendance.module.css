@@ -1,15 +1,22 @@
-.history { container-type: inline-size; }
-.table th, .table td { padding: 12px; border-bottom: 1px solid var(--border); }
-.table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
-.table th { font-size: 12px; }
-.table td:last-child { min-width: 220px; }
-@container (max-width: 900px) {
+.screen { min-width: 0; container-type: inline-size; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); }
+.table th { padding: 12px 16px; color: var(--muted-foreground); font-size: 12px; font-weight: 500; }
+.table td { padding: 12px 16px; white-space: normal; overflow-wrap: anywhere; }
+.table td:first-child { width: 34%; }
+.table td:last-child { text-align: right; }
+.table th:last-child { text-align: right; }
+.table .empty { padding: 40px 16px; text-align: center; }
+@container (max-width: 650px) {
   .table, .table tbody { display: block; }
   .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .table tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .table td { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border: none; min-width: 0; }
-  .table td::before { content: attr(data-label); flex-shrink: 0; max-width: 35%; color: var(--muted-foreground); font-size: 12px; }
-  .table td:last-child { display: block; }
-  .table td:last-child::before { display: block; margin-bottom: 4px; }
-  .table tr:last-child { border: none; }
+  .table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; padding: 16px; border-bottom: 1px solid var(--border); }
+  .table td { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 0; border: none; }
+  .table td::before { content: attr(data-label); color: var(--muted-foreground); font-size: 12px; }
+  .table td:first-child { grid-column: 1 / -1; width: auto; }
+  .table td:first-child::before { display: none; }
+  .table td:last-child { align-items: flex-start; text-align: left; }
+  .table tr:has(.empty) { display: block; }
+  .table .empty { display: block; }
+  .table .empty::before { display: none; }
 }

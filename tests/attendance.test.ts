@@ -159,6 +159,21 @@ test("FR-14 restricted-role QR, scans, midnight, corrections and permission acce
     const second=await attendanceHistory(owner,{...query,page:"2"},at(now.getTime()+43*8000));
     assert.equal(first.count,22); assert.equal(first.visits.length,20); assert.equal(second.visits.length,2); assert.equal(first.pages,2);
     assert.equal((await attendanceHistory(owner,{...query,view:"IN"},at(now.getTime()+43*8000))).count,1);
+    const readTime = new Date(now.getTime()+43*8000);
+    const small = await attendanceHistory(owner, { ...query, pageSize: "10" }, at(readTime));
+    const last = await attendanceHistory(owner, { ...query, pageSize: "10", page: "999" }, at(readTime));
+    assert.equal(small.visits.length, 10); assert.equal(small.pages, 3); assert.equal(last.page, 3); assert.equal(last.visits.length, 2);
+    const finished = await attendanceHistory(owner, { ...query, view: "OUT", pageSize: "30" }, at(readTime));
+    assert.equal(finished.count, 21); assert.ok(finished.visits.every(visit => visit.departedAt && !visit.voided));
+    const all = await attendanceHistory(owner, { from: query.from, to: query.to }, at(readTime));
+    assert.deepEqual(small.summary, all.summary); assert.deepEqual(last.summary, all.summary); assert.deepEqual(finished.summary, all.summary);
+    const foreign = await attendanceHistory(owners[1], {}, at(readTime));
+    assert.deepEqual([foreign.summary.checkedIn, foreign.summary.inside, foreign.summary.checkedOut], [0, 0, 0]);
+    assert.ok(foreign.summary.hours.every(hour => !hour.occupancy));
+    const start = dayStart(manilaDay(readTime));
+    assert.equal(all.summary.checkedIn, await admin.attendanceVisit.count({ where: { gymId: gyms[0], voided: false, arrivedAt: { gte: start, lte: readTime } } }));
+    assert.equal(all.summary.checkedOut, await admin.attendanceVisit.count({ where: { gymId: gyms[0], voided: false, departedAt: { gte: start, lte: readTime } } }));
+    for (const pageSize of ["0", "11", "10000", ["10", "20"]]) await assert.rejects(attendanceHistory(owner, { pageSize }), { status: 400 });
   });
   await t.test("actual route boundaries deny anonymous, malformed, forged and immediately revoked staff requests", async () => {
     const payload = { code: a.qr.code, requestId: randomUUID() };
