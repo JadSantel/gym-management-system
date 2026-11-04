@@ -1,7 +1,7 @@
 ---
 version: 1
 slug: "src-app-members-page-tsx"
-primary_target: "src/app/members/page.tsx"
+primary_target: "src/app/(crm)/members/page.tsx"
 related_targets: ["src/components/member-directory.tsx"]
 ---
 

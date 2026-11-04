@@ -2,7 +2,7 @@ import { registrationScope } from "@/lib/registration";
 import { IdentityError } from "@/lib/identity";
 import { RegistrationForm } from "@/components/registration-form";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Member registration | Gym CRM", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
+export const metadata = { title: "Member registration", description: "Register your gym member profile, then visit the front desk to activate your membership.", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 export default async function JoinPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const scope = await registrationScope(code).catch(error => { if (error instanceof IdentityError) return null; throw error; });

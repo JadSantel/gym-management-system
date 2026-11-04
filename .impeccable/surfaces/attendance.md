@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "attendance"
-primary_target: "src/app/attendance/page.tsx"
-related_targets: ["src/app/attendance/scanner/page.tsx", "src/components/attendance-scanner.tsx", "src/components/visit-correction.tsx", "src/app/members/[id]/qr/page.tsx", "src/components/member-qr.tsx"]
+primary_target: "src/app/(crm)/attendance/page.tsx"
+related_targets: ["src/app/(crm)/attendance/scanner/page.tsx", "src/components/attendance-scanner.tsx", "src/components/visit-correction.tsx", "src/app/(crm)/members/[id]/qr/page.tsx", "src/components/member-qr.tsx"]
 ---
 
 # Personal QR and attendance

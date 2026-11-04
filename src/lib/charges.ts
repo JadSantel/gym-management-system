@@ -4,6 +4,7 @@ import { IdentityError } from "./identity";
 import { parsePesos } from "./money";
 import type { PaidInterval } from "./eligibility";
 import type { Prisma } from "../generated/prisma/client";
+import { issueMemberQr } from "./member-qr";
 
 // Only use after the same-key operation has been serialized/read and before financial writes.
 export class CashConfirmationRejected extends IdentityError {}
@@ -87,6 +88,7 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
     } });
     const period = await tx.membershipPeriod.create({ data: { gymId, memberId: charge.memberId, paymentId: id, confirmedBy: actor.operator.id, startsAt, endsAt } });
     await tx.effectiveEntitlement.create({ data: { gymId, memberId: charge.memberId, periodId: period.id, startsAt, endsAt } });
+    if (startsAt <= now && now < endsAt) await issueMemberQr(tx, actor.operator, charge.memberId, now);
     const receipt = await tx.paymentReceipt.create({ data: { gymId, paymentId: id, reference: `RECEIPT-${randomUUID().toUpperCase()}` } });
     await tx.identityAudit.create({ data: { gymId, initiatorId: actor.operator.userId, subjectId: id, action: "CASH_PAYMENT_CONFIRMED" } });
     await tx.idempotencyOperation.update({ where: { id: operation.id }, data: { paymentId: id, completedAt: now } });

@@ -1,7 +1,7 @@
 ---
 version: 1
 slug: members-preview
-primary_target: src/app/members/preview/page.tsx
+primary_target: src/app/(crm)/members/preview/page.tsx
 related_targets: [src/components/members-preview.tsx, src/components/payment-activity.module.css]
 ---
 

@@ -3,7 +3,7 @@ import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import { db } from "./db";
-import { identityBinding } from "./binding";
+import { identityBinding, memberBinding } from "./binding";
 import { assertSynthetic } from "./email";
 import { getRuntimeConfig } from "./config";
 
@@ -43,8 +43,10 @@ export const auth = betterAuth({
         where: emailMode ? { email: identifier.toLowerCase() } : { username: identifier.toLowerCase() },
       }) : null;
       const operator = user ? await identityBinding(user.id) : null;
-      if (!operator || !user?.emailVerified || operator.state !== "ACTIVE" || operator.gym.state !== "ACTIVE"
-          || operator.role !== (emailMode ? "OWNER" : "STAFF")) {
+      const member = user && emailMode && !operator ? await memberBinding(user.id) : null;
+      const allowedOperator = operator?.state === "ACTIVE" && operator.gym.state === "ACTIVE" && operator.role === (emailMode ? "OWNER" : "STAFF");
+      const allowedMember = member?.state === "ACTIVE" && member.gym.state === "ACTIVE";
+      if (!user?.emailVerified || (!allowedOperator && !allowedMember)) {
         // Match provider password work so inactive/unknown identities do not get a fast failure path.
         await ctx.context.password.hash(typeof ctx.body?.password === "string" ? ctx.body.password : "invalid-password");
         throw new APIError("UNAUTHORIZED", { message: "Unable to sign in. Check your credentials or contact your owner." });
@@ -54,7 +56,9 @@ export const auth = betterAuth({
   databaseHooks: {
     session: { create: { before: async (session) => {
       const operator = await identityBinding(session.userId);
-      if (!operator || operator.state !== "ACTIVE" || operator.gym.state !== "ACTIVE" || !operator.user.emailVerified) return false;
+      const member = !operator ? await memberBinding(session.userId) : null;
+      const binding = operator ?? member;
+      if (!binding || binding.state !== "ACTIVE" || binding.gym.state !== "ACTIVE" || !binding.user.emailVerified) return false;
       return { data: session };
     } } },
   },

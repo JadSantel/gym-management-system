@@ -8,6 +8,8 @@ import { ChargePreview } from "@/components/charge-preview";
 import { assessEligibility, remainingActiveTime } from "@/lib/eligibility";
 import { LegacyAccess } from "@/components/legacy-access";
 import { MemberContacts } from "@/components/member-contacts";
+import { MemberAccess } from "@/components/member-access";
+import { memberAccess } from "@/lib/member-access";
 export const dynamic = "force-dynamic";
 export default async function MemberPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ charge?: string | string[] }> }) {
   const rawParams = await params;
@@ -88,6 +90,7 @@ export default async function MemberPage({ params, searchParams }: { params: Pro
     {data.outageEntries.length > 0 && <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="outage-history-title"><h2 id="outage-history-title" className="text-xl font-semibold">Historical outage records (read-only)</h2><ul className="mt-3 space-y-3">{data.outageEntries.map(entry => <li key={entry.id} className="break-words text-sm">Paper receipt {entry.number} · {data.outageConfirmations.some(c => c.entryId === entry.id) ? "historical payment link retained" : "no linked confirmation recorded"}. Collected {pht.format(entry.collectedAt)} PHT; issued {pht.format(entry.issuedAt)} PHT; entered {pht.format(entry.enteredAt)} PHT.{entry.visitAt && <> Historical visit recorded {pht.format(entry.visitAt)} PHT, reference {entry.visitReference}.</>} This record does not grant current access.</li>)}</ul></section>}
     {data.cases.length > 0 && <section className="mt-7 rounded-xl border border-border bg-card p-6" aria-labelledby="case-history-title"><h2 id="case-history-title" className="text-xl font-semibold">Historical investigation records (read-only)</h2><ul className="mt-3 space-y-4">{data.cases.map(record => <li key={record.id} className="break-words text-sm"><strong>{record.reason} · opened {pht.format(record.openedAt)} PHT</strong><p className="mt-1">{record.summary}</p><ol className="mt-2 space-y-2">{data.caseEvents.filter(event => event.caseId === record.id).map(event => <li key={event.id} className="border-t border-border pt-2">{event.revision}. {event.kind} · {event.outcome} · {pht.format(event.createdAt)} PHT · {event.reasoning}{event.evidenceReference ? ` · Evidence: ${event.evidenceReference}` : ""}</li>)}</ol></li>)}</ul></section>}
     <MemberContacts id={member.id} email={member.email} phone={member.phone} source={member.source} />
+    <MemberAccess memberId={member.id} initial={await memberAccess(await headers(), member.id)} />
     <LegacyAccess memberId={member.id} owner={data.owner} scope={data.recoveryScope}
       proposals={data.legacyRecords.filter(row => row.kind === "PREPARE" && !data.legacyRecords.some(decision => decision.proposalId === row.id)).map(row => ({ id: row.id, label: `${row.sourceReference} — ${row.uncertainty}` }))}
       records={data.legacyRecords.map(row => ({ id: row.id, label: `${row.kind} ${row.sourceReference}` }))} />

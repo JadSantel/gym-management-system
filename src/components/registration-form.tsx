@@ -4,6 +4,7 @@ import { registrationSchema, memberFieldErrors, type MemberFieldErrors } from "@
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ContactFields } from "./contact-fields";
+import { Badge } from "./ui/badge";
 import type { z } from "zod";
 export function RegistrationForm({ code }: { code: string }) {
   const [errors, setErrors] = useState<MemberFieldErrors>({});
@@ -34,7 +35,9 @@ export function RegistrationForm({ code }: { code: string }) {
   }
   if (status === "PENDING" || status === "RECEPTION") return <div ref={feedback} tabIndex={-1} role="status" className="space-y-4 outline-offset-4">
     <h2 className="text-xl font-semibold">{status === "PENDING" ? "Your profile is saved" : "Please speak to reception"}</h2>
+    {status === "PENDING" && <Badge variant="outline" className="border-transparent bg-attention-surface text-attention">Pending activation</Badge>}
     <p>{status === "PENDING" ? "Your membership is Pending. Reception can review your details and take your full cash payment." : "We could not create another profile with these contact details. Reception can help you continue."}</p>
+    {status === "PENDING" && <div className="border-t border-border pt-4"><h3 className="font-medium">What happens next?</h3><ol className="mt-3 list-decimal space-y-3 pl-5 text-sm"><li>See the front desk to choose a plan and pay in full with cash.</li><li>After activation, ask reception for your private member setup link. Choose your password using the link sent to your email.</li><li>Sign in to your member dashboard to view or download your personal QR. Show it to staff when you arrive and leave.</li></ol></div>}
     <p className="text-muted-foreground">Registration grants no paid access. No payment has been recorded.</p>
   </div>;
   return <form noValidate onSubmit={submit} className="space-y-6" aria-busy={busy}>

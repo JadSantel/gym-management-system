@@ -11,6 +11,15 @@ export async function identityBinding(userId: string) {
   const [result] = await db.$queryRaw<{ binding: IdentityBinding | null }[]>`SELECT public.identity_binding(${userId}) AS binding`;
   return result.binding;
 }
+export type MemberBinding = {
+  id: string; userId: string; memberId: string; gymId: string; state: "PENDING" | "ACTIVE" | "DISABLED";
+  gym: { id: string; name: string; state: "PENDING" | "ACTIVE" | "DISABLED" };
+  user: { id: string; email: string; emailVerified: boolean };
+};
+export async function memberBinding(userId: string) {
+  const [result] = await db.$queryRaw<{ binding: MemberBinding | null }[]>`SELECT public.member_binding(${userId}) AS binding`;
+  return result.binding;
+}
 export async function setGymContext(tx: Prisma.TransactionClient, gymId: string) {
   await tx.$queryRaw`SELECT set_config('app.current_gym_id', ${gymId}, true)`;
 }

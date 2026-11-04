@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "src-app-page-tsx"
-primary_target: "src/app/page.tsx"
-related_targets: ["src/components/app-shell.tsx", "src/components/member-directory.tsx", "src/app/operate/page.tsx", "src/app/members/page.tsx", "src/app/members/[id]/page.tsx", "src/app/transactions/page.tsx", "src/app/team/page.tsx"]
+primary_target: "src/app/(crm)/page.tsx"
+related_targets: ["src/components/app-shell.tsx", "src/components/member-directory.tsx", "src/app/(crm)/operate/page.tsx", "src/app/(crm)/members/page.tsx", "src/app/(crm)/members/[id]/page.tsx", "src/app/(crm)/transactions/page.tsx", "src/app/(crm)/team/page.tsx"]
 ---
 
 # Cash-only workspace navigation

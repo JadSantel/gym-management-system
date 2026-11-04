@@ -1,7 +1,7 @@
 ---
 version: 1
 slug: payments
-primary_target: src/app/transactions/page.tsx
+primary_target: src/app/(crm)/transactions/page.tsx
 related_targets: [src/components/transaction-list.tsx, src/components/payment-activity.module.css]
 ---
 

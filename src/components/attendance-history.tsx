@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VisitCorrection } from "@/components/visit-correction";
 import { AttendanceOccupancy } from "@/components/attendance-occupancy";
-import styles from "@/app/attendance/attendance.module.css";
+import styles from "@/app/(crm)/attendance/attendance.module.css";
 
 type History = Awaited<ReturnType<typeof attendanceHistory>>;
 const time = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
@@ -44,7 +44,7 @@ export function AttendanceHistory({ data }: { data: History }) {
   }
   const first = data.count ? (data.page - 1) * data.pageSize + 1 : 0, last = Math.min(data.page * data.pageSize, data.count);
   return <section className={styles.screen} aria-label="Attendance history" aria-busy={pending}>
-    <div className="page-heading"><div><h1>Attendance</h1><p>Recorded arrivals, departures and time in the gym.</p></div><Link href="/attendance/scanner" className="action-link"><ScanLine aria-hidden="true" className="size-4" />Open scanner</Link></div>
+    <div className="page-heading"><div><h1>Attendance</h1><p>Recorded arrivals, departures and time in the gym.</p></div><div className="flex flex-wrap gap-2"><Link href="/attendance/scanner#registration-link" className="text-link inline-flex min-h-11 items-center px-3">New member QR</Link><Link href="/attendance/scanner" className="action-link"><ScanLine aria-hidden="true" className="size-4" />Open scanner</Link></div></div>
     <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
       <p className="text-sm font-medium">Today · {date.format(new Date(data.checkedAt))}</p>
       <p className="text-xs text-muted-foreground">As of {time.format(new Date(data.checkedAt))} PHT</p>

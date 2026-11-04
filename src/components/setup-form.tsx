@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { identityRequest, IdentityRequestError } from "@/lib/client";
 import { setupFormSchema, identityFieldErrors, type IdentityFieldErrors } from "@/lib/identity-schema";
 import { IdentityFeedback, type IdentityFeedbackState } from "@/components/identity-feedback";
-export function SetupForm() {
+export function SetupForm({ audience = "operator" }: { audience?: "operator" | "member" }) {
+  const setupPath = audience === "member" ? "/member/setup" : "/setup";
+  const loginPath = audience === "member" ? "/member/login" : "/login";
   const [busy, setBusy] = useState(false);
   const [complete, setComplete] = useState(false);
   const [feedback, setFeedback] = useState<IdentityFeedbackState>({ message: "", error: false });
@@ -24,8 +26,8 @@ export function SetupForm() {
     try {
       const parsed = setupFormSchema.safeParse({ token: window.location.hash.slice(1), password: form.get("password"), confirmation: form.get("confirmation") });
       if (!parsed.success) { setErrors(identityFieldErrors(parsed.error)); setFeedback({ message: "Check the password fields and your invitation link.", error: true }); return; }
-      await identityRequest("setup", { token: parsed.data.token, password: parsed.data.password });
-      window.history.replaceState(null, "", "/setup");
+      await identityRequest("setup", { token: parsed.data.token, password: parsed.data.password }, audience === "member" ? "member" : "identity");
+      window.history.replaceState(null, "", setupPath);
       setComplete(true);
     } catch (error) {
       if (error instanceof IdentityRequestError) setErrors(error.fieldErrors);
@@ -38,9 +40,9 @@ export function SetupForm() {
     const parsed = setupFormSchema.safeParse({ token: window.location.hash.slice(1), password: form.get("password"), confirmation: form.get("confirmation") });
     setErrors(parsed.success ? {} : identityFieldErrors(parsed.error));
   }
-  return <div className="mx-auto max-w-md"><p className="mb-2 text-sm font-semibold text-primary">Private account setup</p>
+  return <div className="mx-auto max-w-md">
     <h1 className="mb-3 text-3xl font-semibold tracking-tight">{complete ? "Your password is ready" : "Choose your password"}</h1>
-    {complete ? <p>Setup is complete. <Link href="/login" className="underline">Sign in to continue</Link>.</p> : <>
+    {complete ? <p>Setup is complete. <Link href={loginPath} className="underline">Sign in to continue</Link>.</p> : <>
       <p className="mb-8 text-muted-foreground">Use the invitation or recovery link sent to your email. Keep your password private.</p>
       <form noValidate onSubmit={submit} className="space-y-5 rounded-xl border border-border bg-card p-6" aria-busy={busy}>
         <IdentityFeedback id="setup-feedback" feedback={feedback} links={[
@@ -55,7 +57,7 @@ export function SetupForm() {
         {errors.confirmation && <p id="confirmation-error" className="text-sm text-destructive">{errors.confirmation}</p>}
         <p className="text-sm text-muted-foreground">After an attempt, enter both passwords again. Passwords are never saved for retry.</p>
         <Button type="submit" className="w-full" disabled={busy}>{busy ? "Saving…" : "Save private password"}</Button>
-        <Link href="/login" className="block text-sm underline">Back to sign in</Link>
+        <Link href={loginPath} className="block text-sm underline">Back to sign in</Link>
       </form></>}
   </div>;
 }

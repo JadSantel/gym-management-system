@@ -30,16 +30,25 @@ const evaluate = (code: string) => JSON.parse(browser("eval", code, "--json")).d
 const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
 const text = (value: string) => browser("wait", "--text", value);
 function open(url: string) { browser("open", url); browser("wait", "--load", "load"); }
-function theme(value: string) { browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')"); click("Appearance"); browser("wait", '[role="dialog"]'); click(value); browser("wait", "--fn", "document.getAnimations().every(animation => animation.playState !== 'running')"); }
+function theme(value: string) { browser("wait", "button[aria-label='Appearance']"); click("Appearance"); browser("wait", '[role="dialog"]'); click(value); browser("wait", "--fn", "document.getAnimations().every(animation => animation.playState !== 'running')"); }
+function memberPage() {
+  assert.equal(evaluate("!!document.querySelector('[data-member-page=registration]')"), true, "Dedicated member registration layout");
+  assert.equal(evaluate("!!document.querySelector('.app-workspace, [data-sidebar], .mobile-bottom-nav, header time')"), false, "Public registration never inherits CRM chrome");
+  assert.equal(evaluate("document.title"), "Member registration");
+}
 function audit(label: string) {
   assert.equal(evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `${label} overflow`);
-  const results = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
+  let results = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
+  if (results.counts.incomplete) {
+    evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
+    results = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
+  }
   assert.equal(results.counts.violations, 0, `${label}: ${JSON.stringify(results.violations)}`);
   assert.equal(results.counts.incomplete, 0, `${label}: ${JSON.stringify(results.incomplete)}`);
 }
-function capture(label: string) {
-  evaluate("scrollTo(0,0); true");
-  const result = browser("screenshot", "--full");
+function capture(label: string, viewport = false) {
+  evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
+  const result = viewport ? browser("screenshot") : browser("screenshot", "--full");
   const path = result.match(/Screenshot saved to (.+)/)?.[1]?.trim();
   assert.ok(path, "Browser must report the actual capture path");
   copyFileSync(path, resolve(output, `${label}.png`));
@@ -66,7 +75,7 @@ try {
   for (let i = 0; i < 2; i++) assert.deepEqual(await (await post(`/api/join/${code}`, httpInput)).json(), { status: "PENDING" });
   assert.equal((await fetch(`${origin}/api/members/directory`)).status, 401);
   assert.equal((await post(`/api/members/${randomUUID()}/contacts`, {})).status, 401);
-  open(link.url); text("Join Synthetic Registration Gym");
+  open(link.url); text("Join Synthetic Registration Gym"); memberPage();
   for (const appearance of ["Light", "Dark"]) {
     theme(appearance);
     for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1000], ["phone", 375, 900]] as const) {
@@ -88,6 +97,10 @@ try {
   assert.equal(evaluate("document.activeElement.getAttribute('role')"), "status"); audit("Pending confirmation"); capture("dark-pending-phone");
   const visitor = await admin.member.findFirstOrThrow({ where: { gymId, email: `visitor-${suffix}@example.test` } });
   assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: visitor.id } }), 0);
+  text("Pending activation"); text("What happens next?"); text("private member setup link");
+  for (const appearance of ["Light", "Dark"]) {
+    theme(appearance); audit(`${appearance} Pending confirmation`); capture(`${appearance.toLowerCase()}-pending-phone`);
+  }
   open(link.url); text("Save my profile");
   browser("fill", "#join-name", "Duplicate Browser Visitor"); browser("fill", "#join-email", `visitor-${suffix}@example.test`); browser("fill", "#join-phone", "09171234568");
   click("Save my profile"); text("Please speak to reception"); audit("duplicate referral");
@@ -95,8 +108,44 @@ try {
   browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in");
   browser("wait", "--url", `${origin}/`);
   text("Welcome, Registration Reviewer");
+  open(link.url); text("Join Synthetic Registration Gym"); memberPage();
+  for (const appearance of ["Light", "Dark"]) {
+    theme(appearance); audit(`${appearance} public form with operator session`); capture(`${appearance.toLowerCase()}-join-signed-in-phone`);
+  }
+  open(`${origin}/attendance`); text("New member QR");
+  assert.equal(evaluate("!!document.querySelector('.app-workspace')"), true, "Operator workspace keeps its original shell");
+  browser("find", "role", "link", "click", "--name", "New member QR", "--exact");
+  browser("wait", "#registration-link");
+  assert.equal(evaluate("location.pathname + location.hash"), "/attendance/scanner#registration-link");
+  assert.equal(evaluate("document.querySelector('#registration-link img').getAttribute('src')"), link.qr, "Scanner shares the existing gym registration QR");
+  assert.equal(evaluate("document.querySelector('#registration-link a').href"), link.url);
+  for (const appearance of ["Light", "Dark"]) {
+    theme(appearance);
+    browser("reload"); browser("wait", "#registration-link");
+    assert.equal(evaluate("document.documentElement.classList.contains('dark')"), appearance === "Dark");
+    for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1000], ["small-phone", 320, 900], ["phone", 375, 900]] as const) {
+      browser("set", "viewport", String(width), String(height));
+      assert.equal(evaluate("Math.abs(document.querySelector('#registration-link img').getBoundingClientRect().width - document.querySelector('#registration-link img').getBoundingClientRect().height) < 1"), true, "Reception QR stays square on narrow phones");
+      evaluate("document.getElementById('registration-link').scrollIntoView({block:'start'}); true"); audit(`${appearance} scanner registration ${device}`); capture(`${appearance.toLowerCase()}-scanner-registration-${device}`, true);
+      browser("scrollintoview", "a[download='reception-registration.png']"); capture(`${appearance.toLowerCase()}-scanner-registration-actions-${device}`, true);
+    }
+  }
+  theme("System"); browser("set", "media", "light"); browser("reload"); browser("wait", "#registration-link img");
+  assert.equal(evaluate("document.documentElement.classList.contains('dark')"), false);
+  browser("set", "media", "dark"); browser("reload"); browser("wait", "#registration-link img");
+  assert.equal(evaluate("document.documentElement.classList.contains('dark')"), true);
+  theme("Dark");
+  browser("focus", "#registration-link a"); browser("press", "Tab");
+  assert.equal(evaluate("document.activeElement.getAttribute('download')"), "reception-registration.png");
+  browser("press", "Tab"); assert.equal(evaluate("document.activeElement.textContent"), "Replace registration link");
+  browser("network", "route", "**/api/registration-link", "--abort"); click("Replace registration link"); text("Link update not confirmed.");
+  assert.equal(evaluate("document.activeElement.getAttribute('role')"), "status");
+  assert.equal(evaluate("document.querySelector('#registration-link img') === null"), true, "Uncertain replacement never shares a potentially revoked QR");
+  audit("uncertain registration QR"); capture("dark-scanner-registration-uncertain-phone", true);
+  browser("network", "unroute"); click("Reload registration QR"); browser("wait", "#registration-link img");
+  console.log("Attendance shortcut, shared QR, scanner Light/Dark device matrix, persisted themes, keyboard and failed replacement recovery PASS.");
   open(`${origin}/members`); browser("wait", "#search-name");
-  browser("scrollintoview", "#registration-link-title"); text("Reception registration QR");
+  browser("scrollintoview", "#registration-link-title"); text("New here? Scan to join.");
   const active = await fetch(`${origin}/api/registration-link`, { headers: owner }); assert.equal(active.status, 200); assert.equal((await active.json()).url, link.url);
   for (const appearance of ["Light", "Dark"]) {
     theme(appearance);
@@ -140,9 +189,17 @@ try {
   open(`${origin}/receipts/${receipt.id}`); text("Cash payment receipt"); text(receipt.reference); audit("public registration cash receipt");
   capture("dark-registration-cash-receipt-phone");
   console.log("Public registration through exact full cash, durable receipt and current eligibility PASS.");
-  open(`${origin}/members`); browser("scrollintoview", "#registration-link-title"); text("Replace registration link"); click("Replace registration link"); text("Registration link ready.");
+  open(`${origin}/attendance/scanner`); browser("scrollintoview", "#registration-link-title"); text("Replace registration link"); click("Replace registration link"); text("Registration link ready.");
   assert.equal((await post(`/api/join/${code}`, { ...httpInput, requestId: randomUUID() })).status, 410);
-  open(link.url); text("Registration unavailable"); audit("expired link"); capture("dark-expired-phone");
+  open(link.url); text("Registration unavailable"); memberPage(); audit("expired link"); capture("dark-expired-phone");
+  await admin.registrationLink.updateMany({ where: { gymId, revokedAt: null }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  open(`${origin}/attendance/scanner`); browser("scrollintoview", "#registration-link-title"); text("No active registration link.");
+  assert.equal(evaluate("document.querySelector('#registration-link img') === null"), true); audit("expired registration QR hidden"); capture("dark-scanner-registration-empty-phone", true);
+  click("Create registration link"); text("Registration link ready.");
+  const renewed = await registrationLink(owner); assert.ok(renewed);
+  assert.equal(evaluate("document.querySelector('#registration-link a').href"), renewed.url);
+  open(`${origin}/members#registration-link`); browser("wait", "#registration-link img");
+  assert.equal(evaluate("document.querySelector('#registration-link a').href"), renewed.url, "Members shares the link issued at Scanner");
   console.log("Registration browser/HTTP PASS: three surfaces x Light/Dark x desktop/tablet/phone; axe, errors/focus, network retry, Pending/no entitlement, duplicate referral, staff contacts/reload, QR replacement and expired-link denial.");
 } catch (error) { failure = error; try { capture("failure"); } catch {} }
 finally {

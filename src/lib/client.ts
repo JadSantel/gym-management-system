@@ -4,8 +4,8 @@ export class IdentityRequestError extends Error {
   constructor(message: string, public status: number, public fieldErrors: IdentityFieldErrors = {}) { super(message); }
 }
 
-export async function identityRequest(action: string, body?: object) {
-  const response = await fetch(`/api/identity/${action}`, body ? {
+export async function identityRequest(action: string, body?: object, scope: "identity" | "member" = "identity") {
+  const response = await fetch(`/api/${scope}/${action}`, body ? {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   } : { cache: "no-store" });
   const result = await response.json();

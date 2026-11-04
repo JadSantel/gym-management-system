@@ -20,6 +20,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   operator      Operator?
+  memberAccount MemberAccount?
   @@map("auth_users")
 }
 
@@ -183,11 +184,42 @@ model Member {
   membershipPeriods MembershipPeriod[]
   entitlements EffectiveEntitlement[]
   registrations RegistrationAttempt[]
+  account MemberAccount?
   @@unique([gymId, email])
   @@unique([gymId, phone])
   @@unique([id, gymId])
   @@index([gymId, nameKey])
   @@map("members")
+}
+
+// Member authentication uses the same provider, with no operator capability.
+model MemberAccount {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  memberId String @unique @map("member_id") @db.Uuid
+  userId String @unique @map("user_id")
+  state AccessState @default(PENDING)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id])
+  member Member @relation(fields: [memberId, gymId], references: [id, gymId])
+  invitations MemberInvitation[]
+  @@unique([id, gymId])
+  @@unique([memberId, gymId])
+  @@map("member_accounts")
+}
+
+model MemberInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  gymId String @map("gym_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  purpose String
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  account MemberAccount @relation(fields: [accountId, gymId], references: [id, gymId])
+  @@map("member_invitations")
 }
 
 model RegistrationLink {

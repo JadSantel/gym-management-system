@@ -1,9 +1,10 @@
 import "server-only";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import QRCode from "qrcode";
 import type { Prisma } from "../generated/prisma/client";
 import { inGym } from "./tenant";
 import { IdentityError } from "./identity";
+import { issueMemberQr } from "./member-qr";
 import { recordParamsSchema } from "./route-schema";
 import { assessEligibility } from "./eligibility";
 import { summarizeAttendance } from "./attendance-summary";
@@ -47,10 +48,7 @@ export async function memberQr(headers: Headers, reference: unknown, input?: unk
     let qr = await tx.memberQr.findFirst({ where: { memberId: id, revokedAt: null } });
     if (action && (!qr || action.action === "replace")) {
       const now = clock();
-      if (!await eligible(tx, id, now)) throw new IdentityError(409, "Current verified membership is required to issue or replace a personal QR. No payment is needed for an already eligible member.");
-      if (qr) await tx.memberQr.update({ where: { id: qr.id }, data: { revokedAt: now } });
-      qr = await tx.memberQr.create({ data: { gymId, memberId: id, code: randomBytes(32).toString("base64url"), createdBy: actor.operator.id, createdAt: now } });
-      await tx.identityAudit.create({ data: { gymId, initiatorId: actor.operator.userId, subjectId: id, action: action.action === "replace" ? "MEMBER_QR_REPLACED" : "MEMBER_QR_ISSUED" } });
+      qr = await issueMemberQr(tx, actor.operator, id, now, action.action === "replace");
     }
     const payload = qr ? { code: qr.code, memberName: member.fullName } : null;
     if (action && payload && op) await tx.attendanceOperation.create({ data: { gymId, memberId: id, requestId: action.requestId, fingerprint: op.fingerprint, result: payload } });

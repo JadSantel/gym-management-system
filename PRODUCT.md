@@ -1,6 +1,8 @@
 # Product
 
-## Current scope override - 2026-11-02
+## Current scope override - 2026-11-03
+
+November 3, 2026 correction: the user selected separate member registration plus member login and a private My Gym QR dashboard (PROJECT.md FR-15). Reuse the existing provider and verified private-email setup/recovery, with local synthetic capture only. Member accounts have no operator permissions; login grants no paid eligibility. Only currently eligible members see/download a personal QR, automatically issued with effective full-cash activation and retained until staff replacement. Earlier member-login deferrals below are historical within this scope. Birthdate, suspension, unattended entry, live mail and hosted operations remain outside this correction.
 
 Follow docs/PROJECT.md: ordinary full-cash collection, receipts, member/payment history and eligibility remain active; digital collections, investigations/corrections/refunds, outage/custody and closing are retired. Preserve their historical records. The user now authorizes public gym-link member registration with unverified email/Philippine mobile and staff-managed optional contacts, followed by a separately checkpointed staff-operated personal-QR attendance task. Profile creation grants no paid access. Member login/portal, birthdate, suspension, email delivery, unattended kiosk and offline queue remain excluded. Initial operation is local/synthetic; hosted access, real records, devices and pilot readiness require separate evidence. Earlier product prose below remains historical where it conflicts with this scope.
 

@@ -115,7 +115,16 @@ test("S-01b restricted PostgreSQL RLS, scoped transactions and live capability c
     await assert.rejects(inGym(staffHeaders, "CASH", async () => true));
     await assert.rejects(inGym(staffHeaders, "MEMBERS", async () => true));
     assert.equal(await inGym(owners[0], "CASH", async () => true), true);
-    const [functions] = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef`;
-    assert.equal(Number(functions.count), 3); // identity binding, setup scope, public registration scope
+    const functions = await db.$queryRaw<{ name: string; runtime: boolean; publicExecute: boolean; owned: boolean; config: string[] }[]>`
+      SELECT p.proname AS name, has_function_privilege(current_user,p.oid,'EXECUTE') AS runtime,
+        EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS "publicExecute",
+        pg_get_userbyid(p.proowner)=current_user AS owned, p.proconfig AS config
+      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef ORDER BY p.proname`;
+    assert.deepEqual(functions.map(row => row.name), ["exclusive_member_identity", "identity_binding", "member_binding", "member_setup_scope", "registration_scope", "setup_scope"]);
+    for (const row of functions) {
+      assert.equal(row.runtime, row.name !== "exclusive_member_identity");
+      assert.equal(row.publicExecute, false); assert.equal(row.owned, false);
+      assert.ok(row.config.includes("search_path=pg_catalog"));
+    }
   });
 });
