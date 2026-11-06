@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, RefreshCw, Search, UserCheck, Users } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Dialog } from "radix-ui";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, Plus, RefreshCw, Search, UserCheck, Users, X } from "lucide-react";
 import { createColumnHelper, createPaginatedRowModel, createSortedRowModel, rowPaginationFeature, rowSortingFeature, sortFn_text, tableFeatures, useTable, type SortingState } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +49,8 @@ const columns = helper.columns([
 const labels: Record<string, string> = { fullName: "Member", email: "Email", phone: "Phone #", startsAt: "Membership started", endsAt: "Membership expires", actions: "Actions" };
 
 export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMember[]; checkedAt: string }) {
+  const router = useRouter();
+  const createOpen = useSearchParams().get("add") === "member";
   const [members, setMembers] = useState(initial);
   const [checkTime, setCheckTime] = useState(checkedAt);
   const [search, setSearch] = useState("");
@@ -70,6 +74,13 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
   const firstRow = visible.length ? pagination.pageIndex * pagination.pageSize + 1 : 0;
   const lastRow = Math.min((pagination.pageIndex + 1) * pagination.pageSize, visible.length);
   useEffect(() => { if (feedback.error) feedbackRef.current?.focus(); }, [feedback]);
+
+  function changeCreateOpen(open: boolean) {
+    if (busy) return;
+    setCreateErrors({}); setCreateAttempted(false); setDuplicate(false);
+    setFeedback({ message: "", error: false });
+    router.replace(open ? "/members?add=member" : "/members", { scroll: false });
+  }
 
   async function refresh() {
     const failure = "Unable to refresh members. Showing the last loaded records. Try Refresh again.";
@@ -105,12 +116,26 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
       }
       setMembers(previous => [...previous, { id: result.id, fullName: result.fullName, email: result.email, phone: result.phone, hasVerifiedMembership: false, entitlements: [] }]);
       setSearch(result.fullName); setFilter("All members"); table.setPageIndex(0); setDuplicate(false);
+      setCreateAttempted(false);
       setFeedback({ message: "Member created. Review the member record before collecting payment.", error: false });
+      router.replace("/members", { scroll: false });
     } catch (error) { setFeedback({ message: error instanceof Error ? error.message : "Unable to connect. Try again.", error: true }); }
     finally { setBusy(false); }
   }
 
-  return <div className={`${styles.directory} space-y-6`}>
+  const feedbackMessage = <div id="member-feedback" ref={feedbackRef} tabIndex={-1} role={feedback.error ? "alert" : "status"} className={`text-sm outline-offset-4 ${feedback.message ? "rounded-md border border-border bg-muted p-4" : "sr-only"}`}>
+    {feedback.message}{searchError && <a href="#search-name" className="ml-2 underline">Review member search</a>}
+    {createErrors.fullName && <a href="#member-name" className="ml-2 underline">Review full name</a>}
+    {createErrors.email && <a href="#member-email" className="ml-2 underline">Review email</a>}
+    {createErrors.phone && <a href="#member-phone" className="ml-2 underline">Review mobile</a>}
+    {createErrors.confirmDuplicate && <a href="#duplicate-review" className="ml-2 underline">Review duplicate confirmation</a>}
+  </div>;
+
+  return <Dialog.Root open={createOpen} onOpenChange={changeCreateOpen}>
+    <div className="page-heading"><div><h1>Members</h1><p>Find a member, review their membership, and open payment details.</p></div>
+      <Dialog.Trigger asChild><Button>Add member <Plus aria-hidden="true" className="size-4" /></Button></Dialog.Trigger>
+    </div>
+    <div className={`${styles.directory} space-y-6`}>
     <div className="grid gap-4 sm:grid-cols-3" role="group" aria-label="Member summary">
       {[
         { label: "Total members", value: rows.length, note: "All member profiles", icon: Users },
@@ -119,11 +144,7 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
       ].map(item => <Card key={item.label} className="gap-0 rounded-lg py-5 shadow-none"><CardContent className="px-5"><div className="flex items-center justify-between gap-2 text-sm text-muted-foreground"><span>{item.label}</span><item.icon aria-hidden="true" className="size-4 shrink-0" /></div>
         <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{item.value.toLocaleString("en-PH")}</p><p className="mt-2 text-xs text-muted-foreground">{item.note}</p></CardContent></Card>)}
     </div>
-    <div id="member-feedback" ref={feedbackRef} tabIndex={-1} role={feedback.error ? "alert" : "status"} className={`text-sm outline-offset-4 ${feedback.message ? "panel" : "sr-only"}`}>
-      {feedback.message}{searchError && <a href="#search-name" className="ml-2 underline">Review member search</a>}
-      {createErrors.fullName && <a href="#member-name" className="ml-2 underline">Review full name</a>}
-      {createErrors.confirmDuplicate && <a href="#duplicate-review" className="ml-2 underline">Review duplicate confirmation</a>}
-    </div>
+    {!createOpen && feedbackMessage}
     <section aria-labelledby="search-title" aria-busy={busy}>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 id="search-title" className="panel-title">Find a member</h2><p className="text-xs text-muted-foreground">Counts cover all members</p></div>
       <div className="rounded-lg border border-border bg-card">
@@ -143,7 +164,7 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
         <div className={styles.mobileSort} role="group" aria-label="Sort members"><span className="text-xs text-muted-foreground">Sort by</span>{["fullName", "email"].map(id => <Button key={id} variant="outline" onClick={() => table.getColumn(id)!.toggleSorting(table.getColumn(id)!.getIsSorted() === "asc")}>{labels[id]}<ArrowUpDown aria-hidden="true" className="size-3.5" /><span className="sr-only">{table.getColumn(id)!.getIsSorted() || "unsorted"}</span></Button>)}</div>
         <Table className={styles.table} aria-label="Members">
           <TableHeader><TableRow>{table.getHeaderGroups()[0].headers.map(header => <TableHead key={header.id} scope="col" aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : undefined}><table.FlexRender header={header} /></TableHead>)}</TableRow></TableHeader>
-          <TableBody>{pageRows.length ? pageRows.map(row => <TableRow key={row.id}>{row.getAllCells().map(cell => <TableCell key={cell.id} data-label={labels[cell.column.id]}><table.FlexRender cell={cell} /></TableCell>)}</TableRow>) : <TableRow><TableCell colSpan={columns.length} className="h-40 text-center"><p className="font-medium">{members.length ? "No members match this filter." : "No members to show yet."}</p><p className="mt-2 text-xs text-muted-foreground">{members.length ? "Try another name or status." : "Search first, then create a member below."}</p></TableCell></TableRow>}</TableBody>
+          <TableBody>{pageRows.length ? pageRows.map(row => <TableRow key={row.id}>{row.getAllCells().map(cell => <TableCell key={cell.id} data-label={labels[cell.column.id]}><table.FlexRender cell={cell} /></TableCell>)}</TableRow>) : <TableRow><TableCell colSpan={columns.length} className="h-40 text-center"><p className="font-medium">{members.length ? "No members match this filter." : "No members to show yet."}</p><p className="mt-2 text-xs text-muted-foreground">{members.length ? "Try another name or status." : "Choose Add member to create a profile."}</p></TableCell></TableRow>}</TableBody>
         </Table>
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4 text-xs">
           <p role="status" aria-live="polite" className="text-muted-foreground">Showing {firstRow}–{lastRow} of {visible.length} members. Dates in Asia/Manila.<span className="sr-only"> Page {pagination.pageIndex + 1} of {pageCount}.</span></p>
@@ -168,7 +189,14 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
       <p className="mt-3 text-xs text-muted-foreground">Recorded contacts are unverified; missing contacts show Not recorded. Dates show the current, next scheduled, or latest expired membership in PHT; expiry is exclusive.</p>
       <p className="mt-2 text-xs text-muted-foreground">Eligibility checked {pht.format(new Date(checkTime))} PHT. Refresh to update. Open a profile for the current access decision before admission.</p>
     </section>
-    <section id="new-member" aria-labelledby="create-title" className="panel"><h2 id="create-title" className="panel-title">Create a member</h2><p className="mb-5 mt-2 text-sm text-muted-foreground">Search first to avoid duplicates. Creating a member records no payment and grants no paid access.</p>
+    </div>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 z-50 grid place-items-center bg-scrim p-4">
+      <Dialog.Content className="relative max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-5 text-card-foreground sm:p-6"
+        onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}>
+        <Dialog.Title className="pr-12 text-xl font-semibold tracking-tight">Create a member</Dialog.Title>
+        <Dialog.Description className="mb-5 mt-2 text-sm text-muted-foreground">Search first to avoid duplicates. Creating a member records no payment and grants no paid access.</Dialog.Description>
+        {createAttempted && feedbackMessage}
       <form noValidate onSubmit={event => submit(event, true)} className="space-y-4"><label htmlFor="member-name">Full name<Input id="member-name" name="name" required maxLength={100} autoComplete="off" disabled={busy}
         aria-invalid={!!createErrors.fullName} aria-describedby={createErrors.fullName ? "member-name-error" : undefined} onChange={event => {
           setDuplicate(false);
@@ -177,12 +205,19 @@ export function MemberDirectory({ initial, checkedAt }: { initial: DirectoryMemb
         }} /></label>
         {createErrors.fullName && <p id="member-name-error" className="text-sm text-destructive">{createErrors.fullName}</p>}
         <ContactFields prefix="member" errors={createErrors} disabled={busy} />
-        {duplicate && <><label className="flex min-h-11 items-start gap-3 text-sm"><input id="duplicate-review" name="confirmDuplicate" type="checkbox" required disabled={busy} className="mt-1 size-5"
+        {duplicate && <><div className="space-y-2 rounded-md border border-border p-3"><p className="text-sm font-semibold">Review matching members</p>
+          <ul className="space-y-1">{visible.map(member => <li key={member.id}><Link href={`/members/${member.id}`} className="inline-flex min-h-11 items-center text-sm underline">{member.fullName} — {member.membership.label}</Link></li>)}</ul></div>
+          <label className="flex min-h-11 items-start gap-3 text-sm"><input id="duplicate-review" name="confirmDuplicate" type="checkbox" required disabled={busy} className="mt-1 size-5"
           aria-invalid={!!createErrors.confirmDuplicate} aria-describedby={createErrors.confirmDuplicate ? "duplicate-review-error" : undefined}
           onChange={event => setCreateErrors(event.currentTarget.checked ? {} : { confirmDuplicate: "Confirm that you reviewed the matches and this is a separate person." })} />I reviewed the matches. This is a separate person with the same name.</label>
           {createErrors.confirmDuplicate && <p id="duplicate-review-error" className="text-sm text-destructive">{createErrors.confirmDuplicate}</p>}
         </>}
-        <Button type="submit" disabled={busy}>{busy ? "Please wait…" : "Create member"}</Button>
-      </form></section>
-  </div>;
+        <div className="flex flex-wrap justify-end gap-2 pt-2"><Dialog.Close asChild><Button variant="outline" disabled={busy}>Cancel</Button></Dialog.Close>
+          <Button type="submit" disabled={busy}>{busy ? "Please wait…" : "Create member"}</Button></div>
+      </form>
+        <Dialog.Close asChild><Button variant="outline" disabled={busy} aria-label="Close registration" className="absolute top-3 right-3 size-11 border-transparent bg-transparent p-0"><X aria-hidden="true" className="size-4" /></Button></Dialog.Close>
+      </Dialog.Content>
+      </Dialog.Overlay>
+    </Dialog.Portal>
+  </Dialog.Root>;
 }

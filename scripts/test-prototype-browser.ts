@@ -146,7 +146,7 @@ try {
   browser("set", "viewport", "1440", "1000");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] [data-sidebar=group-label]')).map(item => item.textContent)"), ["Quick Actions", "Overview", "Management"]);
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [
-    ["Add Members", "/members#member-name"], ["Record Payment", "/members#search-name"],
+    ["Add Members", "/members?add=member"], ["Record Payment", "/members#search-name"],
     ["Dashboard", "/"], ["Members", "/members"], ["Payments", "/transactions"], ["Attendance", "/attendance"],
     ["QR Scanner", "/attendance/scanner"],
   ]);
@@ -223,10 +223,10 @@ try {
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
   text("Find a member"); assert.equal(evaluate("location.pathname"), "/members", "Owner compatibility redirect");
   click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
-  browser("click", 'nav[aria-label="Main navigation"] a[href="/members#member-name"]');
-  browser("wait", "#member-name"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
-  assert.equal(evaluate("location.pathname + location.hash"), "/members#member-name");
-  assert.equal(evaluate("(() => {const box=document.getElementById('member-name').getBoundingClientRect(), main=document.getElementById('main').getBoundingClientRect();return box.top>=main.top && box.bottom<=main.bottom && scrollY===0;})()"), true, "Add Member targets visible form");
+  browser("click", 'nav[aria-label="Main navigation"] a[href="/members?add=member"]');
+  browser("wait", "#member-name"); browser("wait", "--fn", "document.querySelectorAll('[role=dialog]').length === 1 && !!document.querySelector('[role=dialog] #member-name')");
+  assert.equal(evaluate("location.pathname + location.search"), "/members?add=member");
+  assert.equal(evaluate("(() => {const box=document.getElementById('member-name').getBoundingClientRect();return box.top>=0 && box.bottom<=innerHeight && scrollY===0;})()"), true, "Add Member opens visible registration dialog");
   click("Create member"); text("Check the member fields below.");
   const newName = `Sidebar member ${suffix}`;
   browser("fill", "#member-name", newName); click("Create member"); text("Member created. Review the member record before collecting payment.");
@@ -379,8 +379,8 @@ try {
   }
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/operate`);
   browser("wait", "--url", `${origin}/members`); browser("wait", "--load", "load");
-  // Require one completed destination form before opening and auditing the mobile drawer.
-  browser("wait", "--fn", "document.querySelectorAll('#search-name').length === 1 && document.querySelectorAll('#member-name').length === 1");
+  // Require a completed directory before opening and auditing the mobile drawer.
+  browser("wait", "--fn", "document.querySelectorAll('#search-name').length === 1 && document.querySelectorAll('#member-name').length === 0");
   browser("focus", '[data-sidebar="trigger"]'); browser("press", "Enter");
   browser("wait", '[role="dialog"]'); audit("Mobile keyboard navigation");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");

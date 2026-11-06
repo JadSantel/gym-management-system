@@ -13,7 +13,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const pathname = usePathname();
   const members = actor && (actor.owner || actor.members);
   const actions: Destination[] = actor ? [
-    ...(members ? [{ href: "/members#member-name", label: "Add Members", icon: "plus" as const }] : []),
+    ...(members ? [{ href: "/members?add=member", label: "Add Members", icon: "plus" as const }] : []),
     ...(members && (actor.owner || actor.cash) ? [{ href: "/members#search-name", label: "Record Payment", icon: "wallet" as const }] : []),
   ] : [];
   const overview: Destination[] = actor?.owner ? [

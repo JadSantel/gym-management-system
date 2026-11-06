@@ -91,7 +91,8 @@ try {
   assert.ok(directoryHtml.includes("Find a member"), "Members includes the operational lookup");
   assert.ok(directoryHtml.includes(`Cash History ${suffix}`), "Members shows the paid member");
   assert.ok(directoryHtml.includes("Active"), "Members shows current eligibility");
-  assert.ok(directoryHtml.includes('id="member-name"'), "Members retains creation");
+  assert.ok(directoryHtml.includes("Add member"), "Members offers the registration dialog trigger");
+  assert.ok(!directoryHtml.includes('id="member-name"'), "Creation form stays in the dialog instead of inline");
   assert.ok(!directoryHtml.includes('href="/operate"'), "Front Desk is absent from navigation");
   const compatibilityResponse = await fetch(new URL("/operate", origin), { headers: owner, redirect: "manual" });
   assert.equal(compatibilityResponse.status, 307, "Old Front Desk route remains a temporary compatibility redirect");
