@@ -69,7 +69,7 @@ try {
   const link = await registrationLink(owner, true); assert.ok(link);
   const code = new URL(link.url).pathname.split("/").pop()!;
   // Actual HTTP boundary checks (not an in-process route invocation).
-  const httpInput = { fullName: "HTTP Synthetic Visitor", email: `http-visitor-${suffix}@example.test`, phone: "09171234560", requestId: randomUUID() };
+  const httpInput = { fullName: "HTTP Synthetic Visitor", email: `http-visitor-${suffix}@example.test`, phone: "09171234560", password, confirmation: password, requestId: randomUUID() };
   assert.equal((await post(`/api/join/${code}`, { ...httpInput, gymId: randomUUID() })).status, 400);
   assert.equal((await post(`/api/join/${code}`, httpInput, undefined, { origin: "https://foreign.test" })).status, 403);
   for (let i = 0; i < 2; i++) assert.deepEqual(await (await post(`/api/join/${code}`, httpInput)).json(), { status: "PENDING" });
@@ -86,23 +86,32 @@ try {
   browser("focus", "#join-name"); browser("press", "Tab");
   assert.equal(evaluate("document.activeElement.id"), "join-email");
   browser("press", "Tab"); assert.equal(evaluate("document.activeElement.id"), "join-phone");
-  browser("press", "Tab"); assert.equal(evaluate("document.activeElement.textContent"), "Save my profile");
-  browser("press", "Enter"); text("Check the highlighted details.");
+  browser("press", "Tab"); assert.equal(evaluate("document.activeElement.id"), "join-password");
+  browser("press", "Tab"); assert.equal(evaluate("document.activeElement.id"), "join-confirmation");
+  click("Save my profile"); text("Check the highlighted details.");
   assert.equal(evaluate("document.activeElement.getAttribute('role')"), "alert");
-  assert.equal(evaluate("document.querySelectorAll('input[aria-invalid=true]').length"), 3); audit("registration errors"); capture("dark-join-errors-phone");
+  assert.equal(evaluate("document.querySelectorAll('input[aria-invalid=true]').length"), 5); audit("registration errors"); capture("dark-join-errors-phone");
   browser("fill", "#join-name", `Browser Visitor ${suffix}`); browser("fill", "#join-email", `visitor-${suffix}@example.test`); browser("fill", "#join-phone", "09171234567");
+  browser("fill", "#join-password", password); browser("fill", "#join-confirmation", password + "mismatch");
+  click("Save my profile"); text("Passwords must match."); audit("registration password mismatch"); capture("dark-password-mismatch-phone");
+  browser("fill", "#join-confirmation", password);
+  browser("find", "label", "Show passwords", "check"); assert.equal(evaluate("document.getElementById('join-password').type"), "text");
+  browser("find", "label", "Show passwords", "click"); assert.equal(evaluate("document.getElementById('join-password').type"), "password");
   browser("network", "route", "**/api/join/**", "--abort"); click("Save my profile"); text("Registration not confirmed.");
   assert.equal(evaluate("document.getElementById('join-name').disabled"), true);
   browser("network", "unroute"); click("Retry same submission"); text("Your profile is saved");
+  browser("wait", "--fn", "document.activeElement.getAttribute('role') === 'status'");
   assert.equal(evaluate("document.activeElement.getAttribute('role')"), "status"); audit("Pending confirmation"); capture("dark-pending-phone");
   const visitor = await admin.member.findFirstOrThrow({ where: { gymId, email: `visitor-${suffix}@example.test` } });
   assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: visitor.id } }), 0);
-  text("Pending activation"); text("What happens next?"); text("private member setup link");
+  text("Pending activation"); text("What happens next?"); text("Your member login is ready.");
+  assert.equal(evaluate("document.querySelectorAll('input[type=password]').length"), 0);
   for (const appearance of ["Light", "Dark"]) {
     theme(appearance); audit(`${appearance} Pending confirmation`); capture(`${appearance.toLowerCase()}-pending-phone`);
   }
   open(link.url); text("Save my profile");
   browser("fill", "#join-name", "Duplicate Browser Visitor"); browser("fill", "#join-email", `visitor-${suffix}@example.test`); browser("fill", "#join-phone", "09171234568");
+  browser("fill", "#join-password", password); browser("fill", "#join-confirmation", password);
   click("Save my profile"); text("Please speak to reception"); audit("duplicate referral");
   open(`${origin}/login`); text("Sign in");
   browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in");

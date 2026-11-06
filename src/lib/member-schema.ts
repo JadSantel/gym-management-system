@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "./identity-schema";
 
 const nameError = "Enter a member name with 1–100 visible characters.";
 const memberNameSchema = z.string({ error: nameError }).min(1, nameError).max(100, nameError)
@@ -18,19 +19,21 @@ export const memberCreateSchema = z.strictObject({
   confirmDuplicate: z.boolean({ error: "Confirm duplicate review explicitly." }).default(false),
 });
 export const registrationCodeSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-export const registrationSchema = z.strictObject({ fullName: memberNameSchema, email: emailSchema, phone: phoneSchema, requestId: z.uuid() });
+export const registrationSchema = z.strictObject({ fullName: memberNameSchema, email: emailSchema, phone: phoneSchema,
+  password: passwordSchema, confirmation: passwordSchema, requestId: z.uuid() })
+  .refine(value => value.password === value.confirmation, { path: ["confirmation"], message: "Passwords must match." });
 export const memberSearchSchema = z.string({ error: "Enter one member search of 100 characters or fewer." })
   .max(100, "Search must be 100 characters or fewer.").transform(value => value.trim());
 
 export type MemberCreate = z.infer<typeof memberCreateSchema>;
-export type MemberFieldErrors = Partial<Record<keyof MemberCreate, string>>;
+export type MemberFieldErrors = Partial<Record<keyof MemberCreate | "password" | "confirmation", string>>;
 
 export function memberFieldErrors(error: z.ZodError): MemberFieldErrors {
   const fields: MemberFieldErrors = {};
   for (const issue of error.issues) {
     const field = issue.path[0];
     // Only these schema-owned messages are public. Unknown keys and raw issues stay private.
-    if (field === "fullName" || field === "confirmDuplicate" || field === "email" || field === "phone") fields[field] ??= issue.message;
+    if (field === "fullName" || field === "confirmDuplicate" || field === "email" || field === "phone" || field === "password" || field === "confirmation") fields[field] ??= issue.message;
   }
   return fields;
 }

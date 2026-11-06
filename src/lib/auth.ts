@@ -19,7 +19,9 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
-    requireEmailVerification: true,
+    // Operator verification is enforced by both hooks below. Members may choose a
+    // password during registration without claiming their email has been verified.
+    requireEmailVerification: false,
     minPasswordLength: 12,
     maxPasswordLength: 128,
   },
@@ -44,9 +46,9 @@ export const auth = betterAuth({
       }) : null;
       const operator = user ? await identityBinding(user.id) : null;
       const member = user && emailMode && !operator ? await memberBinding(user.id) : null;
-      const allowedOperator = operator?.state === "ACTIVE" && operator.gym.state === "ACTIVE" && operator.role === (emailMode ? "OWNER" : "STAFF");
+      const allowedOperator = user?.emailVerified && operator?.state === "ACTIVE" && operator.gym.state === "ACTIVE" && operator.role === (emailMode ? "OWNER" : "STAFF");
       const allowedMember = member?.state === "ACTIVE" && member.gym.state === "ACTIVE";
-      if (!user?.emailVerified || (!allowedOperator && !allowedMember)) {
+      if (!user || (!allowedOperator && !allowedMember)) {
         // Match provider password work so inactive/unknown identities do not get a fast failure path.
         await ctx.context.password.hash(typeof ctx.body?.password === "string" ? ctx.body.password : "invalid-password");
         throw new APIError("UNAUTHORIZED", { message: "Unable to sign in. Check your credentials or contact your owner." });
@@ -58,7 +60,7 @@ export const auth = betterAuth({
       const operator = await identityBinding(session.userId);
       const member = !operator ? await memberBinding(session.userId) : null;
       const binding = operator ?? member;
-      if (!binding || binding.state !== "ACTIVE" || binding.gym.state !== "ACTIVE" || !binding.user.emailVerified) return false;
+      if (!binding || binding.state !== "ACTIVE" || binding.gym.state !== "ACTIVE" || (operator && !operator.user.emailVerified)) return false;
       return { data: session };
     } } },
   },

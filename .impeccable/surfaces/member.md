@@ -9,7 +9,9 @@ related_targets: ["src/app/member/layout.tsx", "src/app/member/login/page.tsx", 
 
 Mode: Operate. User-approved FR-15 / AC-15a-f extends the incumbent Form & Function world; no new palette, concept tournament or motion grammar.
 
-THESIS: Give a paid member a private, readable membership status and personal attendance QR, with reception as the recovery path.
+THESIS: Give a member a private, readable membership status, with a personal attendance QR after paid activation and reception as the help path.
+
+November 6 revision supersedes the initial email setup sequence below for new self-registrations: members choose their password during signup and may sign in immediately with an unverified email to view Pending status. Only current paid eligibility displays/downloads the QR. Optional email recovery proves inbox control on link consumption and revokes old sessions. Staff-created profiles without a login retain private setup after activation. Login/recovery and operator profile help reflect this distinction; operator verification remains unchanged.
 
 FIRST VIEWPORT: Member area header and appearance control, then My Gym QR, gym name, Sign out and one border-led membership Card. The member's own name and text-backed Active/Expired/Scheduled/Pending activation Badge precede the QR or reception guidance. The black-on-white square is machine-readable content in either theme. Login and setup use narrow, visibly labelled email/password forms with a clear primary action.
 

@@ -1,5 +1,9 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+## Signup password revision - November 6, 2026
+
+The user approved choosing a private password during member registration to remove the initial email setup step (PROJECT FR-13/15). Registration creates a member-only login alongside a Pending profile, never an operator, payment or entitlement. Members can view Pending status immediately; the personal QR/download still requires current paid eligibility. Email remains unverified until a recovery/setup link proves inbox control. Optional recovery and the older staff-created-member setup path remain, using synthetic mailbox capture only. This supersedes earlier no-member-login/initial-email-setup statements within this bounded scope; owner/staff verification, cash integrity and staff-operated attendance are unchanged.
+
 ## Personal QR and attendance implementation (FR-14)
 
 FR-14 implementation keeps attendance separate from paid entitlement. Member-management operators issue a personal opaque QR to eligible members, retain it across renewals and revoke old codes on replacement. Signed-in scanners alternate arrivals/departures, suppress repeats for eight seconds and replay request IDs. Past-Manila-day visits without a departure are Missing checkout. Existing visits can be corrected/voided with an audited reason and current revision; missed historical visits cannot be created. No member login, unattended kiosk or offline queue. Physical/hosted evidence remains separate.

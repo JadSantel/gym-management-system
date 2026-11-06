@@ -8,7 +8,7 @@ import { auth } from "../src/lib/auth";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 import { bootstrapSyntheticOwner, completeSetup, getActor, inviteStaff, reauthenticate, setCapabilities } from "../src/lib/identity";
 import { setGymContext } from "../src/lib/binding";
-import { registrationLink, registerMember } from "../src/lib/registration";
+import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { confirmCash, prepareCharge } from "../src/lib/charges";
 import { memberQr } from "../src/lib/attendance";
@@ -40,13 +40,12 @@ test("member login and own QR preserve provider, tenant, payment and operator bo
   const ownerLogin = await signIn(ownerEmail); assert.equal(ownerLogin.status, 200); const owner = cookies(ownerLogin);
   await reauthenticate(owner, password);
   const plan = (await changePlans(owner, { action: "initialize" })).find(row => row.durationDays === 30)!;
-  const link = await registrationLink(owner, true); assert.ok(link); const code = new URL(link.url).pathname.split("/").pop()!;
   const email = `portal-member-${suffix}@example.test`, secondEmail = `portal-second-${suffix}@example.test`;
-  await registerMember(code, { fullName: "Private Portal Member", email, phone: "09170000001", requestId: randomUUID() });
-  await registerMember(code, { fullName: "Other Private Member", email: secondEmail, phone: "09170000002", requestId: randomUUID() });
+  await createMember(owner, { fullName: "Private Portal Member", email, phone: "09170000001" });
+  await createMember(owner, { fullName: "Other Private Member", email: secondEmail, phone: "09170000002" });
   const member = await admin.member.findFirstOrThrow({ where: { gymId, email } }), second = await admin.member.findFirstOrThrow({ where: { gymId, email: secondEmail } });
   let memberHeaders: Headers, originalQr = "", accountId = "", userId = "", firstSetup = "";
-  await t.test("Pending registration creates no account/QR/access and cannot request member setup", async () => {
+  await t.test("staff-created Pending profile has no account/QR/access and cannot request member setup", async () => {
     assert.equal(await admin.memberAccount.count({ where: { memberId: member.id } }), 0);
     assert.equal(await admin.memberQr.count({ where: { memberId: member.id } }), 0);
     await assert.rejects(issueMemberAccess(owner, member.id, { action: "invite" }, sender), /Activate/);
@@ -116,7 +115,7 @@ test("member login and own QR preserve provider, tenant, payment and operator bo
     const expired = await memberDashboard(memberHeaders, () => new Date(current.endsAt!));
     assert.equal(expired.status, "EXPIRED"); assert.equal(expired.qr, null);
     const before = token;
-    const recovery = await recoverMember({ email }, sender); assert.match(recovery.status, /If a verified/); assert.notEqual(token, before);
+    const recovery = await recoverMember({ email }, sender); assert.match(recovery.status, /If a member account/); assert.notEqual(token, before);
     const reset = token;
     const unknown = await recoverMember({ email: `unknown-${suffix}@example.test` }, sender); assert.deepEqual(unknown, recovery); assert.equal(token, reset);
     await completeMemberSetup({ token: reset, password: password + "new" });
@@ -144,7 +143,7 @@ test("member login and own QR preserve provider, tenant, payment and operator bo
     assert.equal(flags.length, 2); for (const row of flags) assert.deepEqual([row.relrowsecurity, row.relforcerowsecurity, row.owns], [true, true, false]);
     assert.equal((await memberAccess(owner, member.id))?.email, email);
     const raceEmail = `portal-race-${suffix}@example.test`;
-    await registerMember(code, { fullName: "Concurrent Identity", email: raceEmail, phone: "09170000003", requestId: randomUUID() });
+    await createMember(owner, { fullName: "Concurrent Identity", email: raceEmail, phone: "09170000003" });
     const raceMember = await admin.member.findFirstOrThrow({ where: { gymId, email: raceEmail } });
     const raceUser = await admin.user.create({ data: { id: randomUUID(), name: "Concurrent Identity", email: raceEmail } });
     const results = await Promise.allSettled([

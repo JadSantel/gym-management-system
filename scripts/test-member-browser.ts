@@ -71,15 +71,26 @@ try {
   await reauthenticate(owner, password); await changePlans(owner, { action: "initialize" });
   const link = await registrationLink(owner, true); assert.ok(link);
   open(link.url); text("Save my profile"); separate();
-  browser("set", "viewport", "375", "900"); browser("fill", "#join-name", `Private Member ${suffix}`); browser("fill", "#join-email", email); browser("fill", "#join-phone", "09171234123"); click("Save my profile"); text("Your profile is saved");
+  browser("set", "viewport", "375", "900"); browser("fill", "#join-name", `Private Member ${suffix}`); browser("fill", "#join-email", email); browser("fill", "#join-phone", "09171234123"); browser("fill", "#join-password", password); browser("fill", "#join-confirmation", password); click("Save my profile"); text("Your profile is saved");
   const member = await admin.member.findFirstOrThrow({ where: { gymId, email } });
   assert.equal(await admin.memberQr.count({ where: { memberId: member.id } }), 0);
-  assert.equal(await admin.memberAccount.count({ where: { memberId: member.id } }), 0);
+  assert.equal(await admin.memberAccount.count({ where: { memberId: member.id } }), 1);
+  open(`${origin}/member/login`); browser("fill", "#member-email", email); browser("fill", "#member-password", password); click("Sign in as member"); browser("wait", "--url", `${origin}/member`); text("Pending activation");
+  assert.equal(evaluate("document.querySelector('img[alt=\"Your personal attendance QR\"]')"), null);
+  assert.equal(evaluate("fetch('/api/member/qr').then(response => response.status)"), 409);
+  assert.equal(evaluate("fetch('/api/members/directory').then(response => response.status)"), 403);
+  matrix("pending-dashboard"); click("Sign out"); browser("wait", "--url", `${origin}/member/login`);
   await operatorLogin(); open(`${origin}/members/${member.id}`); text("Member dashboard access");
-  click("Send member setup link"); text("Activate the paid membership");
   browser("scrollintoview", "#membership-payment"); click("Prepare charge preview"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00"); click("Review cash payment"); click("Confirm full cash"); text("Full cash payment confirmed");
   const qr = await admin.memberQr.findFirstOrThrow({ where: { memberId: member.id, revokedAt: null } });
-  open(`${origin}/members/${member.id}`); browser("scrollintoview", "#member-access-title"); click("Send member setup link"); text("Member email link captured locally.");
+  // Verify that the signup password works after activation, without opening any email.
+  const memberLogin = await fetch(`${origin}/api/auth/sign-in/email`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ email, password }) });
+  assert.equal(memberLogin.status, 200);
+  const memberCookie = memberLogin.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
+  const privateDashboard = await fetch(`${origin}/api/member/dashboard`, { headers: { cookie: memberCookie } });
+  assert.equal(privateDashboard.status, 200); assert.ok((await privateDashboard.json()).qr);
+  // Recovery remains optional and validates inbox ownership only when its link is consumed.
+  open(`${origin}/members/${member.id}`); browser("scrollintoview", "#member-access-title"); click("Send member password reset"); text("Member email link captured locally.");
   const invitation = await admin.memberInvitation.findFirstOrThrow({ where: { account: { memberId: member.id }, consumedAt: null } });
   const mail = JSON.parse(readFileSync(resolve(".local/mailbox", `${invitation.id}.json`), "utf8")) as { url: string };
   assert.equal(new URL(mail.url).pathname, "/member/setup");
@@ -107,10 +118,10 @@ try {
   assert.equal(await admin.payment.count({ where: { memberId: member.id } }), 1, "Viewing/downloading/replacing QR adds no payment");
   click("Sign out"); browser("wait", "--url", `${origin}/member/login`);
   open(`${origin}/member`); browser("wait", "--url", `${origin}/member/login`);
-  click("Forgot your password?"); browser("fill", "#member-email", email); click("Request member recovery"); text("If a verified member account matches"); audit("Member recovery"); capture("dark-recovery-phone");
+  click("Forgot your password?"); browser("fill", "#member-email", email); click("Request member recovery"); text("If a member account matches"); audit("Member recovery"); capture("dark-recovery-phone");
   await operatorLogin(); open(link.url); text("Save my profile"); separate();
   open(`${origin}/attendance`); text("New member QR"); assert.equal(evaluate("!!document.querySelector('.app-workspace')"), true);
-  console.log("Member browser/HTTP PASS: separate public/member layouts, staff cash activation/automatic QR, private verified setup, password errors, own dashboard/authenticated PNG response decode, Light/Dark 1440/768/375/320, operator denial, replacement refresh, sign-out and recovery. Native browser Save NOT VERIFIED: independent download control also canceled.");
+  console.log("Member browser/HTTP PASS: signup password, immediate Pending dashboard/no QR, post-cash QR with the original password before email recovery, optional recovery, password errors, authenticated PNG decode, Light/Dark 1440/768/375/320, operator denial, replacement refresh and sign-out. Native browser Save remains NOT VERIFIED; no new native-save attempt in this run.");
 } catch (error) { failure = error; try { capture("failure"); } catch {} }
 finally { try { browser("close"); } catch {} await db.$disconnect(); await admin.$disconnect(); }
 if (failure) throw failure;

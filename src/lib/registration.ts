@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import QRCode from "qrcode";
 import { db } from "./db";
+import { auth } from "./auth";
 import { setGymContext } from "./binding";
 import { inGym } from "./tenant";
 import { IdentityError } from "./identity";
@@ -39,8 +40,11 @@ export async function registerMember(code: unknown, input: unknown) {
   const parsed = registrationSchema.safeParse(input);
   if (!parsed.success) throw new IdentityError(400, "Check your registration details.", memberFieldErrors(parsed.error));
   const scope = await registrationScope(code);
-  const { fullName, email, phone, requestId } = parsed.data;
-  const fingerprint = createHash("sha256").update(JSON.stringify({ fullName, email, phone })).digest("hex");
+  const { fullName, email, phone, password, requestId } = parsed.data;
+  // A keyed fingerprint detects changed-password retries without storing a password-guessing oracle.
+  const fingerprint = createHmac("sha256", assertSynthetic().BETTER_AUTH_SECRET)
+    .update(JSON.stringify({ fullName, email, phone, password })).digest("hex");
+  const passwordHash = await (await auth.$context).password.hash(password);
   return db.$transaction(async tx => {
     await setGymContext(tx, scope.gym_id);
     await tx.$queryRaw`SELECT id FROM gyms WHERE id=${scope.gym_id}::uuid FOR SHARE`;
@@ -55,8 +59,17 @@ export async function registerMember(code: unknown, input: unknown) {
       return { status: previous.outcome };
     }
     const duplicate = await contactExists(tx, email, phone);
-    const member = duplicate ? null : await tx.member.create({ data: { gymId: scope.gym_id, fullName, nameKey: fullName.toLowerCase(), email, phone, source: "PUBLIC_REGISTRATION" } });
-    const outcome = duplicate ? "RECEPTION" : "PENDING";
+    const userId = randomUUID();
+    // The provider email is globally unique. Never attach a new profile to an existing identity.
+    // ON CONFLICT also handles simultaneous signups in different gyms without changing credentials.
+    const created = duplicate ? 0 : (await tx.user.createMany({ data: { id: userId, name: fullName, email, emailVerified: false }, skipDuplicates: true })).count;
+    const member = created ? await tx.member.create({ data: { gymId: scope.gym_id, fullName, nameKey: fullName.toLowerCase(), email, phone, source: "PUBLIC_REGISTRATION" } }) : null;
+    if (member) {
+      await tx.account.create({ data: { id: `credential:${userId}`, accountId: userId, providerId: "credential", userId, password: passwordHash } });
+      await tx.memberAccount.create({ data: { gymId: scope.gym_id, memberId: member.id, userId, state: "ACTIVE" } });
+      await tx.identityAudit.create({ data: { gymId: scope.gym_id, initiatorId: userId, subjectId: userId, action: "MEMBER_REGISTERED_PASSWORD" } });
+    }
+    const outcome = member ? "PENDING" : "RECEPTION";
     await tx.registrationAttempt.create({ data: { gymId: scope.gym_id, linkId: scope.id, requestId, fingerprint, outcome, memberId: member?.id } });
     return { status: outcome };
   });

@@ -68,7 +68,7 @@ export async function issueMemberAccess(headers: Headers, reference: unknown, in
         const user = await tx.user.create({ data: { id: randomUUID(), name: member.fullName, email: member.email } });
         account = await tx.memberAccount.create({ data: { gymId: actor.operator.gymId, memberId: member.id, userId: user.id }, include: { user: true } });
       }
-    } else if (!account || account.state !== "ACTIVE" || !account.user.emailVerified) throw new IdentityError(409, "An active member login is required for password recovery.");
+    } else if (!account || account.state !== "ACTIVE") throw new IdentityError(409, "An active member login is required for password recovery.");
     return issueLink(tx, account!, command.data.action === "invite" ? "SETUP" : "RESET", account!.user.email, actor.operator.userId);
   });
   return deliverMemberLink(issued, sender);
@@ -87,7 +87,7 @@ export async function completeMemberSetup(input: unknown) {
     const invitation = await tx.memberInvitation.findUnique({ where: { tokenHash: hash(parsed.data.token) }, include: { account: { include: { user: true, member: { include: { gym: true } } } } } });
     if (!invitation || invitation.consumedAt || !invitation.sentAt || invitation.expiresAt <= new Date()) throw unavailable();
     const account = invitation.account;
-    if (account.member.gym.state !== "ACTIVE" || account.state !== (invitation.purpose === "RESET" ? "ACTIVE" : "PENDING") || (invitation.purpose === "RESET" && !account.user.emailVerified)) throw unavailable();
+    if (account.member.gym.state !== "ACTIVE" || account.state !== (invitation.purpose === "RESET" ? "ACTIVE" : "PENDING")) throw unavailable();
     await tx.memberInvitation.update({ where: { id: invitation.id }, data: { consumedAt: new Date() } });
     await tx.account.upsert({ where: { id: `credential:${account.userId}` }, create: { id: `credential:${account.userId}`, accountId: account.userId, providerId: "credential", userId: account.userId, password }, update: { password } });
     await tx.user.update({ where: { id: account.userId }, data: { emailVerified: true } });
@@ -104,30 +104,30 @@ export async function recoverMember(input: unknown, sender: EmailSender = localE
   if (!parsed.success) throw new IdentityError(400, "Check your email.", identityFieldErrors(parsed.error));
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
   const account = user ? await memberBinding(user.id) : null;
-  if (account?.state === "ACTIVE" && account.gym.state === "ACTIVE" && account.user.emailVerified) {
+  if (account?.state === "ACTIVE" && account.gym.state === "ACTIVE") {
     const issued = await db.$transaction(async tx => {
       await setGymContext(tx, account.gymId);
       await tx.$queryRaw`SELECT id FROM gyms WHERE id=${account.gymId}::uuid FOR UPDATE`;
       const current = await tx.memberAccount.findUnique({ where: { id: account.id }, include: { member: { include: { gym: true } }, user: true } });
-      if (!current || current.state !== "ACTIVE" || current.member.gym.state !== "ACTIVE" || !current.user.emailVerified) return null;
+      if (!current || current.state !== "ACTIVE" || current.member.gym.state !== "ACTIVE") return null;
       return issueLink(tx, current, "RESET", current.user.email, current.userId);
     });
     if (issued) await deliverMemberLink(issued, sender);
   }
-  return { status: "If a verified member account matches, its recovery link has been captured locally. You can also ask reception for help." };
+  return { status: "If a member account matches, its recovery link has been captured locally. You can also ask reception for help." };
 }
 
 export async function memberDashboard(headers: Headers, clock: () => Date = () => new Date()) {
   const session = await auth.api.getSession({ headers, query: { disableCookieCache: true, disableRefresh: true } });
   if (!session) throw new IdentityError(401, "Sign in to your member account.");
   const binding = await memberBinding(session.user.id);
-  if (!binding || binding.state !== "ACTIVE" || binding.gym.state !== "ACTIVE" || !binding.user.emailVerified) throw new IdentityError(403, "Member account access is unavailable.");
+  if (!binding || binding.state !== "ACTIVE" || binding.gym.state !== "ACTIVE") throw new IdentityError(403, "Member account access is unavailable.");
   return db.$transaction(async tx => {
     await setGymContext(tx, binding.gymId);
     await tx.$queryRaw`SELECT id FROM gyms WHERE id=${binding.gymId}::uuid FOR SHARE`;
     const account = await tx.memberAccount.findUnique({ where: { id: binding.id }, include: { user: true, member: { include: { gym: true } } } });
     const currentSession = await tx.session.findUnique({ where: { id: session.session.id } });
-    if (!account || account.state !== "ACTIVE" || account.userId !== session.user.id || !account.user.emailVerified || account.member.gym.state !== "ACTIVE" || !currentSession || currentSession.userId !== account.userId || currentSession.expiresAt <= new Date()) throw new IdentityError(403, "Member account access is unavailable.");
+    if (!account || account.state !== "ACTIVE" || account.userId !== session.user.id || account.member.gym.state !== "ACTIVE" || !currentSession || currentSession.userId !== account.userId || currentSession.expiresAt <= new Date()) throw new IdentityError(403, "Member account access is unavailable.");
     const now = clock();
     const access = assessEligibility(await tx.effectiveEntitlement.findMany({ where: { memberId: account.memberId, isCurrentProjection: true } }), now);
     const qr = access.status === "ELIGIBLE" ? await tx.memberQr.findFirst({ where: { memberId: account.memberId, revokedAt: null } }) : null;

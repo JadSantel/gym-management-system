@@ -1,5 +1,11 @@
 # Gym CRM — Software Architecture (`architecture.md`)
 
+## Member signup password revision (FR-13/15; November 6, 2026)
+
+Members choose and confirm a 12–128 character password during gym-link signup. One transaction creates the Pending member profile, Better Auth user/credential, ACTIVE member-only account, identity audit and registration attempt. Better Auth hashes the password; the replay fingerprint uses HMAC-SHA-256 with the existing server auth secret and includes the password to reject changed-password retries. No raw password is persisted or returned. Provider-global email conflicts use conflict-safe insertion and generic reception referral; existing identities/passwords are never reused or overwritten. FORCE RLS, exclusive identity bindings and closed provider signup remain intact; no migration or dependency is needed.
+
+ACTIVE login state is separate from paid eligibility: the member may sign in immediately to Pending status, with no QR/download/attendance access until the existing verified cash flow activates membership. Signup leaves emailVerified false. Better Auth's global email-verification option is disabled only because the provider has one shared option; both existing auth hooks still enforce verified email for operators, and getActor/inGym retain their verification checks. Member login/session/dashboard allow an active unverified member binding without operator authority. Optional delivered 30-minute recovery links prove inbox control on consumption, set emailVerified true and revoke old sessions; failed/expired/replaced links cannot reset credentials. Staff-created profiles retain the existing paid-activation/48-hour private setup path. This revision supersedes the email-before-member-login requirements in the November 3 notes below; owner/staff verification and all financial/QR rules are unchanged.
+
 ## Personal QR and attendance implementation (FR-14)
 
 ### Separate member area and login (FR-15; November 3, 2026)

@@ -13,14 +13,14 @@ const operatorId = z.string({ error: referenceMessage })
   .length(36, referenceMessage)
   .regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i, referenceMessage);
 const passwordMessage = "Use a password with 12–128 characters.";
-const password = z.string({ error: passwordMessage }).min(12, passwordMessage).max(128, passwordMessage);
+export const passwordSchema = z.string({ error: passwordMessage }).min(12, passwordMessage).max(128, passwordMessage);
 
 export const identitySchemas = {
   setup: z.strictObject({
     token: z.string({ error: "Open the latest invitation or recovery link from your email." })
       .length(64, "Open the latest invitation or recovery link from your email.")
       .regex(/^[a-f0-9]{64}$/, "Open the latest invitation or recovery link from your email."),
-    password,
+    password: passwordSchema,
   }),
   reauthenticate: z.strictObject({
     password: z.string({ error: "Enter your current password (at most 128 characters)." })
@@ -41,7 +41,7 @@ export const identityReadActionSchema = z.enum(["session", "operators"]);
 export const identityMutationActionSchema = z.enum(["setup", "reauthenticate", "invite", "reset-owner", "reset-staff", "disable", "capabilities"]);
 
 export const setupFormSchema = identitySchemas.setup.extend({
-  confirmation: password,
+  confirmation: passwordSchema,
 }).refine(value => value.password === value.confirmation, { path: ["confirmation"], message: "Passwords must match." });
 
 export type StaffInvitation = z.infer<typeof identitySchemas.invite>;

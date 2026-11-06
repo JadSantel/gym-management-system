@@ -22,7 +22,7 @@ export function RegistrationLink({ initial }: { initial: LinkData | null }) {
       <div><h2 id="registration-link-title" className="text-2xl font-semibold tracking-tight text-balance">New here? Scan to join.</h2>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">Use your phone camera to scan this reception registration QR and save your details. Then see the front desk to activate your membership.</p>
         <ol className="mt-6 grid gap-4 text-sm">
-          {["Scan and register on your phone", "Pay in full and activate at the front desk", "Set up your member login to view or download your personal QR"].map((step, index) => <li key={step} className="flex items-center gap-3"><span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-xs tabular-nums">{index + 1}</span>{step}</li>)}
+          {["Register and choose your password on your phone", "Pay in full and activate at the front desk", "Sign in to view or download your personal QR"].map((step, index) => <li key={step} className="flex items-center gap-3"><span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-xs tabular-nums">{index + 1}</span>{step}</li>)}
         </ol>
         <p className="mt-5 text-sm text-muted-foreground">Registration saves a Pending profile. It grants no gym access and records no payment.</p>
       </div>

@@ -1,5 +1,9 @@
 # Gym CRM — Product Interface and Interaction Design (`design.md`)
 
+## Signup password revision (UX-13/15; November 6, 2026)
+
+The existing member registration form adds visibly labelled Password and Confirm password fields, a shared Show passwords checkbox, new-password autocomplete, 12–128 character guidance and associated field errors. Passwords stay only in the current form/retry memory and are cleared after confirmed completion or an unavailable link; uncertain submission retains the same request for safe retry. Existing semantic tokens and local shadcn Input/Button are reused. Pending confirmation links directly to member sign-in and explains that the chosen password already works, while full cash activation unlocks the private QR. The Pending dashboard displays status with no QR/download. Reception QR instructions and login/access help follow this sequence. No email setup is required for new self-registrations; optional email recovery and the older staff-created-profile setup path remain. This supersedes older references below to registration granting no login or requiring initial email setup.
+
 ## Personal QR and attendance implementation (FR-14)
 
 UX-14: Attendance navigation uses member-management permission; QR Scanner is a Management destination. The November 3 presentation preserves the sidebar. `/attendance` defaults to Manila today and shows three local shadcn summary Cards: Checked in today, Inside now and Checked out. They cover nonvoided tenant records independently of history filters and pages. The adapted `chart-bar-default` shows peak simultaneous recorded occupancy per Manila hour today, with future hours unobserved, textual hourly values and a snapshot time/manual Refresh. Missing checkout never invents a departure.

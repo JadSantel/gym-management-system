@@ -1,5 +1,9 @@
 # Product
 
+## Current signup revision - 2026-11-06
+
+Members choose and confirm their own password during registration, then sign in immediately to a Pending dashboard. Email setup is unnecessary for these new member accounts; email remains unverified. Full verified cash activation still controls eligibility and personal QR/download availability. Optional email recovery and private setup for older staff-created profiles remain. This supersedes the initial member-email setup requirement below, with owner/staff verification unchanged. Synthetic data only.
+
 ## Current scope override - 2026-11-03
 
 November 3, 2026 correction: the user selected separate member registration plus member login and a private My Gym QR dashboard (PROJECT.md FR-15). Reuse the existing provider and verified private-email setup/recovery, with local synthetic capture only. Member accounts have no operator permissions; login grants no paid eligibility. Only currently eligible members see/download a personal QR, automatically issued with effective full-cash activation and retained until staff replacement. Earlier member-login deferrals below are historical within this scope. Birthdate, suspension, unattended entry, live mail and hosted operations remain outside this correction.

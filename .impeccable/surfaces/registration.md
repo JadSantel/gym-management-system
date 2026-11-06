@@ -9,7 +9,9 @@ related_targets: ["src/app/join/layout.tsx", "src/components/member-shell.tsx", 
 
 Mode: Operate. Supplied prototype and existing DESIGN.md pin the simple form and reception workflow; code-led extension.
 
-THESIS: Save contact details once, then complete cash activation with reception.
+THESIS: Save contact details and choose a private password once, then complete cash activation with reception.
+
+November 6 revision supersedes the older no-login/email-setup descriptions below: signup now includes labelled Password and Confirm password fields, 12–128 character guidance, new-password autocomplete and a Show passwords checkbox. Confirmation links directly to member sign-in; the chosen password immediately opens a Pending dashboard. No initial email setup is needed. Pending registration still records no payment, entitlement or QR. Passwords clear on confirmed completion; uncertain requests retain the same submission only in memory. Preserve the existing form composition, local shadcn controls and semantic themes.
 
 FIRST VIEWPORT: Member registration header with Member sign in (Sign in on phones), appearance control, gym-specific heading, full-name/email/mobile form, unverified-contact explanation, Save my profile and reception help. A single restrained panel inherits the existing warm paper/light and near-black/dark surfaces, semantic tokens and local Input/Button. Mobile contact fields stack. The dedicated MemberShell excludes the CRM sidebar, operator account and clock, including for signed-in operators.
 
