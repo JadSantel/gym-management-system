@@ -41,7 +41,10 @@ function click(name: string) {
   browser("find", "role", "button", "click", "--name", name, "--exact");
 }
 function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
-function memberFilter(value: string) { browser("find", "role", "radio", "click", "--name", value, "--exact"); }
+function memberFilter(value: string) {
+  browser("wait", "--fn", "document.querySelector('section[aria-labelledby=\"search-title\"]')?.getAttribute('aria-busy') === 'false'");
+  browser("find", "role", "radio", "click", "--name", value, "--exact");
+}
 function clearMemberSearch() {
   browser("focus", "#search-name"); browser("press", "Control+a"); browser("press", "Backspace");
   browser("wait", "--fn", "document.getElementById('search-name').value === '' && document.querySelectorAll('main td[data-label=Member]').length === 10");
@@ -177,7 +180,7 @@ try {
       browser("open", `${origin}${path}`); browser("wait", "--fn", "document.fonts.status === 'loaded'");
       browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
-      if (name === "profile") assert.equal(evaluate("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Renew membership')?.disabled && document.querySelector('#charge-plan').disabled"), true);
+      if (name === "profile") assert.equal(evaluate("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Renew membership')?.disabled && [...document.querySelectorAll('#membership-payment input[name=planId]')].every(input => input.disabled)"), true);
       if (name === "payment") browser("wait", "--fn", "document.activeElement?.id === 'charge-title'");
       for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812]] as const) {
         browser("set", "viewport", String(width), String(height)); audit(`${theme} ${name} ${device}`);
@@ -240,7 +243,7 @@ try {
   browser("fill", "#search-name", newName); click("Refresh members"); text(newName);
   browser("click", `main a[href="/members/${created.id}"]`); text("Member profile"); text(newName);
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Not eligible')"), true);
-  click("Prepare charge preview"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
+  click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
   click("Review cash payment"); text("Confirm only after receiving the full cash amount.");
   assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Review creates no payment");
   click("Confirm full cash"); text("Full cash payment confirmed");
@@ -258,7 +261,7 @@ try {
   assert.equal(await admin.payment.count({ where: { memberId: fixture[5].id } }), 0, "Review never records a collection");
   audit("Cash review before confirmation"); browser("screenshot", resolve(output, "dark-cash-review-desktop.png"));
   click("Back to payment");
-  assert.equal(evaluate("document.querySelector('main').innerText.includes('GCash') || document.querySelector('main').innerText.includes('Bank transfer')"), false, "payment preview offers cash only");
+  assert.deepEqual(evaluate("[...document.querySelectorAll('#membership-payment input[name=paymentMethod]')].map(input=>input.value)"), ["Cash", "Online"], "Payment offers Cash and Online");
   browser("set", "viewport", "375", "812"); browser("open", `${origin}/transactions`); text("Payments");
   browser("wait", "--fn", "document.querySelectorAll('main #payment-page-size').length===1 && document.querySelector('main section[aria-label=\"Payment history\"]').getAttribute('aria-busy')==='false'");
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('main th')).map(node=>node.textContent)"), ["Member", "Method", "Amount", "Status", "Receipt"]);
@@ -412,11 +415,11 @@ try {
   assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a')).map(item => item.textContent)"), ["Add Members", "Members", "Payments", "Attendance", "QR Scanner"]);
   assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/members", "Staff brand uses Members home");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
-  browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and cash collection permission"); audit("Staff member profile permission state");
+  browser("open", `${origin}/members/${fixture[0].id}`); text("Preparing a charge requires member access and collection permission"); audit("Staff member profile permission state");
   assert.equal(evaluate(`fetch('/api/charges', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:'${fixture[0].id}',planId:'${monthly.id}'})}).then(response=>response.status)`), 403);
   await reauthenticate(owner, password);
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: true });
-  browser("reload"); text("Prepare charge preview"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  browser("reload"); text("Continue to payment"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   assert.equal(evaluate("!!document.querySelector('nav[aria-label=\"Main navigation\"] a[href=\"/members#search-name\"]')"), true);
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: true });

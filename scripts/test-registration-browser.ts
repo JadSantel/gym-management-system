@@ -183,12 +183,12 @@ try {
     }
   }
   console.log("Profile Light/Dark desktop/tablet/phone matrix PASS.");
-  browser("scrollintoview", "#membership-payment"); click("Prepare charge preview"); text("Saved charge preview");
-  browser("fill", "#cash-received", "799.00"); click("Review cash payment"); click("Confirm full cash");
+  browser("scrollintoview", "#membership-payment"); click("Continue to payment"); text("Saved charge preview");
+  browser("fill", "#cash-received", "799.00"); click("Review cash payment");
   browser("wait", "#cash-error");
   assert.equal(await admin.payment.count({ where: { memberId: visitor.id } }), 0, "Short cash creates no payment");
   assert.equal(await admin.effectiveEntitlement.count({ where: { memberId: visitor.id } }), 0, "Short cash grants no access");
-  click("Back to payment"); browser("fill", "#cash-received", "800.00"); click("Review cash payment");
+  browser("fill", "#cash-received", "800.00"); click("Review cash payment");
   assert.equal(await admin.payment.count({ where: { memberId: visitor.id } }), 0, "Review creates no payment");
   click("Confirm full cash"); text("Full cash payment confirmed");
   assert.equal(await admin.payment.count({ where: { memberId: visitor.id } }), 1);

@@ -1,5 +1,10 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+## Enrollment payment revision - November 7, 2026
+
+User-approved PROJECT revision restores Cash and Online (GCash, GoTyme, MariBank) in staff enrollment. The collecting authorized operator checks actual full funds in the gym's receiving account and records provider/reference plus an explicit attestation. Screenshot-only claims grant no payment/access. Fixed terms, automatic dates, exact full amounts, receipts, audit, tenant isolation and one paid future term remain. Other retired workflows remain retired. This narrow revision supersedes older cash-only and designated-viewer requirements for enrollment; live operational readiness is unverified.
+
+
 ## Signup password revision - November 6, 2026
 
 The user approved choosing a private password during member registration to remove the initial email setup step (PROJECT FR-13/15). Registration creates a member-only login alongside a Pending profile, never an operator, payment or entitlement. Members can view Pending status immediately; the personal QR/download still requires current paid eligibility. Email remains unverified until a recovery/setup link proves inbox control. Optional recovery and the older staff-created-member setup path remain, using synthetic mailbox capture only. This supersedes earlier no-member-login/initial-email-setup statements within this bounded scope; owner/staff verification, cash integrity and staff-operated attendance are unchanged.

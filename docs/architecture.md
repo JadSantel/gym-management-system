@@ -1,5 +1,10 @@
 # Gym CRM — Software Architecture (`architecture.md`)
 
+## Online enrollment revision - November 7, 2026 (AD-009/012/033)
+
+PROJECT's November 7 revision governs the bounded restoration: collection-capable actors confirm full Online funds they checked personally. Reuse cash's serialized command, plan/date checks, receipt/period/QR writes and idempotency semantics. A strict /api/payments/online body adds provider, reference and true fundsChecked; no client tenant/actor/account authority. Reuse immutable receiving_accounts/digital_claims/digital_settlements as provider evidence, atomically with payment; reserved Enrollment: GCash/GoTyme/MariBank labels identify provider only, not credentials or configured bank destinations. Preserve GCASH/BANK history classification and provider/reference links. Migration 202611070028 extends settlement verification to active collecting owners/collection-capable staff for these labels; historical designated grants remain valid. Existing /api/digital and all other retired workflows remain 410. No separate pending workflow or gateway is enabled.
+
+
 ## Member signup password revision (FR-13/15; November 6, 2026)
 
 Members choose and confirm a 12–128 character password during gym-link signup. One transaction creates the Pending member profile, Better Auth user/credential, ACTIVE member-only account, identity audit and registration attempt. Better Auth hashes the password; the replay fingerprint uses HMAC-SHA-256 with the existing server auth secret and includes the password to reject changed-password retries. No raw password is persisted or returned. Provider-global email conflicts use conflict-safe insertion and generic reception referral; existing identities/passwords are never reused or overwritten. FORCE RLS, exclusive identity bindings and closed provider signup remain intact; no migration or dependency is needed.

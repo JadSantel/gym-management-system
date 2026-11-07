@@ -1,5 +1,10 @@
 # Gym CRM — Product Interface and Interaction Design (`design.md`)
 
+## Membership enrollment redesign - November 7, 2026 (UX-04/07/08)
+
+Use the supplied membership-enrollment-shadcn-preview.html as a composition reference: Plan, Payment, Review, approved plan radio cards, persistent charge summary and clear current-access context, within the existing shell and semantic dual-theme system. Put membership entry ahead of detailed profile/history. Use actual local shadcn Card/Button/Input/Label/Badge/Separator. Cash and Online provider selection precede a separate final review; Online requires transaction reference and funds-checked attestation. Unknown outcomes lock edits across both methods and resolve the original operation. Fixed terms and server-calculated inclusive start/exclusive end replace the prototype's recurring billing, date editor, extra fees and access toggle. Success links the actual receipt and states the paid interval without promising admission before its effective start. No other retired workflow returns.
+
+
 ## Signup password revision (UX-13/15; November 6, 2026)
 
 The existing member registration form adds visibly labelled Password and Confirm password fields, a shared Show passwords checkbox, new-password autocomplete, 12–128 character guidance and associated field errors. Passwords stay only in the current form/retry memory and are cleared after confirmed completion or an unavailable link; uncertain submission retains the same request for safe retry. Existing semantic tokens and local shadcn Input/Button are reused. Pending confirmation links directly to member sign-in and explains that the chosen password already works, while full cash activation unlocks the private QR. The Pending dashboard displays status with no QR/download. Reception QR instructions and login/access help follow this sequence. No email setup is required for new self-registrations; optional email recovery and the older staff-created-profile setup path remain. This supersedes older references below to registration granting no login or requiring initial email setup.

@@ -91,7 +91,7 @@ export function OperatorSettings() {
               </div>
               <Badge variant="secondary" className={operator.state === "ACTIVE" ? "bg-success-surface text-success" : operator.state === "PENDING" ? "bg-attention-surface text-attention" : "bg-muted text-muted-foreground"}>{operator.state === "ACTIVE" ? "Active · Email verified" : operator.state === "PENDING" ? "Pending setup" : "Disabled"}</Badge>
             </div>
-            {operator.role === "OWNER" && <p className="mt-4 text-xs text-muted-foreground">Owner-controlled account administration. Digital verification requires a separate receiving-account grant.</p>}
+            {operator.role === "OWNER" && <p className="mt-4 text-xs text-muted-foreground">Owner-controlled account administration. Collection permission covers Cash and Online; the collector must check the full received funds.</p>}
             {rowErrors.operatorId && <p id={`operator-error-${operator.id}`} className="mt-2 text-sm text-destructive">{rowErrors.operatorId}</p>}
             {operator.role === "STAFF" && operator.state === "ACTIVE" && <form key={`${operator.id}-${operator.canManageMembers}-${operator.canCollectCash}`} className="mt-5 space-y-3" onSubmit={async event => {
               event.preventDefault(); const form = new FormData(event.currentTarget);
@@ -99,7 +99,7 @@ export function OperatorSettings() {
             }} aria-busy={busy} aria-label={`Permissions for ${operator.user.name}`}>
               <fieldset disabled={busy} className="flex flex-wrap gap-x-5 gap-y-1"><legend className="mb-1 text-xs font-medium text-muted-foreground">Permissions</legend>
                 <label className="flex min-h-11 items-center gap-2"><input id={`members-${operator.id}`} type="checkbox" name="members" defaultChecked={operator.canManageMembers} className="size-4" aria-invalid={!!rowErrors.canManageMembers} aria-describedby={rowErrors.canManageMembers ? `members-error-${operator.id}` : undefined} onChange={() => setErrors(previous => ({ ...previous, canManageMembers: undefined }))} />Manage members</label>
-                <label className="flex min-h-11 items-center gap-2"><input id={`cash-${operator.id}`} type="checkbox" name="cash" defaultChecked={operator.canCollectCash} className="size-4" aria-invalid={!!rowErrors.canCollectCash} aria-describedby={rowErrors.canCollectCash ? `cash-error-${operator.id}` : undefined} onChange={() => setErrors(previous => ({ ...previous, canCollectCash: undefined }))} />Confirm full cash</label>
+                <label className="flex min-h-11 items-center gap-2"><input id={`cash-${operator.id}`} type="checkbox" name="cash" defaultChecked={operator.canCollectCash} className="size-4" aria-invalid={!!rowErrors.canCollectCash} aria-describedby={rowErrors.canCollectCash ? `cash-error-${operator.id}` : undefined} onChange={() => setErrors(previous => ({ ...previous, canCollectCash: undefined }))} />Confirm full payments (Cash and Online)</label>
               </fieldset>
               {rowErrors.canManageMembers && <p id={`members-error-${operator.id}`} className="text-sm text-destructive">{rowErrors.canManageMembers}</p>}
               {rowErrors.canCollectCash && <p id={`cash-error-${operator.id}`} className="text-sm text-destructive">{rowErrors.canCollectCash}</p>}

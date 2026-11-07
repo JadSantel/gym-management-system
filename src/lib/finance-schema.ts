@@ -21,6 +21,15 @@ export const idempotencyKeySchema = z.string({ error: "A valid Idempotency-Key i
   .length(36, "A valid Idempotency-Key is required for cash confirmation.")
   .regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i, "A valid Idempotency-Key is required for cash confirmation.");
 export const pendingCashSchema = z.strictObject({ key: z.uuid(), amount: cashAmountSchema, chargeId: z.uuid(), memberId: z.uuid() });
+export const onlineConfirmationSchema = z.strictObject({
+  chargeId: recordIdSchema, amount: cashAmountSchema,
+  provider: z.enum(["GCash", "GoTyme", "MariBank"]),
+  transactionReference: z.string().trim().min(1, "Enter the transaction reference.").max(100).regex(/^[A-Za-z0-9][A-Za-z0-9 ./_-]*$/, "Use the reference from the receiving account.").transform(value => value.toUpperCase()),
+  fundsChecked: z.literal(true, { error: "Check the full funds in the gym's receiving account first." }),
+});
+export const pendingPaymentSchema = z.union([pendingCashSchema, onlineConfirmationSchema.extend({ key: z.uuid(), memberId: z.uuid() })]);
+export type OnlineConfirmation = z.infer<typeof onlineConfirmationSchema>;
+export type PendingPayment = z.infer<typeof pendingPaymentSchema>;
 
 export type PlanChange = z.infer<typeof planChangeSchema>;
 export type PendingCash = z.infer<typeof pendingCashSchema>;

@@ -80,8 +80,15 @@ try {
   assert.equal(evaluate("fetch('/api/member/qr').then(response => response.status)"), 409);
   assert.equal(evaluate("fetch('/api/members/directory').then(response => response.status)"), 403);
   matrix("pending-dashboard"); click("Sign out"); browser("wait", "--url", `${origin}/member/login`);
-  await operatorLogin(); open(`${origin}/members/${member.id}`); text("Member dashboard access");
-  browser("scrollintoview", "#membership-payment"); click("Prepare charge preview"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00"); click("Review cash payment"); click("Confirm full cash"); text("Full cash payment confirmed");
+  await operatorLogin(); open(`${origin}/members/${member.id}`);
+  assert.equal(evaluate("!document.querySelector('#contact-title, #member-access-title, #legacy-title')"), true, "Retired profile panels are absent");
+  for (const appearance of ["Light", "Dark"]) {
+    theme(appearance);
+    for (const [device, width, height] of [["desktop",1440,1000],["tablet",768,1000],["phone",375,900]] as const) {
+      browser("set", "viewport", String(width), String(height)); audit(`operator member profile ${appearance} ${device}`); capture(`${appearance.toLowerCase()}-operator-member-profile-${device}`);
+    }
+  }
+  browser("scrollintoview", "#membership-payment"); click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00"); click("Review cash payment"); click("Confirm full cash"); text("Full cash payment confirmed");
   const qr = await admin.memberQr.findFirstOrThrow({ where: { memberId: member.id, revokedAt: null } });
   // Verify that the signup password works after activation, without opening any email.
   const memberLogin = await fetch(`${origin}/api/auth/sign-in/email`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ email, password }) });
@@ -90,7 +97,12 @@ try {
   const privateDashboard = await fetch(`${origin}/api/member/dashboard`, { headers: { cookie: memberCookie } });
   assert.equal(privateDashboard.status, 200); assert.ok((await privateDashboard.json()).qr);
   // Recovery remains optional and validates inbox ownership only when its link is consumed.
-  open(`${origin}/members/${member.id}`); browser("scrollintoview", "#member-access-title"); click("Send member password reset"); text("Member email link captured locally.");
+  open(`${origin}/members/${member.id}`);
+  assert.equal(evaluate("!document.querySelector('#member-access-title')"), true, "Member access panel stays retired");
+  const accessHeaders = new Headers(owner); accessHeaders.set("content-type", "application/json"); accessHeaders.set("origin", origin);
+  const accessResponse = await fetch(`${origin}/api/members/${member.id}/access`, { method: "POST", headers: accessHeaders, body: JSON.stringify({ action: "reset" }) });
+  assert.equal(accessResponse.status, 200);
+  assert.match((await accessResponse.json()).status, /^Member email link captured locally\./);
   const invitation = await admin.memberInvitation.findFirstOrThrow({ where: { account: { memberId: member.id }, consumedAt: null } });
   const mail = JSON.parse(readFileSync(resolve(".local/mailbox", `${invitation.id}.json`), "utf8")) as { url: string };
   assert.equal(new URL(mail.url).pathname, "/member/setup");

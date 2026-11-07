@@ -1,5 +1,9 @@
 # Product
 
+## Enrollment revision - November 7, 2026
+
+PROJECT restores Cash and Online (GCash, GoTyme, MariBank) within Plan, Payment, Review. The authorized collecting operator checks full received funds in the gym receiving account and records provider/reference plus attestation. Existing collection permission covers both; all other retired workflows remain retired. Preserve exact full amounts, fixed terms, automatic dates, receipts, tenant isolation, paid access/QR gates and original-key recovery. This supersedes older cash-only/designated-viewer language for enrollment only; live readiness remains unverified.
+
 ## Current signup revision - 2026-11-06
 
 Members choose and confirm their own password during registration, then sign in immediately to a Pending dashboard. Email setup is unnecessary for these new member accounts; email remains unverified. Full verified cash activation still controls eligibility and personal QR/download availability. Optional email recovery and private setup for older staff-created profiles remain. This supersedes the initial member-email setup requirement below, with owner/staff verification unchanged. Synthetic data only.

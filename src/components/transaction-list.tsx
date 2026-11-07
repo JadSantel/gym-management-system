@@ -25,7 +25,7 @@ export type TransactionRow = {
 };
 const dateTime = (value: string) => `${new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value))} PHT`;
 const day = (value: string) => new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(new Date(`${value}T00:00:00+08:00`));
-const methodName = (method: string) => method === "CASH" ? "Cash" : method === "BANK" ? "Bank transfer (historical)" : method === "GCASH" ? "GCash (historical)" : method;
+const methodName = (method: string) => method === "CASH" ? "Cash" : method === "BANK" ? "Bank transfer" : method === "GCASH" ? "GCash" : method;
 
 export function TransactionList({ rows, summary, filters, operators, pagination, today, canCollect }: {
   rows: TransactionRow[]; summary: PaymentHistoryData["summary"]; filters: HistoryQuery;
@@ -79,7 +79,7 @@ export function TransactionList({ rows, summary, filters, operators, pagination,
         { label: "Revenue", value: formatPhp(summary.amount), note: "Original confirmed collections · all methods", icon: ArrowDownLeft },
         { label: "Total transactions", value: String(summary.count), note: "Confirmed payments", icon: ReceiptText },
         { label: "Cash", value: formatPhp(summary.cash.amount), note: `${summary.cash.count} confirmed transactions`, icon: Banknote },
-        { label: "Bank transfer", value: formatPhp(summary.bank.amount), note: `${summary.bank.count} historical transactions`, icon: Landmark },
+        { label: "Bank transfer", value: formatPhp(summary.bank.amount), note: `${summary.bank.count} confirmed transactions`, icon: Landmark },
       ].map(item => <Card key={item.label} className="gap-0 rounded-lg py-5 shadow-none"><CardContent className="px-4 sm:px-5">
         <div className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground"><span>{item.label}</span><item.icon aria-hidden="true" className="size-4 shrink-0" /></div>
         <p className="mt-4 break-words text-2xl leading-tight font-semibold tracking-tight tabular-nums">{item.value}</p>
@@ -122,7 +122,7 @@ export function TransactionList({ rows, summary, filters, operators, pagination,
         </ToggleGroup>
         <div className="flex w-full flex-wrap items-center gap-2">
           <span className="mr-1 text-xs text-muted-foreground">Method</span>
-          {([["", "All methods"], ["CASH", "Cash"], ["BANK", "Bank transfer"], ["GCASH", "GCash (historical)"]] as const).map(([value, label]) => <Button key={value} variant="outline" aria-disabled={pending} aria-pressed={method === value} onClick={() => navigate({ method: value })} className={method === value ? "border-primary bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90" : "px-3 text-xs"}>{value === "CASH" && <Banknote aria-hidden="true" className="size-3.5" />}{value === "BANK" && <Landmark aria-hidden="true" className="size-3.5" />}{label}</Button>)}
+          {([["", "All methods"], ["CASH", "Cash"], ["BANK", "Bank transfer"], ["GCASH", "GCash"]] as const).map(([value, label]) => <Button key={value} variant="outline" aria-disabled={pending} aria-pressed={method === value} onClick={() => navigate({ method: value })} className={method === value ? "border-primary bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90" : "px-3 text-xs"}>{value === "CASH" && <Banknote aria-hidden="true" className="size-3.5" />}{value === "BANK" && <Landmark aria-hidden="true" className="size-3.5" />}{label}</Button>)}
           <Popover open={advancedOpen} onOpenChange={open => { if (!pending) setAdvancedOpen(open); }}>
             <PopoverTrigger asChild><Button variant="outline" aria-disabled={pending} className="px-3 text-xs"><SlidersHorizontal aria-hidden="true" className="size-3.5" />More filters{(filters.reference || filters.collectorId || filters.memberId) && <span className="sr-only"> (active)</span>}</Button></PopoverTrigger>
             <PopoverContent align="end" className="w-[min(340px,calc(100vw-32px))]" aria-label="More payment filters"><h3 className="mb-4 text-sm font-semibold">More filters</h3>
@@ -171,7 +171,7 @@ export function TransactionList({ rows, summary, filters, operators, pagination,
         </nav>
       </div>
     </div>
-    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Full cash collection only. Historical digital records are read-only. Totals show original confirmed collections, before historical corrections or refunds.</p>
+    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Cash and verified Online collection. Payment records remain read-only. Totals show original confirmed collections, before historical corrections or refunds.</p>
     <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
       <SheetContent showCloseButton={false} className="w-full overflow-y-auto border-border sm:max-w-md" onCloseAutoFocus={event => { event.preventDefault(); invoker.current?.focus(); }}>
         <SheetHeader className="border-b border-border pb-5 pr-16"><SheetTitle>Payment details</SheetTitle><SheetDescription>Original confirmed collection · read-only</SheetDescription></SheetHeader>

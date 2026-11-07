@@ -1,5 +1,10 @@
 # Gym CRM release-readiness audit
 
+## Online enrollment scope delta - November 7, 2026
+
+The user approved Cash and collector-verified Online (GCash, GoTyme, MariBank) within enrollment, superseding older cash-only and designated-viewer requirements only there. Other retired workflows remain unavailable. Current executable evidence is in IMPLEMENTATION_STATUS.md; this historical audit is not a rerun. Local synthetic acceptance proves no real bank access, financial procedure, pilot, hosted or live readiness, and does not lift existing release gates.
+
+
 ## Personal QR and attendance implementation (FR-14)
 
 FR-14 attendance implementation remains local/synthetic and separate from financial corrections/refunds (still retired). Attendance correction only changes visit projections and appends audited events. Device, HTTPS, ingress, privacy, training and hosted gates remain open. Consult IMPLEMENTATION_STATUS.md for actual executable evidence.

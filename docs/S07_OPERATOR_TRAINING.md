@@ -1,5 +1,10 @@
 # Current owner and staff guidance
 
+## Enrollment guidance - November 7, 2026
+
+Local synthetic demonstration only. In a member profile, choose an approved fixed-term plan and Continue to payment; preparing a charge grants no access. Choose Cash or Online (GCash, GoTyme, MariBank). Count exact full cash, or personally check full received funds and the transaction reference in the gym receiving account; a sender screenshot alone is insufficient. Enter the amount and Online reference/attestation, review the saved dates, then confirm once. Existing collection permission now covers both methods. On an unknown result, do not collect again or switch methods: reload and retry the original confirmation. Verify the actual receipt, committed paid period and current eligibility. A paid future term starts at its recorded start. This supersedes older cash-only/designated-viewer instructions for enrollment only; other retired procedures remain unavailable. No real training, bank access or live readiness is demonstrated.
+
+
 ## Personal QR and attendance implementation (FR-14)
 
 FR-14 local guidance: confirm current eligibility on the profile, open Personal member QR and issue it without collecting again when already eligible. Download/print only the current code; replacement invalidates old copies. Confirm the presenter. Signed-in member-management staff use Scanner: focus the code field and send Enter from a QR keyboard scanner, or start a permitted camera. Remove codes from view between presentations; repeat scans within eight seconds are ignored across devices. IN goes OUT even after expiry during that Manila day. At midnight an unclosed prior-day visit is Missing checkout, with no invented departure. Filter its arrival date to review it. Correct/void an existing visit only with evidence, reason and current revision; do not invent a missed visit. If not confirmed, retry the same request or inspect history; never guess by rescanning. Stop camera before leaving. Synthetic/browser emulation is not real staff/device rehearsal.

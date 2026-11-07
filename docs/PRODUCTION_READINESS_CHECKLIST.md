@@ -1,5 +1,10 @@
 # Production and pilot readiness checklist
 
+## Online enrollment delta - November 7, 2026
+
+PROJECT restores bounded collector-verified Online enrollment for GCash, GoTyme and MariBank, alongside Cash. Local synthetic checks do not prove access to actual receiving accounts or live financial readiness. Before real collection, separately establish gym account ownership/access, staff verification and duplicate-reference procedures, evidence custody/retention, handling of reversals/disputes outside the retired CRM workflows, training and current hosted/privacy/operations gates. No gateway, live bank access, real-data onboarding or release approval follows this implementation.
+
+
 ## Personal QR and attendance implementation (FR-14)
 
 FR-14 implementation does not lift hosted or physical-device gates. Separately exercise real QR USB input, webcam/mobile permissions and decoding, presenter confirmation, printed/downloaded QR durability, camera cleanup on leave, midnight handoff/missing checkout, audited correction procedure, privacy/retention and reachable phone HTTPS. Current local-only runtime restrictions remain. No physical device or live readiness is certified by synthetic tests.

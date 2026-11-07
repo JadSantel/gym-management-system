@@ -5,6 +5,7 @@ import { parsePesos } from "./money";
 import type { PaidInterval } from "./eligibility";
 import type { Prisma } from "../generated/prisma/client";
 import { issueMemberQr } from "./member-qr";
+import { onlineConfirmationSchema, type OnlineConfirmation } from "./finance-schema";
 
 // Only use after the same-key operation has been serialized/read and before financial writes.
 export class CashConfirmationRejected extends IdentityError {}
@@ -43,15 +44,26 @@ export async function readCharge(headers: Headers, id: string) {
 }
 
 export async function confirmCash(headers: Headers, chargeId: string, received: string, operationKey: string) {
+  return confirmPayment(headers, chargeId, received, operationKey);
+}
+
+export async function confirmOnline(headers: Headers, input: OnlineConfirmation, operationKey: string) {
+  const parsed = onlineConfirmationSchema.safeParse(input);
+  if (!parsed.success) throw new IdentityError(400, "Check the online payment details and verify received funds.");
+  return confirmPayment(headers, parsed.data.chargeId, parsed.data.amount, operationKey, parsed.data);
+}
+
+async function confirmPayment(headers: Headers, chargeId: string, received: string, operationKey: string, online?: OnlineConfirmation) {
   const amount = parsePesos(received);
   if (amount === null) throw new IdentityError(400, "Enter the full cash amount in PHP, with no more than two decimal places.");
-  const fingerprint = createHash("sha256").update(`${chargeId}:${amount}`).digest("hex");
+  const fingerprint = createHash("sha256").update(online ? JSON.stringify([chargeId, amount, online.provider, online.transactionReference]) : `${chargeId}:${amount}`).digest("hex");
+  const operationType = online ? "DIGITAL_CONFIRMATION" : "CASH_CONFIRMATION";
   return inGym(headers, "CASH", async (tx, actor) => {
     const gymId = actor.operator.gymId;
     await tx.$queryRaw`INSERT INTO idempotency_operations (id, gym_id, operation_type, operation_key, request_fingerprint)
-      VALUES (${randomUUID()}::uuid, ${gymId}::uuid, 'CASH_CONFIRMATION', ${operationKey}, ${fingerprint})
+      VALUES (${randomUUID()}::uuid, ${gymId}::uuid, ${operationType}, ${operationKey}, ${fingerprint})
       ON CONFLICT (gym_id, operation_type, operation_key) DO NOTHING`;
-    const operation = await tx.idempotencyOperation.findUniqueOrThrow({ where: { gymId_operationType_operationKey: { gymId, operationType: "CASH_CONFIRMATION", operationKey } } });
+    const operation = await tx.idempotencyOperation.findUniqueOrThrow({ where: { gymId_operationType_operationKey: { gymId, operationType, operationKey } } });
     if (operation.requestFingerprint !== fingerprint) throw new IdentityError(409, "This confirmation key was already used for different payment details.");
     if (operation.paymentId) return readPayment(tx, operation.paymentId);
     if (operation.completedAt) throw new IdentityError(409, "This confirmation is incomplete. Retry with the same key.");
@@ -61,10 +73,13 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
     const members = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM members
       WHERE id = ${charge.memberId}::uuid AND gym_id = ${gymId}::uuid FOR UPDATE`;
     if (!members.length) throw new CashConfirmationRejected(404, "Member unavailable.");
+    if (await tx.payment.findUnique({ where: { chargeId } }) || await tx.digitalClaim.findUnique({ where: { chargeId } })) {
+      throw new CashConfirmationRejected(409, "This charge already has a payment or historical claim. Review its history before collecting again.");
+    }
     await tx.$queryRaw`SELECT id FROM plans WHERE id = ${charge.planId}::uuid AND gym_id = ${gymId}::uuid FOR SHARE`;
     const currentPlan = await tx.plan.findUnique({ where: { id: charge.planId } });
     if (!currentPlan || currentPlan.version !== charge.planVersion || currentPlan.priceCentavos !== charge.priceCentavos || currentPlan.durationDays !== charge.durationDays) {
-      throw new CashConfirmationRejected(409, "The approved price changed. Prepare and review a new charge before collecting cash.");
+      throw new CashConfirmationRejected(409, "The approved price changed. Prepare and review a new charge before collecting funds.");
     }
     if (amount !== charge.priceCentavos) throw new CashConfirmationRejected(400, "The full approved amount must be received before confirming membership. No payment was recorded.");
 
@@ -78,19 +93,37 @@ export async function confirmCash(headers: Headers, chargeId: string, received: 
     }
     const { intendedStart: startsAt, intendedEnd: endsAt } = proposed;
     if (startsAt.getTime() !== charge.intendedStart.getTime() || endsAt.getTime() !== charge.intendedEnd.getTime()) {
-      throw new CashConfirmationRejected(409, "Membership dates changed. Prepare and review a new charge before collecting cash. No payment was recorded.");
+      throw new CashConfirmationRejected(409, "Membership dates changed. Prepare and review a new charge before collecting funds. No payment was recorded.");
     }
     const id = randomUUID();
-    const reference = `CASH-${randomUUID().toUpperCase()}`;
+    let claim: { id: string } | undefined;
+    if (online) {
+      // These labels identify a provider, not bank credentials or a configured payment gateway.
+      const label = `Enrollment: ${online.provider}`;
+      await tx.$executeRaw`INSERT INTO receiving_accounts (id, gym_id, label, method, created_by)
+        VALUES (${randomUUID()}::uuid, ${gymId}::uuid, ${label}, ${online.provider === "GCash" ? "GCASH" : "BANK"}, ${actor.operator.id}::uuid)
+        ON CONFLICT (gym_id, label) DO NOTHING`;
+      const account = await tx.receivingAccount.findUniqueOrThrow({ where: { gymId_label: { gymId, label } } });
+      // Serialize references across members as well as same-member double submissions.
+      await tx.$queryRaw`SELECT true AS locked FROM pg_advisory_xact_lock(hashtextextended(${`${gymId}:${online.provider}:${online.transactionReference}`}, 0))`;
+      if (await tx.digitalClaim.findUnique({ where: { accountId_transactionReference: { accountId: account.id, transactionReference: online.transactionReference } } })) {
+        throw new CashConfirmationRejected(409, "This provider transaction reference is already recorded. Review the original payment.");
+      }
+      claim = await tx.digitalClaim.create({ data: { gymId, chargeId, accountId: account.id, amountCentavos: amount,
+        transactionReference: online.transactionReference, reportedReceivedAt: now, collectedBy: actor.operator.id, enteredAt: now } });
+    }
+    const reference = `${online ? "ONLINE" : "CASH"}-${randomUUID().toUpperCase()}`;
     const payment = await tx.payment.create({ data: {
       id, gymId, memberId: charge.memberId, chargeId, reference, amountCentavos: amount,
       collectedBy: actor.operator.id, collectedAt: now, verifiedBy: actor.operator.id, verifiedAt: now,
+      ...(online ? { method: online.provider === "GCash" ? "GCASH" : "BANK", enteredAt: now } : {}),
     } });
+    if (online && claim) await tx.digitalSettlement.create({ data: { gymId, claimId: claim.id, paymentId: id, evidenceReference: online.transactionReference, accountMatched: true } });
     const period = await tx.membershipPeriod.create({ data: { gymId, memberId: charge.memberId, paymentId: id, confirmedBy: actor.operator.id, startsAt, endsAt } });
     await tx.effectiveEntitlement.create({ data: { gymId, memberId: charge.memberId, periodId: period.id, startsAt, endsAt } });
     if (startsAt <= now && now < endsAt) await issueMemberQr(tx, actor.operator, charge.memberId, now);
     const receipt = await tx.paymentReceipt.create({ data: { gymId, paymentId: id, reference: `RECEIPT-${randomUUID().toUpperCase()}` } });
-    await tx.identityAudit.create({ data: { gymId, initiatorId: actor.operator.userId, subjectId: id, action: "CASH_PAYMENT_CONFIRMED" } });
+    await tx.identityAudit.create({ data: { gymId, initiatorId: actor.operator.userId, subjectId: id, action: online ? "ONLINE_PAYMENT_CONFIRMED" : "CASH_PAYMENT_CONFIRMED" } });
     await tx.idempotencyOperation.update({ where: { id: operation.id }, data: { paymentId: id, completedAt: now } });
     return { payment, period, receipt };
   });
