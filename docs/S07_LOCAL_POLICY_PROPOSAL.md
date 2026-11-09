@@ -1,6 +1,6 @@
 # S-07 local legacy and measurement protocol proposal
 
-**Current status: HISTORICAL; REVISE BEFORE ANY PILOT (2026-11-01).** O-09 measures and fixtures below assumed digital collections, Exceptions, outage receipts/custody and closing, now retired. Do not use them as current pilot procedures or infer an external emergency process. The prior decisions and synthetic evidence remain preserved; a revised cash-only protocol requires separate review before a pilot.
+**Current status: HISTORICAL; no new legacy entry/review (2026-11-09).** FR-11/O-08 legacy evidence mutations are retired. Existing records remain read-only, and previously approved intervals remain effective through their recorded ends. O-09 measures and fixtures below assumed digital collections, Exceptions, outage receipts/custody and closing, now retired. Do not use them as current pilot procedures or infer an external emergency process. The prior decisions and synthetic evidence remain preserved; a revised cash-only protocol requires separate review before a pilot.
 
 **Historical status: APPROVED for local synthetic S-07.** October 26, 2026 (Asia/Manila).
 The user answered: "Approve both local decisions as written" to the combined
@@ -10,6 +10,11 @@ AC-11a–c, AC-12a–c and UX-12. Neither this document nor silence approves pol
 The two decisions below resolve local design only. Named live participants,
 baseline/trial dates, operational evidence custody, retention, real training,
 pilot launch and operational sign-off remain separate gates.
+
+**Retirement update (2026-11-09):** New FR-11/O-08 legacy entry and review are
+retired. Existing legacy records remain read-only, and previously approved
+intervals remain effective through their recorded ends. The approval below is
+historical context and does not authorize new writes.
 
 Controlling gates: [PROJECT §9 O-08 and O-09](PROJECT.md#9-decision-register-and-implementation-gates).
 

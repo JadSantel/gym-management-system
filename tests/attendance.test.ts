@@ -13,9 +13,8 @@ import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
 import { attendanceHistory, correctVisit, memberQr, scanAttendance } from "../src/lib/attendance";
-import { attendanceQuerySchema, correctionSchema, dayStart, manilaDay, scanSchema } from "../src/lib/attendance-schema";
+import { attendanceQuerySchema, correctionSchema, dayStart, manilaDay, manilaMonthRange, scanSchema } from "../src/lib/attendance-schema";
 import { inGym } from "../src/lib/tenant";
-import { legacyCommand } from "../src/lib/legacy";
 import { acceptCameraRead, type CameraGate } from "../src/lib/camera-gate";
 import { POST as scanPost } from "../src/app/api/attendance/scan/route";
 import { GET as historyGet, POST as correctionPost } from "../src/app/api/attendance/route";
@@ -40,6 +39,10 @@ test("FR-14 strict attendance boundaries and Manila-day derivation", () => {
   acceptCameraRead(gate, null, 11000); acceptCameraRead(gate, null, 11500); assert.equal(acceptCameraRead(gate, "first", 11501), true);
   assert.equal(acceptCameraRead(gate, "second", 11502), true);
   assert.equal(manilaDay(new Date("2026-11-02T15:59:59.999Z")), "2026-11-02"); assert.equal(manilaDay(new Date("2026-11-02T16:00:00Z")), "2026-11-03");
+  const november = manilaMonthRange(new Date("2026-10-31T16:00:00Z"));
+  assert.deepEqual([november.start.toISOString(), november.end.toISOString()], ["2026-10-31T16:00:00.000Z", "2026-11-30T16:00:00.000Z"]);
+  const january = manilaMonthRange(new Date("2026-12-31T16:00:00Z"));
+  assert.deepEqual([january.start.toISOString(), january.end.toISOString()], ["2026-12-31T16:00:00.000Z", "2027-01-31T16:00:00.000Z"]);
   for (const value of [{ code: "bad", requestId: randomUUID() }, { code: "a".repeat(43), requestId: randomUUID(), gymId: randomUUID() }, { code: "a".repeat(43), requestId: randomUUID(), now: new Date() }]) assert.equal(scanSchema.safeParse(value).success, false);
   assert.equal(attendanceQuerySchema.safeParse({ from: ["2026-11-02", "2026-11-03"] }).success, false);
   assert.equal(correctionSchema.safeParse({ action: "create", requestId: randomUUID() }).success, false);
@@ -85,11 +88,18 @@ test("FR-14 restricted-role QR, scans, midnight, corrections and permission acce
     assert.deepEqual(await scan(a.qr.code, now.getTime() + 32000, key), original);
   });
   await t.test("exact expiry blocks arrival but permits departure for an existing visit", async () => {
-    // Ordinary paid terms expire at Manila midnight, which instead triggers Missing checkout.
-    // A reviewed historical interval can end during a day and exercises departure after expiry.
+    // Ordinary paid terms expire at Manila midnight. A retained historical entitlement may have an exact midday end.
     const member = await createMember(owner, { fullName: `Midday Expiry ${suffix}` }), end = now.getTime() + 60000;
-    const proposal = await legacyCommand(owner, { action: "prepare", memberId: member.id, previousId: null, sourceReference: `ATTENDANCE-${suffix}`, sourceType: "GYM_REGISTER", corroboratingReference: `ATTENDANCE-CARD-${suffix}`, interpretation: "INSTANTS", claimedStart: new Date(now.getTime()-86400000).toISOString(), claimedEnd: new Date(end).toISOString(), uncertainty: "CERTAIN", notes: "Synthetic expiry boundary fixture." }, randomUUID());
-    await legacyCommand(owner, { action: "review", proposalId: proposal.id, decision: "APPROVE", independentlyChecked: true, notes: "Synthetic references reviewed." }, randomUUID());
+    const actor = await admin.operator.findFirstOrThrow({ where: { gymId: gyms[0], role: "OWNER" } });
+    const startsAt = new Date(now.getTime() - 86400_000), endsAt = new Date(end);
+    await admin.$transaction(async tx => {
+      const proposal = await tx.legacyRecord.create({ data: { gymId: gyms[0], memberId: member.id, kind: "PREPARE", sourceReference: `ATTENDANCE-${suffix}`,
+        sourceType: "GYM_REGISTER", corroboratingReference: `ATTENDANCE-CARD-${suffix}`, interpretation: "INSTANTS", claimedStart: startsAt.toISOString(), claimedEnd: endsAt.toISOString(),
+        startsAt, endsAt, uncertainty: "CERTAIN", notes: "Synthetic retained interval fixture.", actorId: actor.id, operationKey: randomUUID(), fingerprint: "a".repeat(64) } });
+      const approval = await tx.legacyRecord.create({ data: { ...proposal, id: randomUUID(), kind: "APPROVE", proposalId: proposal.id, actorId: actor.id,
+        notes: "Synthetic historical entitlement preserved for eligibility testing.", operationKey: randomUUID(), fingerprint: "b".repeat(64), createdAt: new Date() } });
+      await tx.effectiveEntitlement.create({ data: { gymId: gyms[0], memberId: member.id, legacyRecordId: approval.id, startsAt, endsAt } });
+    });
     const qr = await memberQr(owner, member.id, { action: "issue", requestId: randomUUID() }); assert.ok(qr);
     assert.equal((await scan(qr.code, end - 1)).status, "IN");
     assert.equal((await scan(qr.code, end + 7999)).status, "OUT");

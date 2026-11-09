@@ -12,7 +12,6 @@ import { db } from "../src/lib/db";
 import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
-import { legacyCommand } from "../src/lib/legacy";
 assertSynthetic();
 for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL"]) {
   const url = new URL(process.env[key]!);
@@ -80,6 +79,7 @@ try {
   assert.equal(response.status, 200);
   const owner = new Headers({ cookie: response.headers.getSetCookie().map(cookie => cookie.split(";")[0]).join("; ") });
   await reauthenticate(owner, password);
+  const operator = await admin.operator.findFirstOrThrow({ where: { gymId, role: "OWNER" } });
   const plans = await changePlans(owner, { action: "initialize" });
   const monthly = plans.find(plan => plan.durationDays === 30)!;
   const fixture = [];
@@ -92,12 +92,15 @@ try {
   await confirmCash(owner, next.id, "800.00", randomUUID());
   for (const [name, daysLeft] of [["Z Expiring Member", 3], ["Z Expired Member", -1]] as const) {
     const member = await createMember(owner, { fullName: name });
-    const proposal = await legacyCommand(owner, { action: "prepare", memberId: member.id, previousId: null,
-      sourceReference: `SYNTHETIC-${name.replaceAll(" ", "-")}-${suffix}`, sourceType: "GYM_REGISTER",
-      corroboratingReference: `SYNTHETIC-CARD-${daysLeft}-${suffix}`, interpretation: "INSTANTS",
-      claimedStart: new Date(Date.now() - 30 * 86_400_000).toISOString(), claimedEnd: new Date(Date.now() + daysLeft * 86_400_000).toISOString(),
-      uncertainty: "CERTAIN", notes: "Synthetic Members UI fixture only." }, randomUUID());
-    await legacyCommand(owner, { action: "review", proposalId: proposal.id, decision: "APPROVE", independentlyChecked: true, notes: "Synthetic fixture references checked." }, randomUUID());
+    const startsAt = new Date(Date.now() - 30 * 86_400_000), endsAt = new Date(Date.now() + daysLeft * 86_400_000);
+    await admin.$transaction(async tx => {
+      const proposal = await tx.legacyRecord.create({ data: { gymId, memberId: member.id, kind: "PREPARE", sourceReference: `SYNTHETIC-${name.replaceAll(" ", "-")}-${suffix}`, sourceType: "GYM_REGISTER",
+        corroboratingReference: `SYNTHETIC-CARD-${daysLeft}-${suffix}`, interpretation: "INSTANTS", claimedStart: startsAt.toISOString(), claimedEnd: endsAt.toISOString(),
+        startsAt, endsAt, uncertainty: "CERTAIN", notes: "Synthetic retained history fixture only.", actorId: operator.id, operationKey: randomUUID(), fingerprint: "a".repeat(64) } });
+      const approval = await tx.legacyRecord.create({ data: { ...proposal, id: randomUUID(), kind: "APPROVE", proposalId: proposal.id,
+        notes: "Synthetic approved legacy fixture retained for UI coverage.", operationKey: randomUUID(), fingerprint: "b".repeat(64), createdAt: new Date() } });
+      await tx.effectiveEntitlement.create({ data: { gymId, memberId: member.id, legacyRecordId: approval.id, startsAt, endsAt } });
+    });
   }
   await inviteStaff(owner, { name: "Prototype Staff", username: `prototype_${suffix}`, email: `prototype-staff-${suffix}@example.test` }, sender);
   await completeSetup(token, password);
@@ -180,7 +183,7 @@ try {
       browser("open", `${origin}${path}`); browser("wait", "--fn", "document.fonts.status === 'loaded'");
       browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
       assert.equal(evaluate("document.documentElement.classList.contains('dark')"), theme === "dark");
-      if (name === "profile") assert.equal(evaluate("Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Renew membership')?.disabled && [...document.querySelectorAll('#membership-payment input[name=planId]')].every(input => input.disabled)"), true);
+      if (name === "profile") assert.equal(evaluate("!!document.getElementById('renewal-blocked') && !document.getElementById('membership-payment')"), true);
       if (name === "payment") browser("wait", "--fn", "document.activeElement?.id === 'charge-title'");
       for (const [device, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 1024], ["phone", 375, 812]] as const) {
         browser("set", "viewport", String(width), String(height)); audit(`${theme} ${name} ${device}`);
@@ -243,7 +246,7 @@ try {
   browser("fill", "#search-name", newName); click("Refresh members"); text(newName);
   browser("click", `main a[href="/members/${created.id}"]`); text("Member profile"); text(newName);
   assert.equal(evaluate("document.querySelector('main').innerText.includes('Not eligible')"), true);
-  click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
+  click("Record payment"); click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00");
   click("Review cash payment"); text("Confirm only after receiving the full cash amount.");
   assert.equal(await admin.payment.count({ where: { memberId: created.id } }), 0, "Review creates no payment");
   click("Confirm full cash"); text("Full cash payment confirmed");
@@ -419,7 +422,7 @@ try {
   assert.equal(evaluate(`fetch('/api/charges', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({memberId:'${fixture[0].id}',planId:'${monthly.id}'})}).then(response=>response.status)`), 403);
   await reauthenticate(owner, password);
   await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: true });
-  browser("reload"); text("Continue to payment"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
+  browser("reload"); text("Continue to payment"); click("Close membership payment"); click("Toggle Sidebar"); browser("wait", '[role="dialog"]');
   assert.equal(evaluate("!!document.querySelector('nav[aria-label=\"Main navigation\"] a[href=\"/members#search-name\"]')"), true);
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   await setCapabilities(owner, staff.id, { canManageMembers: false, canCollectCash: true });

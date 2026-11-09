@@ -149,7 +149,7 @@ This is **not** a claim that software alone prevents unrecorded cash. The pilot 
 | BR-15 | Owner-controlled correction/refund workflows are retired. Existing original and linked records are preserved read-only. | Historical authority policy; superseded 2026-11-01 |
 | BR-16 | Outage custody/count/handover workflows are retired. Existing custody records remain preserved read-only. | Historical policy; superseded 2026-11-01 |
 | BR-17 | In-app daily reconciliation and closing approval are retired. Existing closing records remain preserved read-only. | Historical policy; superseded 2026-11-01 |
-| BR-18 | MVP uses simple time-based plans and owner-controlled prices; existing member records are migrated only after verification. Unsupported/uncertain historical payments remain flagged, not invented. | Agreed product boundary |
+| BR-18 | MVP uses simple time-based plans and owner-controlled prices. Historical migration entry/review was retired 2026-11-09; existing records remain read-only, previously approved intervals remain effective through their recorded end, and unsupported/uncertain payment facts are never invented. | Agreed pricing boundary; migration clause superseded |
 | BR-19 | New missing-payment investigations and recovery are retired. Historical case records and original financial links remain read-only. | Historical exception policy; superseded 2026-11-01 |
 
 ### 6.1a Approved policy clarifications (2026-10-23; date rules superseded 2026-10-24)
@@ -337,7 +337,7 @@ The 2026-11-01 user-approved scope revision supersedes O-02 through O-06 for cur
 | O-05 | **Design resolved October 25, 2026:** staff investigate/escalate; owner alone approves and executes recovery with independently corroborated actual collection and verified original cash dates. | Named live investigators/account authorities and backups, secure evidence access/handling/retention SOP need pilot approval. | Design approved; live operations blocked |
 | O-06 | Local numbering/custody/independent verification and every-shift signed handovers approved October 25, 2026 in the outage SOP. No new daily closing cutoff or automatic write-off. | Live booklet control, named operators/backups, evidence custody/retention and operational coverage remain required. | Local design resolved / live P1 |
 | O-07 | **Resolved 2026-10-24:** Monthly ₱800/30 elapsed days, 3 Months ₱2,100/90 elapsed days, 6 Months ₱4,000/180 elapsed days. | User approved initial prices/fixed durations; later prices owner-only with historical snapshots. Other variants/discounts unsupported. | Resolved |
-| O-08 | Migration acceptance: who verifies historical expiration, how to handle contradictory evidence or legacy unpaid balances, and cutoff for pilot metrics. | Owner sign-off on imported entitlements; unresolved legacy records are flagged and excluded from new-payment metrics until resolved. | P1 |
+| O-08 | **HISTORICAL; SUPERSEDED 2026-11-09.** Existing source references, decisions, uncertainty, and pilot cutoffs are preserved. | New legacy entry/review retired; approved intervals remain effective through their recorded end. No live migration is authorized. | Historical records read-only |
 | O-09 | Pilot definition and measurement: participating gyms, baseline dates, trial duration, outages and partial days, independent evidence, collection timestamp, and denominators/verification for approved adoption measures. | Define pilot protocol and track **time of collection**, **receipt issuance**, **CRM entry**, and **verification** separately; define point-of-collection entry, shift adoption, and unapproved parallel-recordkeeping observations. | P1 |
 
 Current cash-only late renewal uses the confirmed cash-payment date and preserves actual collection, entry, and verification timestamps. The prior recovery, cross-date digital, outage, exception, and closing gates are historical and do not define current journeys. The one-queued-term rule remains current. Live data stewardship, retention, backup/restore, and a revised O-09 remain open gates.
@@ -396,7 +396,7 @@ No pilot is authorized until revised O-09 and all launch gates are accepted. Any
 
 ## Appendix B — Relationship to `PROJECT.md` and readiness gates
 
-**S-07 local design approval, October 26, 2026:** The user approved both decisions
+**S-07 local design approval, October 26, 2026 (historical):** The user approved both decisions
 in [the legacy/measurement protocol](S07_LOCAL_POLICY_PROPOSAL.md). Member-capable
 operators prepare historical evidence; a freshly reauthenticated owner independently
 checks original gym evidence and separate corroboration before exact-interval
@@ -409,10 +409,13 @@ times, incidents, active-time, eligibility samples and adoption coverage. UNKNOW
 and zero-denominator results are explicit. Synthetic exercises prove neither live
 baseline nor improvement. Named live participants, actual baseline/trial dates,
 source custody/retention, real training and pilot sign-off remain separate gates.
+The O-08 legacy entry/review workflow was retired 2026-11-09. Existing historical
+records remain read-only, and already-approved intervals remain effective through
+their recorded ends; the earlier design approval does not authorize new writes.
 
 [PROJECT.md](PROJECT.md) is the **source of truth** for current MVP requirements, implementation slices, acceptance criteria, and decision gates. This document supplies aligned product context and policy references. Record approved changes in PROJECT.md first, then synchronize the affected BR/D/O entries, workflows, glossary, and pilot measures here.
 
-The approved 2026-11-01 scope retires O-02 through O-06 actions; their prior SOP details are historical rather than live enablement gates. Current implementation may use synthetic data for cash collection, history, and eligibility. O-08 source verification, revised O-09 cash-only measurement, live data stewardship, and hosting/recovery readiness remain separate gates. Fixed 30/90/180-day terms and cash-payment-date start rules remain current; do not invent an outside-CRM emergency process.
+The approved 2026-11-01 scope retires O-02 through O-06 actions; the 2026-11-09 revision retires new O-08 legacy entry/review. Prior SOPs and evidence remain historical. Current implementation may use synthetic data for supported collection, history, and eligibility. Revised O-09 cash-only measurement, live data stewardship, and hosting/recovery readiness remain separate gates. Fixed 30/90/180-day terms and supported payment-date start rules remain current; do not invent an outside-CRM emergency process.
 
 ## Appendix C — Historical approved exception scenarios and authority (superseded 2026-11-01)
 

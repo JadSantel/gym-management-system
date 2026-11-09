@@ -12,7 +12,6 @@ import { bootstrapSyntheticOwner, completeSetup, reauthenticate, inviteStaff, se
 import { createMember } from "../src/lib/members";
 import { changePlans } from "../src/lib/plans";
 import { prepareCharge, confirmCash } from "../src/lib/charges";
-import { legacyCommand } from "../src/lib/legacy";
 import { attendanceHistory, memberQr, scanAttendance } from "../src/lib/attendance";
 import { dayStart, manilaDay } from "../src/lib/attendance-schema";
 assertSynthetic();
@@ -58,8 +57,10 @@ try{
  await admin.rateLimit.deleteMany(); const gymId=randomUUID();await bootstrapSyntheticOwner({gymId,gymName:"Synthetic Attendance Gym",name:"Attendance Reviewer",email},sender,admin);await completeSetup(token,password);
  const login=await auth.handler(new Request(origin+"/api/auth/sign-in/email",{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify({email,password})}));assert.equal(login.status,200);
  const owner=new Headers({cookie:login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ")});await reauthenticate(owner,password);
+ const operator=await admin.operator.findFirstOrThrow({where:{gymId,role:"OWNER"}});
  const plans=await changePlans(owner,{action:"initialize"}),plan=plans.find(p=>p.durationDays===30)!;
  async function paid(name:string){const member=await createMember(owner,{fullName:name});const charge=await prepareCharge(owner,member.id,plan.id);await confirmCash(owner,charge.id,"800.00",randomUUID());return member;}
+ async function seedHistoricalInterval(memberId:string,start:Date,end:Date){await admin.$transaction(async tx=>{const proposal=await tx.legacyRecord.create({data:{gymId,memberId,kind:"PREPARE",sourceReference:`ATTENDANCE-UI-${randomUUID()}`,sourceType:"GYM_REGISTER",corroboratingReference:`ATTENDANCE-UI-CARD-${randomUUID()}`,interpretation:"INSTANTS",claimedStart:start.toISOString(),claimedEnd:end.toISOString(),startsAt:start,endsAt:end,uncertainty:"CERTAIN",notes:"Synthetic retained interval fixture.",actorId:operator.id,operationKey:randomUUID(),fingerprint:"a".repeat(64)}});const approval=await tx.legacyRecord.create({data:{...proposal,id:randomUUID(),kind:"APPROVE",proposalId:proposal.id,notes:"Synthetic approved legacy fixture retained for browser coverage.",operationKey:randomUUID(),fingerprint:"b".repeat(64),createdAt:new Date()}});await tx.effectiveEntitlement.create({data:{gymId,memberId,legacyRecordId:approval.id,startsAt:start,endsAt:end}});});}
  const keyboard=await paid("Synthetic Keyboard Member"), camera=await paid("Synthetic Camera Member");
  const keyboardQr=await memberQr(owner,keyboard.id,{action:"issue",requestId:randomUUID()});await memberQr(owner,camera.id,{action:"issue",requestId:randomUUID()});
  // Deterministic synthetic regression: this valid pattern defeats ZXing's default perspective detector.
@@ -68,8 +69,7 @@ try{
  await admin.memberQr.updateMany({where:{memberId:camera.id,revokedAt:null},data:{code:decoderRegressionCode}});
  const cameraQr=await memberQr(owner,camera.id);assert.ok(keyboardQr);assert.ok(cameraQr);
  const missing=await createMember(owner,{fullName:"Synthetic Missing Checkout"});const old=new Date(Date.now()-86400000);
- const proposal=await legacyCommand(owner,{action:"prepare",memberId:missing.id,previousId:null,sourceReference:`ATTENDANCE-UI-${suffix}`,sourceType:"GYM_REGISTER",corroboratingReference:`ATTENDANCE-UI-CARD-${suffix}`,interpretation:"INSTANTS",claimedStart:new Date(Date.now()-2*86400000).toISOString(),claimedEnd:new Date(Date.now()+86400000).toISOString(),uncertainty:"CERTAIN",notes:"Synthetic missing-checkout fixture."},randomUUID());
- await legacyCommand(owner,{action:"review",proposalId:proposal.id,decision:"APPROVE",independentlyChecked:true,notes:"Synthetic references reviewed."},randomUUID());const missingQr=await memberQr(owner,missing.id,{action:"issue",requestId:randomUUID()});assert.ok(missingQr);await scanAttendance(owner,{code:missingQr.code,requestId:randomUUID()},()=>old);
+ await seedHistoricalInterval(missing.id,new Date(Date.now()-2*86400000),new Date(Date.now()+86400000));const missingQr=await memberQr(owner,missing.id,{action:"issue",requestId:randomUUID()});assert.ok(missingQr);await scanAttendance(owner,{code:missingQr.code,requestId:randomUUID()},()=>old);
  assert.equal((await fetch(origin+"/api/attendance")).status,401);
  assert.equal((await fetch(origin+`/api/members/${keyboard.id}/qr`)).status,401);
  open(origin+"/login");browser("fill","#identifier",email);browser("fill","#password",password);click("Sign in");text("Welcome, Attendance Reviewer");
@@ -120,8 +120,8 @@ try{
  browser("set","viewport","320","900");audit("320px correction form");browser("set","viewport","375","900");
  const visit=await admin.attendanceVisit.findFirstOrThrow({where:{memberId:keyboard.id}});browser("select",`#action-${visit.id}`,"void");browser("fill",`#reason-${visit.id}`,"Synthetic accidental visit reviewed");click("Save audited change");text("Voided");assert.equal((await admin.attendanceVisit.findUniqueOrThrow({where:{id:visit.id}})).voided,true);evaluate("[...document.querySelectorAll('summary')].find(e=>e.textContent==='Original events and changes').scrollIntoView({block:'center'});true");browser("find","text","Original events and changes","click","--exact");text("Synthetic accidental visit reviewed");audit("audited void");capture("dark-correction-phone");
  open(`${origin}/members/${keyboard.id}/qr`);assert.equal(evaluate("document.querySelector('a[download]').getAttribute('download')"),"personal-member-qr.png");assert.equal(evaluate("document.querySelector('a[download]').href===document.querySelector('img[alt=\"Personal member QR\"]').src"),true);
- evaluate("window.attendancePrintCount=0;window.print=()=>{window.attendancePrintCount++};true");click("Print personal QR");assert.equal(evaluate("attendancePrintCount"),1);
- click("Replace personal QR");text("The previous code is now invalid.");const oldResponse=await fetch(origin+"/api/attendance/scan",{method:"POST",headers:{origin,"content-type":"application/json",cookie:owner.get("cookie")!},body:JSON.stringify({code:keyboardQr.code,requestId:randomUUID()})});assert.equal((await oldResponse.json()).status,"DENIED");
+ assert.equal(evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent==='Print personal QR')"),false);
+ click("Replace personal QR");click("Replace QR");text("The previous code is now invalid.");const oldResponse=await fetch(origin+"/api/attendance/scan",{method:"POST",headers:{origin,"content-type":"application/json",cookie:owner.get("cookie")!},body:JSON.stringify({code:keyboardQr.code,requestId:randomUUID()})});assert.equal((await oldResponse.json()).status,"DENIED");
  open(origin+"/attendance/scanner");browser("fill","#attendance-code",keyboardQr.code);browser("press","Enter");text("DENIED:");audit("revoked QR feedback");capture("dark-scan-denied-phone");
  open(historyUrl+"&member=No+matching+synthetic+member");text("No visits match these filters.");audit("empty history");evaluate("document.querySelector('[role=search]').scrollIntoView({block:'start'});true");capture("dark-history-empty-phone");
  // More than one page of real tenant-scoped visits; deterministic recorded intervals.

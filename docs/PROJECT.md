@@ -11,7 +11,7 @@ FR-02/03/04/05/06, AC-01/04/05/06, UX-04/07/08: redesign membership assignment a
 **Date:** 2026-11-06 (user-approved password during member registration; earlier approval dates remain recorded with each decision)
 **Authority:** This document is the source of truth for current MVP requirements, approved behavior, and implementation gates. [product.md](product.md) provides aligned product context and policy references.  
 **Accountable product owner:** To assign. Pilot gym owners and operational reviewers: to assign.  
-**Implementation status:** S-01-S-03, supported S-04 paths, S-05, S-06 and S-07 have historical local synthetic evidence. On 2026-11-01 the user approved retiring new use of digital collections, Exceptions/investigations/corrections/refunds, outage receipts/custody, and daily closing. Those workflows and their mutation APIs are retired; existing records and links remain preserved for audit and relevant history. Ordinary full-cash collection, receipt retrieval, paid periods and eligibility remain supported. This scope is locally implemented and database/API checked; the configured visual browser matrix could not start in this environment. No historical schema or migration was removed. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact evidence and remaining gates; this specification does not certify release readiness.
+**Implementation status:** S-01-S-03, supported S-04 paths, S-05, S-06 and S-07 have historical local synthetic evidence. On 2026-11-01 the user approved retiring new use of digital claims, Exceptions/investigations/corrections/refunds, outage receipts/custody, and daily closing. On 2026-11-09, new FR-11 legacy evidence entry/review was also retired. These mutation workflows are unavailable; existing records and links remain preserved for audit and relevant history, and previously approved legacy intervals remain effective through their recorded ends. Full-cash and approved Online collection, receipt retrieval, paid periods and eligibility remain supported. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact evidence and remaining gates; this specification does not certify release readiness.
 
 ## 1. Authority, outcome, and interpretation
 
@@ -19,7 +19,7 @@ Deliver a focused operational system for independent gyms serving approximately 
 
 ### Approved scope revision — 2026-11-01
 
-The user approved cash-only ordinary collection and retirement of the four named workflows. This supersedes active use of FR-04 and FR-07 through FR-10, the related S-03 through S-06 operator workflows, and the prior local synthetic policy decisions for those workflows. Their identifiers, accepted decisions, SOPs, schema, and records remain as historical context; no existing financial or operational record may be deleted or rewritten. New writes and edits through retired APIs must be rejected. No emergency procedure outside the CRM is implied or approved here. Any such procedure requires a separate operational decision. Historical payment methods and member/payment links remain visible for audit.
+The user approved retirement of digital claims, Exceptions, outage receipts/custody, and daily closing on 2026-11-01; the November 7 revision enables bounded Online confirmations; the November 9 revision retires new FR-11 legacy entry/review. This supersedes active use of FR-04 and FR-07 through FR-11 and the related legacy, investigation, outage, and closing mutation workflows. Their identifiers, accepted decisions, SOPs, schema, and records remain as historical context; no existing financial or operational record may be deleted or rewritten. New writes and edits through retired APIs must be rejected. Previously approved historical entitlements remain effective through their recorded end. No emergency procedure outside the CRM is implied or approved here. Any such procedure requires a separate operational decision. Historical payment methods and member/payment links remain visible for audit.
 
 ### Approved registration and attendance extension — 2026-11-02
 
@@ -58,7 +58,7 @@ BR, PR, D, and O identifiers refer to `product.md`. US, FR, AC, and S identifier
 | Full-payment collection | Full cash only; retrievable receipt/reference | FR-03 |
 | Membership lifecycle | Approved fixed 30/90/180-day periods, advance and late renewal, reliable eligibility check | FR-05, FR-06 |
 | Historical financial/operational evidence | Preserve existing digital, investigation/correction/refund, outage/custody, and closing records and their member/payment links; show relevant history read-only | Retired FR-04, FR-07–10 |
-| Verified migration | Traceable historical entitlements and unresolved legacy flags | FR-11 |
+| Verified migration | Retired 2026-11-09; preserve existing records and previously approved entitlement intervals read-only | FR-11 |
 | Pilot evidence | Future cash-only collection, receipt/history and eligibility measures; revise O-09 before use | FR-12 |
 
 **O-07 approved by the user on 2026-10-24:** Monthly — **₱800 / 30 elapsed days**; 3 Months — **₱2,100 / 90 elapsed days**; 6 Months — **₱4,000 / 180 elapsed days**. Each day is exactly 24 hours; none uses calendar-month arithmetic. These initial catalogue prices remain owner-controlled for later changes, preserving historical snapshots. No other duration, promotion, discount, guest pass, or grandfathered contract is approved.
@@ -93,7 +93,7 @@ The 2026-11-01 retirement is a user-approved scope revision. Do not re-enable re
 | US-08 | Retired 2026-11-01: corrections/refunds are no longer supported; original and linked historical records remain readable. | Historical FR-08; mutation denied | BR-09, BR-15 remain historical context |
 | US-09 | Retired 2026-11-01: outage receipt/custody workflow is no longer supported; existing records remain preserved. | Historical FR-09; mutation denied | BR-10–11, BR-16 remain historical context |
 | US-10 | Retired 2026-11-01: in-app daily closing is no longer supported; existing closing records remain preserved. | Historical FR-10; mutation denied | BR-17; PR-06; Appendix C remain historical context |
-| US-11 | As a pilot owner, I can approve verified historical access and isolate uncertain legacy records without fabricating payments or balances. | FR-11; AC-11a–c | BR-18; O-08 |
+| US-11 | Retired 2026-11-09: new historical evidence entry and review are unavailable; existing records remain readable and approved intervals remain effective until their recorded end. | Historical FR-11; mutation denied | BR-18; O-08 remain historical context |
 | US-12 | Future pilot reviewers can measure cash collection accuracy, receipt/history retrieval, recording delay, and eligibility under revised O-09. | FR-12; AC-12a–c | Sections 7, 10; O-09 |
 
 Gym members benefit from accurate dates and retrievable payment confirmation. They do not require an application login in this MVP.
@@ -112,7 +112,7 @@ Owner and staff are the two product roles. Staff capabilities below are explicit
 | Create or alter investigation/correction/refund records | No | No | Retired 2026-11-01; preserved historical records are read-only |
 | Create or alter outage receipt, custody, or provisional access records | No | No | Retired 2026-11-01; preserved historical records are read-only |
 | Create or alter daily closing records or approvals | No | No | Retired 2026-11-01; preserved historical records are read-only |
-| Approve imported historical entitlement | Proposed owner sign-off | May prepare records; no approval by default | Conditional on O-08 |
+| Enter or approve imported historical entitlement | No | No | Retired 2026-11-09; route and runtime database inserts denied; retained records are read-only and existing approved intervals remain effective through their recorded end |
 | Assign/revoke operator capabilities | Proposed owner-only administration | No | Implementation control; validate pilot responsibility |
 | Silently overwrite/delete confirmed financial or retained operational history | No | No | Original records and historical links remain preserved |
 
@@ -212,15 +212,15 @@ The CRM no longer supports daily reconciliation, closing snapshots/supplements, 
 - **AC-10a:** Former closing mutation routes/APIs reject requests without database changes.
 - **AC-10b:** Existing closing records remain preserved and are not represented as a current reconciliation result.
 
-### FR-11 — Verified legacy onboarding
+### FR-11 — Verified legacy onboarding (RETIRED 2026-11-09)
 
-**Classification:** Policy for verified migration; conditional acceptance/sign-off details. **Sources:** BR-18; O-08; Section 9 risks.
+**Classification:** Historical migration policy; retired by user authorization on 2026-11-09. **Sources:** BR-18; O-08; Section 9 risks.
 
-Support a small pilot's verified historical member entitlements, whether by reviewed manual entry or a minimal import; a general import engine is not required. Keep source reference, verifier/sign-off, dates, and unresolved issues. Historical entitlement evidence is distinguishable from a newly collected payment; never manufacture a collection merely to satisfy a current-payment workflow.
+No new legacy proposals, reviews, decisions, or entitlements may be entered. Preserve all existing legacy records and decisions as read-only history. Previously approved historical intervals continue to determine eligibility over their exact recorded `[startsAt, endsAt)` interval; retirement does not revoke or rewrite them. New eligibility must come from supported confirmed payments. Historical records remain distinct from new collections, and no payment, receipt, or balance is fabricated.
 
-- **AC-11a:** Given independently verified historical access and the approved migration authority, then the member receives the reviewed historical interval with provenance, not a fabricated new transaction or collection date.
-- **AC-11b:** Given contradictory expiry evidence, unsupported historical payment, or legacy unpaid balance, then flag it for review without inventing funds, normal eligibility, or an installment balance. Other independently verified entitlement remains assessable.
-- **AC-11c:** Given imported records in pilot reports, then historical records and unresolved legacy exceptions are distinguishable from new pilot collections under the approved measurement cutoff.
+- **AC-11a:** Legacy entry/review API methods return HTTP 410 and the runtime database role cannot insert `legacy_records`; these denials create no record or entitlement.
+- **AC-11b:** Existing approved intervals remain eligible only during their recorded half-open interval; existing uncertain or unresolved records grant no access. All retained legacy records and decisions remain immutable and readable.
+- **AC-11c:** Existing historical records remain distinguishable from current payments and remain excluded from new-collection counts. No new legacy records can be added through the CRM.
 
 ### FR-12 — Cash-only pilot measurement and operational evidence
 
@@ -306,7 +306,7 @@ Each slice delivers a demonstrable operator journey across interface, authorizat
 | S-04 — Evidence-backed discrepancy resolution | **RETIRED 2026-11-01.** Historical local acceptance only; no current investigation/recovery/correction/refund writes. | Historical S-01–03 | Current acceptance is retired-route/API denial plus retained read-only history | O-03/O-05 decisions remain historical context; preserve records |
 | S-05 — Recover an outage shift | **RETIRED 2026-11-01.** Historical local acceptance only; no CRM outage/custody/provisional visit writes. | Historical S-01–04 | Current acceptance is retired-route/API denial plus preserved history | O-02/O-06 and the S-05 SOP remain superseded context |
 | S-06 — Close a business day | **RETIRED 2026-11-01.** Historical local acceptance only; no CRM closing writes. | Historical S-01–05 | Current acceptance is retired-route/API denial plus preserved history | Local closing decisions/SOP remain superseded context |
-| S-07 — Onboard and evaluate a pilot | Historical milestone evidence only; no current pilot authorized | S-01–02 | Future pilot acceptance requires revised O-09, independent cash-only evidence, and separate readiness approval | O-08; revised O-09; security/data stewardship and release readiness |
+| S-07 — Onboard and evaluate a pilot | Historical milestone evidence only; FR-11 legacy entry/review retired 2026-11-09. Existing history and approved intervals remain read-only/effective; no current pilot authorized. | S-01–02 | FR-11 acceptance is retired-route denial, database insert denial, preserved history, and retained interval eligibility. FR-12 remains a historical archive; any future pilot requires revised O-09 and separate readiness approval. | O-08 superseded; revised O-09; security/data stewardship and release readiness |
 
 ### S-01 engineering task breakdown (same business milestone)
 
@@ -341,7 +341,7 @@ All owners below are **proposed accountable roles, people to assign**. O-02–O-
 | O-05 — Claim SOP | **HISTORICAL; SUPERSEDED 2026-11-01:** October 25 investigation/recovery authority decision and its live gates remain historical. | Historical owner: pilot owner + operations lead | No current investigation/recovery workflow authorized |
 | O-06 — Receipt custody | **HISTORICAL; SUPERSEDED 2026-11-01:** approved custody and closing-related decisions remain preserved in source/SOP history. | Historical owner: pilot owner + operations lead | No current outage/custody workflow authorized |
 | O-07 — Launch plan catalog | **RESOLVED 2026-10-24:** Monthly ₱800/30 days, 3 Months ₱2,100/90 days, 6 Months ₱4,000/180 days; all fixed elapsed days | User approval recorded; future price changes owner-controlled | Only these durations; no discounts/other variants. Live readiness gates remain separate. |
-| O-08 — Legacy acceptance | **LOCAL DESIGN RESOLVED October 26, 2026 by user:** decision 1 in [S-07 protocol](S07_LOCAL_POLICY_PROPOSAL.md): reviewed manual entry, fresh owner independent source sign-off, explicit historical intervals, preserved uncertainty, duplicate/overlap rejection and existing renewal rules; no fabricated finance | Pilot owner + product owner | Local synthetic implementation authorized; live source custody/verification authority and operational sign-off remain gated |
+| O-08 — Legacy acceptance | **HISTORICAL; SUPERSEDED 2026-11-09:** prior local decision and records remain preserved; new CRM entry/review is retired. Previously approved intervals remain effective only through their recorded end. No live migration is authorized. | Historical owner: pilot owner + product owner | Retained legacy history is read-only; runtime insert and API mutations are denied |
 | O-09 — Pilot protocol | **HISTORICAL; REVISE BEFORE PILOT:** October 26 local protocol and synthetic fixtures remain historical; its measures assumed now-retired digital, outage, exception and closing workflows. Future pilot scope must be limited to currently supported cash collection, receipt/history and eligibility unless separately authorized. | Product owner + pilot reviewer | Real participants, baseline/trial dates, independent evidence, reviewers, training and operational sign-off remain required; no launch or success claim authorized |
 | Derived closing detail | **HISTORICAL; SUPERSEDED 2026-11-01:** the three locally approved S-06 decisions remain in the superseded SOP as historical context. | Historical owner: pilot owner + operations lead | No in-app daily closing authorized; no external process inferred |
 | Derived data stewardship detail | Necessary member fields, evidence access/retention, operational record retention, backup/restore ownership, recovery expectations | Product owner + implementation lead + pilot owner | Blocks use of live personal/financial data without an accepted operational procedure |

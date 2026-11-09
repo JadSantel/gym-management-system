@@ -104,7 +104,7 @@ try {
   assert.equal(memberResponse.status, 200);
   const memberHtml = await memberResponse.text();
   assert.ok(memberHtml.includes(`Cash History ${suffix}`), "cash member page shows the member");
-  assert.ok(memberHtml.includes("Eligible for normal admission"), "cash member page shows eligibility");
+  assert.ok(/<span\b[^>]*data-slot="badge"[^>]*>Eligible<\/span>/.test(memberHtml) && memberHtml.includes("A verified paid period is in effect."), "cash member page shows verified current eligibility");
   assert.ok(memberHtml.includes("Payment history"), "cash member page shows payment history");
   assert.ok(memberHtml.includes(receipt.reference), "cash member page links its receipt");
 
@@ -144,13 +144,14 @@ try {
   assert.ok(receiptHtml.includes(receipt.reference), "cash receipt page shows its receipt reference");
   assert.ok(receiptHtml.includes(confirmed.payment.reference), "cash receipt page shows its payment reference");
   const historicalMemberHtml = await (await get(`/members/${historicalMember.id}`)).text();
-  assert.ok(historicalMemberHtml.includes("verified settlement recorded"), "member profile preserves the historical settlement read-only");
-  assert.ok(historicalMemberHtml.includes("GCASH"), "member profile preserves the original payment method");
-  assert.ok(historicalMemberHtml.includes(`HISTORICAL-PAYMENT-${suffix}`), "member profile retains the historical payment reference");
+  assert.ok(historicalMemberHtml.includes(`/receipts/${historicalReceipt.id}`), "billing table links the historical payment receipt");
+  assert.ok(!historicalMemberHtml.includes('id="member-evidence"'), "removed historical-evidence section stays absent");
   const historicalReceiptHtml = await (await get(`/receipts/${historicalReceipt.id}`)).text();
   assert.ok(historicalReceiptHtml.includes("payment receipt"), "historical receipt remains readable");
   assert.ok(historicalReceiptHtml.includes("Historical digital transfer reference"), "historical receipt identifies the retained digital reference");
   assert.ok(historicalReceiptHtml.includes(`HISTORICAL-${suffix}`), "historical receipt retains its transfer reference");
+  assert.ok(historicalReceiptHtml.includes(`HISTORICAL-PAYMENT-${suffix}`), "historical receipt preserves the original payment reference");
+  assert.ok(historicalReceiptHtml.includes("GCASH"), "historical receipt preserves the original payment method");
 
   for (const path of ["/digital", "/investigations", "/investigations/retired", "/outage-receipts", "/closing"]) {
     assert.equal((await get(path)).status, 404, `${path} stays retired`);

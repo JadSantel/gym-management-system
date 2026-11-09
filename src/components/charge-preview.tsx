@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Banknote, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +64,10 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
     if (!ready) return;
     titleRef.current?.focus({ preventScroll: true });
     if (stage > 0) {
-      const main = document.getElementById("main"), title = titleRef.current;
+      const title = titleRef.current;
+      const dialog = title?.closest<HTMLElement>('[role="dialog"]');
+      if (dialog) { dialog.scrollTop = 0; return; }
+      const main = document.getElementById("main");
       if (main && title && getComputedStyle(main).overflowY === "auto") {
         window.scrollTo(0, 0);
         main.scrollTop += title.getBoundingClientRect().top - main.getBoundingClientRect().top - 24;
@@ -134,9 +136,9 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
     finally { setBusy(false); }
   }
   const changePlan = <Button variant="outline" disabled={locked} onClick={() => { setStage(0); setError(""); }}><ArrowLeft className="size-4" aria-hidden="true" />Change plan</Button>;
-  return <section aria-labelledby="charge-title" className="my-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
-    <Card className="min-w-0 gap-0 rounded-lg">
-      <CardHeader className="gap-2 border-b border-border pb-5">
+  return <section aria-labelledby="charge-title" aria-busy={busy} id="membership-payment" className="grid min-w-0 items-start gap-6 px-5 pb-6 sm:px-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(240px,1fr)]">
+    <div className="min-w-0">
+      <div className="space-y-2 border-b border-border pb-5">
         <h2 id="charge-title" ref={titleRef} tabIndex={-1} className="scroll-mt-6 text-xl font-semibold tracking-tight outline-offset-4">{confirmed ? "Membership recorded" : pending ? "Resolve payment confirmation" : ["Choose a membership", "Choose payment method", "Review membership charge"][stage]}</h2>
         <p className="text-sm text-muted-foreground">{confirmed ? "Your payment and paid period are saved." : "Choose the plan, check the full amount, then record the received payment."}</p>
         <ol aria-label="Payment steps" className="mt-4 flex items-center gap-1 text-xs sm:gap-4 sm:text-sm">
@@ -145,8 +147,8 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
             <span className={stage === index ? "font-semibold" : "text-muted-foreground"}>{label}</span>{index < 2 && <span className="h-px flex-1 bg-border" aria-hidden="true" />}
           </li>)}
         </ol>
-      </CardHeader>
-      <CardContent className="pt-6">
+      </div>
+      <div className="pt-6">
         <p id="cash-error" ref={errorRef} tabIndex={-1} role="alert" className={error ? "mb-5 rounded-md bg-destructive/10 p-3 text-sm text-destructive outline-offset-4" : ""}>{error}</p>
         {saleBlocked && !confirmed && <p role="status" className="mb-5 rounded-md bg-attention-surface p-4 text-sm text-attention">An advance renewal is already fully paid. Another sale is blocked until the scheduled paid period starts. Resolve any original confirmation below without collecting again.</p>}
         {confirmed ? <div role="status" className="space-y-4" aria-live="polite">
@@ -191,18 +193,18 @@ export function ChargePreview({ memberId, memberName, plans, canPrepare, saved, 
           </>}
           <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">{stage === 1 ? changePlan : <Button variant="outline" disabled={locked} onClick={() => { setStage(1); setError(""); }}><ArrowLeft aria-hidden="true" className="size-4" />Back to payment</Button>}<Button type="submit" disabled={locked}>{busy ? "Confirming…" : stage === 1 ? method === "Cash" ? "Review cash payment" : "Review online payment" : method === "Cash" ? "Confirm full cash" : "Confirm received online payment"}{stage === 1 && <ArrowRight className="size-4" aria-hidden="true" />}</Button></div>
         </form> : null}
-      </CardContent>
-    </Card>
-    <aside className="min-w-0 space-y-4 xl:sticky xl:top-6" aria-label="Charge and access summary">
-      <Card className="gap-4 rounded-lg"><CardHeader className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Charge preview</h3><Badge variant="outline">{confirmed ? "Confirmed" : stage === 0 ? "Estimate" : "Saved charge preview"}</Badge></CardHeader><CardContent className="space-y-4">
+      </div>
+    </div>
+    <aside className="min-w-0 border-t border-border pt-5 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0" aria-label="Charge and access summary">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Charge preview</h3><Badge variant="outline">{confirmed ? "Confirmed" : stage === 0 ? "Estimate" : "Saved charge preview"}</Badge></div><div className="mt-4 space-y-4">
         <div><p className="font-semibold">{terms ? "name" in terms ? terms.name : terms.planName : "Choose a plan"}</p><p className="mt-1 text-xs text-muted-foreground">{terms ? `${terms.durationDays} days · One-time payment` : "No approved plan selected"}</p></div>
         <dl className="space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Membership fee</dt><dd className="font-medium tabular-nums">{price === undefined ? "—" : formatPhp(price)}</dd></div>{stage > 0 && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Payment</dt><dd>{paymentMethod}</dd></div>}</dl><Separator />
         <div className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-sm font-semibold">{confirmed ? "Paid in full" : "Due in full"}</span><strong className="text-2xl tracking-tight tabular-nums">{price === undefined ? "—" : formatPhp(price)}</strong></div>
         {saved && stage > 0 ? <dl className="space-y-3 text-xs"><div><dt className="text-muted-foreground">{confirmed ? "Paid period start" : "Proposed start"} · inclusive</dt><dd className="mt-1">{pht.format(new Date(confirmed?.period.startsAt ?? saved.intendedStart))} PHT</dd></div><div><dt className="text-muted-foreground">{confirmed ? "Paid period end" : "Proposed end"} · exclusive</dt><dd className="mt-1">{pht.format(new Date(confirmed?.period.endsAt ?? saved.intendedEnd))} PHT</dd></div></dl> : <p className="text-xs text-muted-foreground">Dates are calculated when you continue. No automatic recurring charge.</p>}
         <p className="text-xs leading-relaxed text-muted-foreground">{confirmed ? "Receipt and payment history are saved." : "Review before recording payment. No installment, discount or unpaid balance."}</p>
         {saved && <details className="text-xs"><summary className="cursor-pointer py-2 text-muted-foreground">Saved charge details</summary><p className="mt-2 break-all">{saved.id}</p><p className="mt-2">Prepared by {saved.preparerName} · {pht.format(new Date(saved.preparedAt))} PHT</p></details>}
-      </CardContent></Card>
-      <Card className="gap-3 rounded-lg"><CardHeader><h3 className="font-semibold">Current access</h3></CardHeader><CardContent><p className="text-sm font-semibold">{accessStatus}</p><p className="mt-2 text-sm text-muted-foreground">{accessReason}</p><p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">Charge previews and unverified transfers do not grant access.</p><Link className="mt-4 inline-block text-sm underline" href="#member-payments">View payment history</Link></CardContent></Card>
+      </div>
+      <div className="mt-5 border-t border-border pt-5"><h3 className="mb-3 font-semibold">Current access</h3><p className="text-sm font-semibold">{accessStatus}</p><p className="mt-2 text-sm text-muted-foreground">{accessReason}</p><p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">Charge previews and unverified transfers do not grant access.</p></div>
     </aside>
   </section>;
 }

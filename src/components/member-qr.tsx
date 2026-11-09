@@ -1,6 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
 import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader } from "./ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
 type Qr = { code: string; memberName: string; png: string };
 export function MemberQr({ memberId, initial }: { memberId: string; initial: Qr | null }) {
   const [qr, setQr] = useState(initial), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
@@ -18,17 +20,21 @@ export function MemberQr({ memberId, initial }: { memberId: string; initial: Qr 
     } catch { setRetry(true); setMessage("QR action not confirmed. Retry the same action or reload to check the current QR before sharing it."); }
     finally { setBusy(false); requestAnimationFrame(() => feedback.current?.focus()); }
   }
-  return <section className="panel space-y-5" aria-labelledby="personal-qr-title"><h2 id="personal-qr-title" className="panel-title">Personal member QR</h2>
-    <p className="text-sm text-muted-foreground print:hidden">This code identifies the member record. Staff must confirm the person presenting it and check current server eligibility.</p>
-    {qr ? <div id="member-qr-print" className="space-y-4">
-      <p className="text-xl font-semibold">{qr.memberName}</p>
+  return <Card role="region" className="min-w-0 gap-0 rounded-lg" aria-labelledby="personal-qr-title"><CardHeader><h2 id="personal-qr-title" className="panel-title">Personal member QR</h2></CardHeader><CardContent className="space-y-5">
+    <p className="text-sm text-muted-foreground print:hidden">Staff must confirm the person presenting this QR and check current membership access.</p>
+    {qr && !retry && !busy ? <div id="member-qr-print" className="space-y-4 text-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={qr.png} alt="Personal member QR" width={240} height={240} className="max-w-full" />
-      <p className="text-sm text-muted-foreground">Retain this QR across renewals. It contains no contact details or membership claims.</p>
-      <div className="flex flex-wrap gap-3 print:hidden"><a href={qr.png} download="personal-member-qr.png" className="action-link">Download personal QR</a><Button variant="outline" onClick={() => window.print()}>Print personal QR</Button></div>
-    </div> : <p className="text-sm">No personal QR issued. Current verified membership is required; eligible existing members do not need to pay again.</p>}
-    <Button disabled={busy} variant="outline" className="print:hidden" onClick={() => issue(pending.current?.action ?? (qr ? "replace" : "issue"))}>{busy ? "Preparing QR…" : retry ? "Retry same QR action" : qr ? "Replace personal QR" : "Issue personal QR"}</Button>
-    {qr && <p className="text-sm text-muted-foreground print:hidden">Replacement immediately invalidates the previous code.</p>}
+      <img src={qr.png} alt="Personal member QR" width={240} height={240} className="mx-auto aspect-square h-auto max-w-full rounded-md" />
+      <p className="break-words font-medium">{qr.memberName}</p>
+    </div> : <p className="rounded-md bg-muted p-4 text-sm">{busy ? "Preparing personal QR…" : retry ? "Check the current QR before sharing. Retry the same action below or reload this page." : "No personal QR issued. Current verified membership is required; eligible existing members do not need to pay again."}</p>}
+    <div className="flex flex-col gap-3 print:hidden">
+      {qr && !retry && !busy && <a href={qr.png} download="personal-member-qr.png" className="action-link secondary w-full">Download QR</a>}
+      {retry ? <Button disabled={busy} onClick={() => issue(pending.current!.action)}>{busy ? "Preparing QR…" : "Retry same QR action"}</Button> : qr ? <AlertDialog>
+        <AlertDialogTrigger asChild><Button disabled={busy} variant="destructive" className="w-full">Replace personal QR</Button></AlertDialogTrigger>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Replace personal QR?</AlertDialogTitle><AlertDialogDescription>The previous code will stop working immediately. Give {qr.memberName} the new QR after replacement. Membership and payment records stay unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => issue("replace")}>Replace QR</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog> : <Button disabled={busy} variant="outline" onClick={() => issue("issue")}>{busy ? "Preparing QR…" : "Issue personal QR"}</Button>}
+    </div>
+    <p className="text-xs text-muted-foreground">Retain this QR across renewals. It identifies the member; it does not grant access by itself.</p>
     <p ref={feedback} tabIndex={-1} role="status" className="text-sm outline-offset-4 print:hidden">{message}</p>
-  </section>;
+  </CardContent></Card>;
 }

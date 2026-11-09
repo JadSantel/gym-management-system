@@ -12,7 +12,7 @@ import { assertSynthetic } from "../src/lib/email";
 import { bootstrapSyntheticOwner, completeSetup, reauthenticate } from "../src/lib/identity";
 import { registrationLink } from "../src/lib/registration";
 import { changePlans } from "../src/lib/plans";
-import { memberQr } from "../src/lib/attendance";
+import { memberQr, scanAttendance } from "../src/lib/attendance";
 import { auth } from "../src/lib/auth";
 import { db } from "../src/lib/db";
 
@@ -82,14 +82,20 @@ try {
   matrix("pending-dashboard"); click("Sign out"); browser("wait", "--url", `${origin}/member/login`);
   await operatorLogin(); open(`${origin}/members/${member.id}`);
   assert.equal(evaluate("!document.querySelector('#contact-title, #member-access-title, #legacy-title')"), true, "Retired profile panels are absent");
+  const pendingSummary = evaluate("Array.from(document.querySelectorAll('#member-summary dd'), node => node.textContent?.trim())") as string[];
+  assert.ok(pendingSummary.includes("+639171234123")); assert.ok(pendingSummary.includes(email)); assert.ok(pendingSummary.includes("Not eligible")); assert.ok(pendingSummary.some(value => value.startsWith("0")));
   for (const appearance of ["Light", "Dark"]) {
     theme(appearance);
     for (const [device, width, height] of [["desktop",1440,1000],["tablet",768,1000],["phone",375,900]] as const) {
       browser("set", "viewport", String(width), String(height)); audit(`operator member profile ${appearance} ${device}`); capture(`${appearance.toLowerCase()}-operator-member-profile-${device}`);
     }
   }
-  browser("scrollintoview", "#membership-payment"); click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00"); click("Review cash payment"); click("Confirm full cash"); text("Full cash payment confirmed");
+  click("Record payment"); click("Continue to payment"); text("Saved charge preview"); browser("fill", "#cash-received", "800.00"); click("Review cash payment"); click("Confirm full cash"); text("Full cash payment confirmed");
   const qr = await admin.memberQr.findFirstOrThrow({ where: { memberId: member.id, revokedAt: null } });
+  assert.equal((await scanAttendance(owner, { code: qr.code, requestId: randomUUID() })).status, "IN");
+  open(`${origin}/members/${member.id}`);
+  const activeSummary = evaluate("Array.from(document.querySelectorAll('#member-summary dd'), node => node.textContent?.trim())") as string[];
+  assert.ok(activeSummary.includes("Eligible")); assert.ok(activeSummary.some(value => value.startsWith("1")));
   // Verify that the signup password works after activation, without opening any email.
   const memberLogin = await fetch(`${origin}/api/auth/sign-in/email`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ email, password }) });
   assert.equal(memberLogin.status, 200);

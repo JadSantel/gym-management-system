@@ -1,0 +1,12 @@
+.history { container-type: inline-size; }
+.table th, .table td { white-space: normal; }
+
+@container (max-width: 460px) {
+  .table, .table tbody { display: block; }
+  .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; padding: 12px 0; }
+  .table td { display: block; min-width: 0; padding: 0; text-align: left; overflow-wrap: anywhere; }
+  .table td::before { content: attr(data-label); display: block; margin-bottom: 4px; color: var(--muted-foreground); font-size: 12px; }
+  .table td[colspan] { grid-column: 1 / -1; }
+  .table td[colspan]::before { display: none; }
+}

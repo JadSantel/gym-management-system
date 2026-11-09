@@ -15,6 +15,11 @@ export const attendanceQuerySchema = z.strictObject({
 }).refine(value => !value.from || !value.to || value.from <= value.to, "The end date must follow the start date.");
 export function manilaDay(now: Date) { return new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10); }
 export function dayStart(day: string) { return new Date(`${day}T00:00:00+08:00`); }
+export function manilaMonthRange(now: Date) {
+  const [year, month] = manilaDay(now).split("-").map(Number);
+  const nextMonth = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`;
+  return { start: dayStart(`${year}-${String(month).padStart(2, "0")}-01`), end: dayStart(`${nextMonth}-01`) };
+}
 export function visitStatus(visit: { voided: boolean; departedAt: Date | string | null; arrivedAt: Date | string }, now: Date) {
   return visit.voided ? "Voided" : visit.departedAt ? "Checked out" : manilaDay(new Date(visit.arrivedAt)) < manilaDay(now) ? "Missing checkout" : "Currently in gym";
 }
