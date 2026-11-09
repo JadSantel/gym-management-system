@@ -8,6 +8,14 @@
 
 Detailed historical findings and current gate reconciliation: [release-readiness audit](RELEASE_READINESS_AUDIT.md).
 
+## Members page duplicate QR removal - November 9, 2026 - VERIFIED
+
+- **Scope:** Removed the registration QR section from the Members page so the QR remains only on the attendance scanner page.
+- **Changed paths:** `src/app/(crm)/members/page.tsx` no longer renders the `RegistrationLink` component and no longer fetches the registration link on the members page.
+- **Checks:** `npm.cmd run typecheck` PASS; `git diff --check` PASS.
+- **Manual:** Open `/members` and confirm the registration QR block is absent; open `/attendance/scanner` and confirm the QR remains available there.
+- **Risk / gate:** None for this UI-only change; production deployment gates remain unchanged.
+
 ## Member profile panel retirement - November 7, 2026 - VERIFIED (local synthetic)
 
 - **Scope:** Removed Contact details, Member dashboard access, and the Reviewed historical access action form from the member profile only. Preserved contact capture during registration, member APIs/login/setup/recovery/QR, all stored records, and read-only historical evidence.
