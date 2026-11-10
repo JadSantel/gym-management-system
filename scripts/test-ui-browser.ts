@@ -33,7 +33,7 @@ function browser(...args: string[]) {
 }
 function evaluate(code: string) { return JSON.parse(browser("eval", code, "--json")).data.result; }
 function click(name: string) {
-  if (name === "Sign out") browser("click", 'button[aria-label^="Account:"]');
+  if (name === "Sign out") { browser("click", 'button[aria-label^="Account:"]'); browser("find", "role", "menuitem", "click", "--name", "Log out", "--exact"); return; }
   browser("find", "role", "button", "click", "--name", name, "--exact");
 }
 function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
@@ -46,7 +46,7 @@ function audit(label: string) {
     assert.equal(evaluate("document.querySelector('[role=dialog]').contains(document.activeElement)"), true);
     browser("press", "Shift+Tab");
     assert.equal(evaluate("document.activeElement.textContent"), "Close");
-    assert.equal(evaluate("(() => { document.querySelector('#reauth-password').focus(); return document.querySelector('[role=dialog]').contains(document.activeElement); })()"), true);
+    assert.equal(evaluate("(() => { document.querySelector('#staff-name').focus(); return document.querySelector('[role=dialog]').contains(document.activeElement); })()"), true);
     result.counts.incomplete -= result.incomplete.filter((item: { id: string }) => item.id === "aria-hidden-focus").length;
     console.log(`${label}: aria-hidden-focus manual review PASS (Tab/Shift+Tab wrap and blocked background focus).`);
   }
@@ -74,10 +74,6 @@ try {
     click("Send invitation"); text("Check the account fields below.");
     assert.equal(evaluate("document.activeElement.id"), "operator-feedback");
     assert.equal(evaluate("document.getElementById('staff-name').getAttribute('aria-invalid')"), "true");
-    browser("fill", "#reauth-password", "incorrect password"); click("Verify password"); text("Unable to verify your password.");
-    assert.equal(evaluate("document.activeElement.id"), "reauth-password-feedback");
-    assert.equal(evaluate("document.getElementById('reauth-password').value"), "");
-    browser("fill", "#reauth-password", password); click("Verify password"); text("Password verified for five minutes.");
     async function invite(name: string, tag: string) {
       browser("fill", "#staff-name", name); browser("fill", "#staff-username", `${tag}_${suffix}`);
       browser("fill", "#staff-email", `${tag}-${suffix}@example.test`); click("Send invitation"); text("Link captured for the recipient.");
@@ -90,9 +86,6 @@ try {
     browser("fill", "#password", password); browser("fill", "#confirmation", password); click("Save private password"); text("Your password is ready");
     browser("open", `${origin}/login`); browser("fill", "#identifier", email); browser("fill", "#password", password); click("Sign in"); text("Welcome, Studio Owner"); browser("open", `${origin}/team`);
     text("Front Desk Operator");
-    // Fresh owner verification remains enforced by the real API.
-    click("Save permissions"); text("Verify your password again before this action.");
-    browser("fill", "#reauth-password", password); click("Verify password"); text("Password verified for five minutes.");
     browser("check", `#members-${staff.id}`); click("Save permissions"); text("Staff permissions saved.");
     assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: staff.id } })).canManageMembers, true);
     click("Disable staff"); text("Current sessions and unused setup/reset links will stop working immediately.");
@@ -160,7 +153,7 @@ try {
       browser("fill", "#staff-username", `pending_${suffix}`); browser("fill", "#staff-email", `pending-${suffix}@example.test`);
       evaluate("(() => { const send=window.fetch; window.fetch=function(input,init){if(input==='/api/identity/invite'){window.fetch=send;return new Promise(resolve=>{window.releaseInvite=()=>resolve(send.call(this,input,init))})}return send.call(this,input,init)}; return true })()");
       click("Send invitation"); text("Sending invitation…");
-      assert.equal(evaluate("document.getElementById('staff-email').disabled && document.getElementById('reauth-password').disabled && document.querySelector('form[aria-busy=true] button[type=submit]').disabled"), true);
+      assert.equal(evaluate("document.getElementById('staff-email').disabled && document.querySelector('form[aria-busy=true] button[type=submit]').disabled"), true);
       audit(`${theme} submitting`); browser("screenshot", resolve(output, `${theme}-busy.png`), "--full");
       evaluate("window.releaseInvite(); true"); text("Link captured for the recipient."); audit(`${theme} success`);
       browser("screenshot", resolve(output, `${theme}-success.png`), "--full");
@@ -172,7 +165,7 @@ try {
     audit("320px reflow");
     browser("set", "viewport", "1440", "1000");
     browser("find", "role", "link", "click", "--name", "Members", "--exact"); text("Member directory");
-    browser("open", `${origin}/team`); text("Team & access");
+    browser("open", `${origin}/team`); text("Team and Access");
     console.log("Themes/system/persistence, real invitation/permissions/reset/disable, focus/cancel, list states and navigation PASS.");
   }
 } catch (error) { try { browser("screenshot", resolve(output, "failure.png"), "--full"); } catch {} failure = error; }

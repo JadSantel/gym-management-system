@@ -116,7 +116,7 @@ export async function inviteStaff(headers: Headers, input: StaffInvitation, send
   const actor = await getActor(headers);
   const user = validateIdentity(input);
   const result = await db.$transaction(async tx => {
-    const owner = await ownerInTransaction(tx, actor);
+    const owner = await ownerInTransaction(tx, actor, false);
     const existing = await tx.user.findUnique({ where: { email: user.email }, include: { operator: true } });
     let operator = existing?.operator;
     if (existing) {
@@ -135,7 +135,7 @@ export async function requestStaffReset(headers: Headers, operatorId: string, se
   assertSynthetic();
   const actor = await getActor(headers);
   const result = await db.$transaction(async tx => {
-    const owner = await ownerInTransaction(tx, actor);
+    const owner = await ownerInTransaction(tx, actor, false);
     const staff = await tx.operator.findFirst({ where: { id: operatorId, gymId: owner.gymId, role: "STAFF", state: "ACTIVE" }, include: { user: true } });
     if (!staff?.user.emailVerified) throw fail();
     return { issued: await issue(tx, staff, "STAFF_RESET", owner.userId), email: staff.user.email };
@@ -197,7 +197,7 @@ export async function completeSetup(token: string, password: string) {
 export async function disableStaff(headers: Headers, operatorId: string) {
   const actor = await getActor(headers);
   await db.$transaction(async tx => {
-    const owner = await ownerInTransaction(tx, actor);
+    const owner = await ownerInTransaction(tx, actor, false);
     const staff = await tx.operator.findFirst({ where: { id: operatorId, gymId: owner.gymId, role: "STAFF" } });
     if (!staff) throw fail();
     await tx.operator.update({ where: { id: staff.id }, data: { state: "DISABLED" } });
@@ -210,7 +210,7 @@ export async function disableStaff(headers: Headers, operatorId: string) {
 export async function setCapabilities(headers: Headers, operatorId: string, capabilities: StaffCapabilities) {
   const actor = await getActor(headers);
   await db.$transaction(async tx => {
-    const owner = await ownerInTransaction(tx, actor);
+    const owner = await ownerInTransaction(tx, actor, false);
     const staff = await tx.operator.findFirst({ where: { id: operatorId, gymId: owner.gymId, role: "STAFF", state: "ACTIVE" } });
     if (!staff) throw fail();
     await tx.operator.update({ where: { id: staff.id }, data: capabilities });

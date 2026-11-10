@@ -341,14 +341,12 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
   let plans: { id: string; name: string; durationDays: number; priceCentavos: number; version: number }[];
   let memberId: string;
   let chargeId: string;
-  await t.test("S-01d catalogue initialization requires fresh owner and preserves three approved plans", async () => {
+  await t.test("S-01d catalogue initialization requires active owner without reauthentication and preserves three approved plans", async () => {
     assert.equal((await plansGet(req("/api/plans", new Headers()))).status, 401);
     assert.equal((await plansPost(req("/api/plans", staffHeaders, { action: "initialize" }))).status, 403);
     assert.deepEqual(await (await plansGet(req("/api/plans", owners[0]))).json(), []);
     const ownerSession = await auth.api.getSession({ headers: owners[0] });
     await admin.session.update({ where: { id: ownerSession!.session.id }, data: { reauthenticatedAt: new Date(Date.now() - 300_000) } });
-    assert.equal((await plansPost(req("/api/plans", owners[0], { action: "initialize" }))).status, 403);
-    await reauthenticate(owners[0], password);
     const responses = await Promise.all([0, 1].map(() => plansPost(req("/api/plans", owners[0], { action: "initialize" }))));
     assert.deepEqual(responses.map(r => r.status), [200, 200]);
     plans = await responses[0].json();

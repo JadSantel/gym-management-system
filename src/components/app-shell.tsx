@@ -29,8 +29,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
     ] : []),
   ] : [];
   const account: Destination[] = actor ? [
-    ...(actor.owner ? [{ href: "/plans", label: "Plans & Pricing", icon: "plans" as const }] : []),
-    { href: "/team", label: actor.owner ? "Team & Access" : "Your account", icon: "team" as const },
+    { href: "/settings", label: "Settings", icon: "team" as const },
     ...(members ? [{ href: "/pilot", label: "Historical Pilot Evidence", icon: "shield" as const }] : []),
   ] : [];
   const current = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -40,7 +39,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   const content = <div className={actor ? "app-workspace min-w-0 flex-1" : ""}>
     <header className="workspace-header"><div className="flex min-h-18 items-center justify-between gap-1 px-3 py-2 sm:gap-4 sm:px-8">
       <div className="flex min-w-0 items-center gap-3 text-xs">{actor && <SidebarTrigger />}<span className="hidden truncate font-semibold md:inline">{pathname.startsWith("/join/") ? "Member registration" : actor ? label : "Operator access"}</span></div>
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3"><LiveClock /><ThemeControl />{actor && <AccountControl name={actor.name} owner={actor.owner} destinations={account} current={isCurrent} />}</div>
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3"><LiveClock /><ThemeControl />{actor && <AccountControl name={actor.name} owner={actor.owner} />}</div>
     </div>
     </header>
     <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>

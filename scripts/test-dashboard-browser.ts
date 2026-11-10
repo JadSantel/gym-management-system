@@ -153,8 +153,8 @@ try {
     browser("cookies", "clear"); browser("open", `${origin}/login`);
     browser("find", "role", "radio", "click", "--name", "Staff", "--exact");
     browser("fill", "#identifier", `dash_${suffix}`); browser("fill", "#password", password); click("Sign in");
-    browser("wait", "--url", `${origin}/team`);
-    browser("open", origin); browser("wait", "--url", `${origin}/team`);
+    browser("wait", "--url", `${origin}/settings/team`);
+    browser("open", origin); browser("wait", "--url", `${origin}/settings/team`);
     await setCapabilities(owner, staff.id, { canManageMembers: true, canCollectCash: true });
     browser("open", origin); browser("wait", "--url", `${origin}/members`);
     assert.equal(evaluate("!!document.querySelector('#dashboard-summary')"), false);

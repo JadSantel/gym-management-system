@@ -88,9 +88,9 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 | Primary owner | “Which actions and receipts are attributable?” | Filterable history, capabilities and account lifecycle. Historical records are clearly read-only. |
 | Platform administrator (separate trust boundary) | “Has independent gym ownership been verified?” | **Private and audited** pending-owner bootstrap/recovery; never exposed in normal gym navigation. |
 
-### 3.2 Implemented navigation - November 3, 2026
+### 3.2 Implemented navigation - November 10, 2026
 
-The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Management**, in that order. Empty groups are hidden. Secondary administration destinations live in the top-navbar Account popover, reducing sidebar choices. Reports is a user-approved disabled “Reports — Coming soon” row, without a link or implemented reporting workflow.
+The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Management**, in that order. Empty groups are hidden. Secondary administration destinations live in Settings, reached through the top-navbar operator dropdown. Reports is a user-approved disabled “Reports — Coming soon” row, without a link or implemented reporting workflow.
 
 | Group | Label | Route | Visibility / purpose |
 |---|---|---|---|
@@ -102,11 +102,13 @@ The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Man
 | Management | Payments | `/transactions` | Owner or staff with member access; confirmed payment history, historical non-cash read-only. |
 | Management | Attendance | `/attendance` | Owner or staff with member access; existing visit history/corrections. |
 | Management | QR Scanner | `/attendance/scanner` | Same member permission; existing staff-operated scanning. |
-| Account | Plans & Pricing | `/plans` | Owner only. |
-| Account | Team & Access / Your account | `/team` | Existing owner/staff account permissions. |
-| Account | Historical Pilot Evidence | `/pilot` | Owner or staff with member access; archive only. |
+| Account dropdown | Settings / Log out | `/settings` / session action | Two icon menu items using local shadcn DropdownMenu. |
+| Settings | Profile | `/settings` | Owners edit; staff read only. Gym contact email stays separate from login. |
+| Settings | Plans and Pricing | `/settings/plans` | Owner only; `/plans` redirects here. |
+| Settings | Team and Access | `/settings/team` | Existing owner/staff account permissions; `/team` redirects here. |
+| Settings team footer | Historical pilot evidence | `/pilot` | Owner or staff with member access; archive only. |
 
-Live destinations use exact or descendant highlighting; Dashboard matches `/` only and QR Scanner takes precedence over Attendance. Quick Actions have no current-page styling. The header uses the destination label, including Account destinations. Below 1024px the drawer contains all permitted groups and bottom navigation contains the four Management destinations for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. Account links close the popover on selection and highlight their current route. The brand link preserves owner `/`, member-capable staff `/members`, other staff `/team`.
+Live destinations use exact or descendant highlighting; Dashboard matches `/` only and QR Scanner takes precedence over Attendance. Quick Actions have no current-page styling. The header uses the destination label; settings routes show Settings. Below 1024px the drawer contains all permitted groups and bottom navigation contains the four Management destinations for member-capable operators. The drawer retains focus containment, Escape dismissal, focus return and close-on-navigation. Selecting Settings closes the dropdown; the settings section navigation marks its exact current route. The brand link preserves owner `/`, member-capable staff `/members`, other staff `/team`.
 
 **Authorization:** Navigation reflects existing capabilities; server/API checks remain authoritative, including direct requests, fresh capability checks and tenant isolation. Cash permission alone does not expose the shortcut because member lookup/charge preparation also requires member access.
 
@@ -126,8 +128,8 @@ The six columns are Member, Email, Phone #, Membership started, Membership expir
 
 - Public/account: `/login` (including owner recovery) and `/setup` for private invitation/reset completion; public member registration at `/join/[code]`; no public operator registration.
 - Separate member area: `/member/login`, private-link `/member/setup` and authenticated own-record `/member`; MemberShell also wraps `/join/[code]` independently of any operator session.
-- Authenticated app: `/`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/plans`, `/team`, `/pilot`, subject to existing server authorization.
-- Compatibility: `/operate` redirects to `/members`; destination authorization still applies to signed-out and permission-limited operators.
+- Authenticated app: `/`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/settings`, `/settings/plans`, `/settings/team`, `/pilot`, subject to existing server authorization.
+- Compatibility: `/operate` redirects to `/members`, `/plans` to `/settings/plans`, and `/team` to `/settings/team`; destination authorization still applies to signed-out and permission-limited operators.
 - Retired routes `/digital`, `/investigations`, `/outage-receipts`, and `/closing` are removed. Existing records remain preserved and read-only; the member profile retains payment history rather than the former historical-evidence cards.
 - Private platform operations remain outside normal gym navigation. A route/resource ID never establishes authority; every protected resource is checked within the authenticated gym.
 
@@ -137,7 +139,7 @@ The six columns are Member, Email, Phone #, Membership started, Membership expir
 
 Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses a warm neutral canvas and off-white panels; dark uses near-black layers. Primary actions reverse ink/paper between themes. Orange marks navigation, selected controls and focus; green means confirmed/effective, amber pending/attention, red blocked/destructive. The prototype's dark front-desk banner is adapted to neutral light in light mode under the existing AGENTS.md contract. All text/control contrast still requires rendered checks.
 
-Navigation follows section 3.2: Quick Actions, Overview and Management, with Plans & Pricing, Team & Access and Historical Pilot Evidence in Account. Reports is disabled pending separate implementation. Digital collection, Exceptions, outage receipt/custody and daily closing remain absent. Owners land at `/`; member-capable staff at `/members`; other staff at `/team`. Server authorization remains authoritative.
+Navigation follows section 3.2: Quick Actions, Overview and Management, with Profile, Plans and Pricing, and Team and Access grouped in Settings and authorized Historical Pilot Evidence linked from Team and Access. Reports is disabled pending separate implementation. Digital collection, Exceptions, outage receipt/custody and daily closing remain absent. Owners land at `/`; member-capable staff at `/members`; other staff at `/team`. Server authorization remains authoritative.
 
 Member profiles follow the November 9 presentation above: identity/details, then Billing beside Personal member QR on wide screens. Billing holds current access and payment history; Record payment opens Plan / Payment / Review for the exact full Cash or Online charge and same-key recovery. Queued paid periods remain distinct from current eligibility. Former front-desk and historical-evidence cards are absent from this profile; retained records stay unchanged. Fictional metrics remain outside scope. FR-13 adds optional contacts; FR-14 attendance and FR-15 member access follow the implemented guidance above. Current eligibility remains authoritative.
 
@@ -149,7 +151,9 @@ Use actual local shadcn Button/Input/Card/Badge and native accessible controls w
 
 **Sidebar selection (2026-10-31):** the user selected shadcn `sidebar-04`: floating 19rem desktop navigation, grouped submenus, and a header toggle. Below 1024px use its labelled Sheet drawer with keyboard focus containment, visible close, Escape dismissal, and focus return; retain the existing bottom quick navigation. Map sidebar tokens to the current light/dark system and preserve all route permission checks.
 
-**Navbar refinement (2026-11-02):** the supplied reference governs the right-hand utility group: live 12-hour time with seconds, PHT (UTC+8) and Manila date; an icon Appearance button opening Light/Dark/System choices; then the authenticated operator's initials, name and Owner/Staff role at the far right. The account button opens permission-filtered Plans & Pricing, Team & Access / Your account, Historical Pilot Evidence and sign-out. The sidebar footer retains gym/synthetic context but no longer duplicates the operator identity. On phones the route label and operator name collapse, while initials, role, clock, theme and sidebar controls remain visible. Keep persisted/system-aware themes, labelled keyboard-operable popovers and existing authorization. The clock uses the device clock for display only; server eligibility/payment timestamps stay authoritative. No gym/location dropdown, notifications or role switch is added.
+**Navbar refinement (2026-11-02; menu revised 2026-11-10):** the supplied references govern the right-hand utility group: live 12-hour time with seconds, PHT (UTC+8) and Manila date; an icon Appearance button opening Light/Dark/System choices; then the authenticated operator's initials, name and Owner/Staff role at the far right. The account button opens exactly Settings and Log out, with Lucide icons in the existing local shadcn DropdownMenu. Use non-modal navigation, arrow-key selection, Escape focus return, disabled busy actions and an accessible retryable logout error. The sidebar footer retains gym/synthetic context. On phones the route label and operator name collapse, while initials, role, clock, theme and sidebar controls remain visible. Existing authorization and clock authority remain unchanged.
+
+**Settings (2026-11-10; UX-01/03/05):** inherit existing semantic Light/Dark tokens and Geist. A Settings heading precedes a 220px section navigation and flexible details; below desktop, the navigation stacks above content. Profile shows gym identity, owner-only Edit profile and two-column labelled fields with full-width address, collapsing to one column on phones. Owners edit gym name, contact email, phone, timezone, address, country and currency inline with Save changes/Cancel, without an extra password prompt. Staff see read-only profile and their account; pricing is owner-only. Visible help explains the user-selected label-only timezone/country/currency: PHP finance and Asia/Manila dates/clock remain operational. Errors focus a linked summary, conflicts require reload/review, busy controls disable repeat submission, success persists and returns focus. Settings includes scoped loading/error recovery. Reuse the existing plan and operator forms; preserve their permissions; the user-approved November 10 revision removes repeat password verification for all three settings sections. Historical pilot evidence remains linked from Team and Access for authorized actors.
 
 - **Wide desktop (≥1024px):** persistent labeled side navigation, page title + context, main content and compact task/status summary. Use tables with aligned monetary amounts and secondary detail sections.
 - **Tablet (768–1023px):** collapsible side navigation; important action and access status appear above supplementary history. Avoid hidden destructive action menus.
@@ -234,7 +238,7 @@ Each item names the *earliest* slice. Do not build later screen functionality in
 - Validation/error: generic credential failure, account-disabled/pending path with privacy-safe text, temporary rate-limit message without revealing whether an email/username exists.
 - Actions: sign in, sign out, and permitted recovery initiation (owner verified-email reset; staff requires owner-controlled initiation).
 - Show a clear “You are signed out” state on logout; protected routes reject expired/revoked sessions at server execution time.
-- **Sensitive owner change:** prompt for password reauthentication when the last verified password check is older than **5 minutes**; this is an *additional* check, not an authorization override. Sessions are **7-day rolling**, renewal cadence **24 hours**, with DB-backed revocation (implementation semantics tested, not guessed).
+- **Sensitive owner change outside Settings:** prompt for password reauthentication when the last verified password check is older than **5 minutes**; this is an *additional* check, not an authorization override. Sessions are **7-day rolling**, renewal cadence **24 hours**, with DB-backed revocation (implementation semantics tested, not guessed).
 
 **Prototype test:** Wrong credential, pending/disabled user, expired session, staff trying to use owner-only action through direct request, valid owner/staff entry with distinct accounts. Test credentials are synthetic.
 
@@ -427,7 +431,7 @@ Record any newly accepted UX decisions with approver, date, impacted screens, te
 - [ ] Owner-managed staff invitation and list/status for own gym, with safe pending/resend/disable affordances limited to what has backend authorization.
 - [ ] Owner password-reset flow and owner-initiated staff reset using 30-minute single-use link and verified mailbox, with safe dev capture.
 - [ ] Minimal signed-in landing view proving authenticated actor and active gym context; no collection/member screen or production fake metrics.
-- [ ] Recent-password confirmation UI only for implemented sensitive S-01a owner actions requiring it; server enforces five-minute freshness regardless of UI.
+- [ ] Recent-password confirmation UI only for implemented sensitive owner actions outside the user-approved Settings exception; server enforces five-minute freshness regardless of UI.
 - [ ] All routes respond correctly for unauthenticated, pending, disabled, revoked, wrong-gym, expired-token and unauthorized states.
 - [ ] Test mobile width, keyboard only, screen-reader labels, focus management, error and loading copy.
 - [ ] Use **local/test email capture only**; no real gym/member identities, purchased domain assumptions, or live Brevo sending.

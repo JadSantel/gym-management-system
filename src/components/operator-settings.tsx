@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ReauthenticationForm } from "@/components/reauthentication-form";
 import { IdentityFeedback, type IdentityFeedbackState } from "@/components/identity-feedback";
 import { identityRequest, IdentityRequestError } from "@/lib/client";
 import { identitySchemas, identityFieldErrors, type IdentityFieldErrors } from "@/lib/identity-schema";
@@ -61,7 +60,6 @@ export function OperatorSettings() {
     const id = targets[field as keyof typeof targets];
     return id && message ? [{ id, label: message }] : [];
   });
-  if (feedback.error && feedback.message.includes("Verify your password again")) links.push({ id: "reauth-password", label: "Verify owner password, then retry your action" });
   function correct(field: "name" | "email" | "username", value: string) {
     if (!attempted || errorContext.action !== "invite") return;
     const result = identitySchemas.invite.shape[field].safeParse(value);
@@ -117,7 +115,7 @@ export function OperatorSettings() {
         })}</ul>}
         <div className="border-t border-border px-6 py-4 text-xs leading-relaxed text-muted-foreground">Permissions are checked for every protected request. Pending and disabled accounts cannot access the workspace.</div>
       </section>
-      <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-1">
+      <div className="min-w-0">
         <section aria-labelledby="invite-title" className="min-w-0">
           <Card><CardHeader><h2 id="invite-title" className="text-lg font-semibold">Invite staff</h2><p className="text-sm text-muted-foreground">Give each person their own account.</p></CardHeader><CardContent>
             <form noValidate aria-busy={busy} onSubmit={async event => { event.preventDefault(); const data = new FormData(event.currentTarget); await act("invite", { name: data.get("name"), email: data.get("email"), username: data.get("username") }); }} className="grid gap-4">
@@ -129,9 +127,6 @@ export function OperatorSettings() {
               <Button type="submit" disabled={busy}>{busy && errorContext.action === "invite" ? "Sending invitation…" : "Send invitation"}</Button>
             </form>
           </CardContent></Card>
-        </section>
-        <section aria-labelledby="reauth-title" className="min-w-0">
-          <Card className="bg-sidebar"><CardHeader><h2 id="reauth-title" className="flex items-start gap-2 text-lg font-semibold"><svg aria-hidden="true" className="mt-1 size-5 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg>Verify before account changes</h2></CardHeader><CardContent><p id="reauth-help" className="mb-4 text-sm leading-relaxed text-muted-foreground">Verify your owner password to invite, change permissions, reset, or disable staff. Verification lasts five minutes.</p><ReauthenticationForm id="reauth-password" helpId="reauth-help" disabled={busy} /></CardContent></Card>
         </section>
       </div>
     </div>

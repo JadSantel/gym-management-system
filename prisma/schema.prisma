@@ -98,6 +98,13 @@ enum InvitePurpose {
 model Gym {
   id        String @id @default(uuid()) @db.Uuid
   name      String
+  contactEmail String? @map("contact_email")
+  phone     String?
+  address   String?
+  profileTimezone String @default("Asia/Manila") @map("profile_timezone")
+  profileCountry String @default("Philippines") @map("profile_country")
+  profileCurrency String @default("PHP") @map("profile_currency")
+  profileVersion Int @default(1) @map("profile_version")
   state     AccessState @default(PENDING)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   operators Operator[]

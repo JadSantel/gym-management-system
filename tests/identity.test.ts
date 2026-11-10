@@ -6,7 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { auth } from "../src/lib/auth";
 import { db } from "../src/lib/db";
-import { bootstrapSyntheticOwner, completeSetup, disableStaff, getActor, inviteStaff, reauthenticate, requestOwnerReset, requestStaffReset } from "../src/lib/identity";
+import { bootstrapSyntheticOwner, completeSetup, disableStaff, getActor, inviteStaff, reauthenticate, requestOwnerReset, requestStaffReset, ownerInTransaction } from "../src/lib/identity";
 import { assertSynthetic, type EmailSender } from "../src/lib/email";
 
 assertSynthetic();
@@ -84,9 +84,9 @@ test("S-01a PostgreSQL identity lifecycle with actual Better Auth Prisma/usernam
   });
   let staff: Awaited<ReturnType<typeof login>>;
   let staffId: string;
-  await t.test("fresh owner verification required; staff setup, expired/replaced links and username collision", async () => {
+  await t.test("active owner invites without reauthentication; staff setup, expired/replaced links and username collision", async () => {
     const input = { email: staffEmail, name: "Synthetic Staff", username: `staff_${prefix}` };
-    await assert.rejects(inviteStaff(owner.headers, input, sender));
+    await inviteStaff(owner.headers, input, sender);
     await assert.rejects(reauthenticate(owner.headers, "wrong password"));
     await reauthenticate(owner.headers, password);
     await inviteStaff(owner.headers, input, sender);
@@ -131,11 +131,11 @@ test("S-01a PostgreSQL identity lifecycle with actual Better Auth Prisma/usernam
     await assert.rejects(getActor(staff.headers));
     staff = await login("username", `staff_${prefix}`);
   });
-  await t.test("owner reauthentication expires at five minutes; cross-gym reset/disable denied", async () => {
+  await t.test("default freshness guard expires but team reset succeeds; cross-gym reset/disable denied", async () => {
     const current = await getActor(owner.headers);
     await admin.session.update({ where: { id: current.sessionId }, data: { reauthenticatedAt: new Date(Date.now() - 300_000) } });
-    await assert.rejects(requestStaffReset(owner.headers, staffId, sender));
-    await reauthenticate(owner.headers, password);
+    await assert.rejects(db.$transaction(tx => ownerInTransaction(tx, current)), { status: 403 });
+    await requestStaffReset(owner.headers, staffId, sender);
     await assert.rejects(requestStaffReset(owner.headers, randomUUID(), sender));
     await assert.rejects(disableStaff(owner.headers, randomUUID()));
   });

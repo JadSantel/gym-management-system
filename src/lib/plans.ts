@@ -19,7 +19,7 @@ export async function changePlans(headers: Headers, input: PlanChange) {
   const price = input.action === "update" ? parsePesos(input.price) : null;
   if (input.action === "update" && price === null) throw new IdentityError(400, "Enter a positive PHP price with no more than two decimal places (maximum ₱21,474,836.47).");
   return db.$transaction(async tx => {
-    const owner = await ownerInTransaction(tx, actor);
+    const owner = await ownerInTransaction(tx, actor, false);
     if (input.action === "initialize") {
       const created = await tx.plan.createMany({ data: approved.map(plan => ({ ...plan, gymId: owner.gymId, createdBy: owner.id })), skipDuplicates: true });
       if (created.count) await tx.identityAudit.create({ data: { gymId: owner.gymId, initiatorId: owner.userId, subjectId: owner.gymId, action: "APPROVED_CATALOGUE_INITIALIZED" } });

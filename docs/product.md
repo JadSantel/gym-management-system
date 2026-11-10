@@ -1,5 +1,9 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+## Settings password confirmation removed ? user approved November 10, 2026
+
+Profile edits, plan catalogue initialization/pricing, and Team and Access actions (staff invitations, permission changes, reset-link requests and disabling staff) require an active authorized owner session, without an additional password prompt or five-minute password freshness check. This expressly supersedes the earlier settings reauthentication clauses. Preserve server-side active-owner/session/gym checks, tenant isolation, validation, version conflicts, audit, reset/invitation token rules and offboarding revocation. Sign-in and private password setup/recovery remain required; other protected workflows keep their existing freshness checks.
+
 ## Enrollment payment revision - November 7, 2026
 
 User-approved PROJECT revision restores Cash and Online (GCash, GoTyme, MariBank) in staff enrollment. The collecting authorized operator checks actual full funds in the gym's receiving account and records provider/reference plus an explicit attestation. Screenshot-only claims grant no payment/access. Fixed terms, automatic dates, exact full amounts, receipts, audit, tenant isolation and one paid future term remain. Other retired workflows remain retired. This narrow revision supersedes older cash-only and designated-viewer requirements for enrollment; live operational readiness is unverified.
@@ -443,3 +447,6 @@ One actual collection with duplicate records requires an owner-approved zero-mov
 ### S-05 local operating detail approved October 25, 2026
 
 The user approved all seven decisions in [the local outage SOP and paper templates](S05_OUTAGE_POLICY_PROPOSAL.md), resolving O-02/O-06 design for synthetic implementation and physical rehearsal. Apply gym-scoped immutable booklet/number uniqueness, assigned custody, independent designated verification separate from collector/entrant, signed counts and handovers at each actual shift boundary, retained exception/investigation evidence and original-date verified recovery. A lost member copy requires corroborated retained receipt/cash/custody evidence. No automatic repeat admission or second payment is implied; separate owner visit authorization remains outside the app. Live named authorities/backups, physical booklet control, evidence custody/retention and pilot coverage still require approval/evidence.
+## Gym settings revision — November 10, 2026
+
+The user selected one Settings home for gym Profile, Plans and Pricing, and Team and Access, reached through a two-item Settings/Log out operator menu. Owners edit gym contact details after fresh password verification; staff retain their own account access and read-only gym information. Contact email stays separate from verified login identity. Editable timezone, country and currency are profile labels only; the user explicitly retained Asia/Manila operational dates/clock and PHP payments/receipts. Plan policy, membership entitlement and owner/staff permissions remain unchanged. See PROJECT's November 10 revision for controlling scope.

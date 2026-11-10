@@ -1,5 +1,13 @@
 # Product
 
+## Settings password confirmation removed ? user approved November 10, 2026
+
+Profile edits, plan catalogue initialization/pricing, and Team and Access actions (staff invitations, permission changes, reset-link requests and disabling staff) require an active authorized owner session, without an additional password prompt or five-minute password freshness check. This expressly supersedes the earlier settings reauthentication clauses. Preserve server-side active-owner/session/gym checks, tenant isolation, validation, version conflicts, audit, reset/invitation token rules and offboarding revocation. Sign-in and private password setup/recovery remain required; other protected workflows keep their existing freshness checks.
+
+## Gym settings revision — November 10, 2026
+
+The operator dropdown contains Settings and Log out. Settings groups Profile, Plans and Pricing, and Team and Access. Owners can edit gym name/contact information with reauthentication and audited versioned saves; staff can read the gym profile and access their own account. Gym contact email never changes verified login identity. The user explicitly chose editable timezone/country/currency profile labels while retaining Asia/Manila operational dates/clock and PHP finance. This extends the established interface without changing money, entitlement or account authority.
+
 ## Enrollment revision - November 7, 2026
 
 PROJECT restores Cash and Online (GCash, GoTyme, MariBank) within Plan, Payment, Review. The authorized collecting operator checks full received funds in the gym receiving account and records provider/reference plus attestation. Existing collection permission covers both; all other retired workflows remain retired. Preserve exact full amounts, fixed terms, automatic dates, receipts, tenant isolation, paid access/QR gates and original-key recovery. This supersedes older cash-only/designated-viewer language for enrollment only; live readiness remains unverified.

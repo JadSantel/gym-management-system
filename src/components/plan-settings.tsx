@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ReauthenticationForm } from "@/components/reauthentication-form";
 import { formatPhp, pesoInput } from "@/lib/money";
 import { financeFieldErrors, planChangeSchema, priceSchema } from "@/lib/finance-schema";
 
@@ -32,12 +31,7 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
     } catch (failure) { setError(true); setMessage(failure instanceof Error ? failure.message : "Unable to connect. Try again."); feedback.current?.focus(); }
     finally { setBusy(false); }
   }
-  return <div className="mt-8 space-y-7">
-    <section className="rounded-xl border border-border bg-card p-6" aria-labelledby="pricing-verify-title">
-      <h2 id="pricing-verify-title" className="text-xl font-semibold">Verify before changing prices</h2>
-      <p id="pricing-verify-help" className="mb-5 mt-2 text-sm text-muted-foreground">Verify your owner password. Price changes require verification within five minutes.</p>
-      <ReauthenticationForm id="pricing-password" helpId="pricing-verify-help" disabled={busy} />
-    </section>
+  return <div className="@container mt-8 space-y-7">
     <div id="plan-feedback" ref={feedback} tabIndex={-1} role={error ? "alert" : "status"} className={`rounded-md text-sm outline-offset-4 ${error ? "text-destructive" : "text-muted-foreground"}`}>
       {message}{invalidPrice && <a href={`#price-${invalidPrice}`} className="ml-2 underline">Review this price</a>}
     </div>
@@ -46,7 +40,7 @@ export function PlanSettings({ initial }: { initial: PlanSummary[] }) {
       <ul className="mb-5 list-inside list-disc space-y-2"><li>Monthly: ₱800.00 · 30 days</li><li>3 Months: ₱2,100.00 · 90 days</li><li>6 Months: ₱4,000.00 · 180 days</li></ul>
       <Button disabled={busy} onClick={() => save({ action: "initialize" })}>{busy ? "Saving…" : "Apply approved catalogue"}</Button>
     </section> : <section aria-labelledby="catalogue-title"><h2 id="catalogue-title" className="mb-4 text-xl font-semibold">Current catalogue</h2>
-      <div className="grid gap-4 md:grid-cols-3">{plans.map(plan => <form key={`${plan.id}-${plan.version}`} noValidate aria-label={`${plan.name} pricing`} className="space-y-4 rounded-xl border border-border bg-card p-5" onSubmit={event => {
+      <div className="grid gap-4 @min-[42rem]:grid-cols-3">{plans.map(plan => <form key={`${plan.id}-${plan.version}`} noValidate aria-label={`${plan.name} pricing`} className="space-y-4 rounded-xl border border-border bg-card p-5" onSubmit={event => {
         event.preventDefault(); save({ action: "update", planId: plan.id, version: plan.version, price: new FormData(event.currentTarget).get("price") }, plan.id);
       }}>
         <div><h3 className="text-lg font-semibold">{plan.name}</h3><p className="text-sm text-muted-foreground">{plan.durationDays} elapsed days · Current {formatPhp(plan.priceCentavos)}</p></div>

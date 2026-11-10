@@ -36,7 +36,7 @@ function browser(...args: string[]) {
 }
 function evaluate(code: string) { return JSON.parse(browser("eval", code, "--json")).data.result; }
 function click(name: string) {
-  if (name === "Sign out") browser("click", 'button[aria-label^="Account:"]');
+  if (name === "Sign out") { browser("click", 'button[aria-label^="Account:"]'); browser("find", "role", "menuitem", "click", "--name", "Log out", "--exact"); return; }
   browser("find", "role", "button", "click", "--name", name, "--exact");
 }
 function appearance(value: string) { click("Appearance"); click(value[0].toUpperCase() + value.slice(1)); }
@@ -129,7 +129,7 @@ try {
   evaluate("Storage.prototype.setItem=window.navbarSetItem; delete window.navbarSetItem; true");
   browser("reload"); browser("wait", "--fn", "!!document.querySelector('header time')?.getAttribute('datetime')");
   browser("focus", 'button[aria-label^="Account:"]'); browser("press", "Enter");
-  audit("Owner account"); assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a')).map(item => [item.textContent, item.getAttribute('href')])"), [["Plans & Pricing", "/plans"], ["Team & Access", "/team"], ["Historical Pilot Evidence", "/pilot"]]);
+  audit("Owner account"); assert.deepEqual(evaluate("Array.from(document.querySelectorAll('[role=menuitem]')).map(item => item.textContent)"), ["Settings", "Log out"]);
   browser("press", "Escape"); assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), "Account: Alex Prototype, Owner");
   for (const theme of ["light", "dark"]) {
     appearance(theme);
@@ -161,11 +161,11 @@ try {
     assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Main navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [path], "Attendance and QR Scanner have distinct active states");
     assert.equal(evaluate("document.querySelector('header').textContent.includes('QR Scanner')"), path.endsWith("scanner"));
   }
-  for (const path of ["/plans", "/team", "/pilot"]) {
+  for (const path of ["/settings", "/settings/plans", "/settings/team"]) {
     browser("open", `${origin}${path}`); browser("click", 'button[aria-label^="Account:"]');
-    assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [path]);
-    browser("click", `nav[aria-label="Account navigation"] a[href="${path}"]`);
-    browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
+    assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Settings sections\"] a[aria-current=page]')).map(item => item.getAttribute('href'))"), [path]);
+    browser("find", "role", "menuitem", "click", "--name", "Settings", "--exact");
+    browser("wait", "--fn", "!document.querySelector('[role=menu]')");
   }
   browser("open", origin);
   assert.equal(evaluate("document.querySelector('main').textContent.includes('3,200.00')"), true);
@@ -398,8 +398,8 @@ try {
   audit("Mobile historical review checkbox"); browser("screenshot", resolve(output, "dark-legacy-checkbox-phone.png"));
   browser("click", 'button[aria-label^="Account:"]');
   browser("network", "route", "**/api/auth/sign-out", "--abort");
-  browser("find", "role", "button", "click", "--name", "Sign out", "--exact"); text("Unable to sign out. Try again.");
-  assert.equal(evaluate("document.querySelector('[role=dialog] button').disabled"), false, "Failed sign-out remains retryable in account popover");
+  browser("find", "role", "menuitem", "click", "--name", "Log out", "--exact"); text("Unable to log out. Try again.");
+  assert.equal(evaluate("document.querySelector('[role=menuitem]:last-of-type').getAttribute('aria-disabled')==='true'"), false, "Failed logout remains retryable in account menu");
   browser("network", "unroute"); browser("press", "Escape");
   click("Sign out"); text("You are signed out.");
   browser("open", `${origin}/operate`); browser("wait", "#identifier");
@@ -407,10 +407,10 @@ try {
   browser("find", "role", "radio", "click", "--name", "Staff", "--exact"); browser("fill", "#identifier", `prototype_${suffix}`); browser("fill", "#password", password); click("Sign in"); text("Find a member");
   assert.equal(evaluate("document.querySelector('header button[aria-label^=\"Account:\"]').getAttribute('aria-label')"), "Account: Prototype Staff, Staff");
   browser("click", 'button[aria-label^="Account:"]'); audit("Staff account");
-  assert.equal(evaluate("document.querySelector('[role=dialog] a').textContent"), "Your account");
+  assert.equal(evaluate("document.querySelector('[role=menuitem]').textContent"), "Settings");
   browser("screenshot", resolve(output, "navbar-staff-phone.png")); browser("press", "Escape");
   assert.equal(new URL(evaluate("location.href")).pathname, "/members");
-  for (const path of ["/", "/plans", "/operate"]) {
+  for (const path of ["/", "/operate"]) {
     browser("open", `${origin}${path}`); text("Find a member");
     assert.equal(evaluate("location.pathname"), "/members", `${path} resolves to authorized Members workspace for staff`);
   }
@@ -442,7 +442,7 @@ try {
   assert.equal(evaluate("document.querySelector('[data-sidebar=header] a').getAttribute('href')"), "/team");
   browser("press", "Escape"); browser("wait", "--fn", "!document.querySelector('[role=dialog]')");
   browser("click", 'button[aria-label^="Account:"]');
-  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('nav[aria-label=\"Account navigation\"] a')).map(item => item.textContent)"), ["Your account"], "revoked member access also removes historical evidence from Account");
+  assert.deepEqual(evaluate("Array.from(document.querySelectorAll('[role=menuitem]')).map(item => item.textContent)"), ["Settings", "Log out"]);
   console.log("Transaction/member filters, empty states, keyboard, 320px reflow, staff landing, denied cash preparation and immediate capability revocation PASS.");
 } catch (error) { try { browser("screenshot", resolve(output, "failure.png"), "--full"); } catch {} failure = error; }
 finally {

@@ -159,7 +159,7 @@ test("R-06/08 real identity routes: strict validation, safe errors, no writes an
     const audit = JSON.stringify(await admin.identityAudit.findMany({ where: { gymId: gyms[0] } }));
     assert.ok(!audit.includes("PRIVATE_TRANSPORT_SENTINEL"));
   });
-  await t.test("valid schemas cannot bypass staff, stale-owner, cross-gym or anonymous denials", async () => {
+  await t.test("valid schemas cannot bypass staff, cross-gym or anonymous denials", async () => {
     const beforeDenials = await admin.identityAudit.count({ where: { gymId: gyms[0], action: { startsWith: "ACCESS_DENIED " } } });
     async function assertDenial(response: Response, headers: Headers, status = 403) {
       assert.equal(response.status, status);
@@ -183,15 +183,17 @@ test("R-06/08 real identity routes: strict validation, safe errors, no writes an
       await assertDenial(await request(action, { ...valid[action], operatorId: foreignStaff.id }, owner), owner);
       assert.equal(await snapshot(false), before);
     }
+    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: { startsWith: "ACCESS_DENIED " } } }), beforeDenials + 9);
+  });
+  await t.test("team actions accept an active owner with missing or expired password verification", async () => {
     const actor = await getActor(owner);
-    await admin.session.update({ where: { id: actor.sessionId }, data: { reauthenticatedAt: new Date(Date.now() - 300_000) } });
-    const before = await snapshot(false);
-    for (const action of ["invite", "reset-staff", "disable", "capabilities"] as const) {
-      await assertDenial(await request(action, valid[action], owner), owner);
+    for (const reauthenticatedAt of [null, new Date(Date.now() - 300_001)]) {
+      await admin.session.update({ where: { id: actor.sessionId }, data: { reauthenticatedAt } });
+      for (const action of ["invite", "capabilities", "reset-staff"] as const) assert.equal((await request(action, valid[action], owner)).status, 200, action);
     }
-    assert.equal(await snapshot(false), before);
-    assert.equal(await admin.identityAudit.count({ where: { gymId: gyms[0], action: { startsWith: "ACCESS_DENIED " } } }), beforeDenials + 13);
-    await reauthenticate(owner, password);
+    const pending = await admin.operator.findFirstOrThrow({ where: { gymId: gyms[0], user: { email: valid.invite.email as string } } });
+    assert.equal((await request("disable", { operatorId: pending.id }, owner)).status, 200);
+    assert.equal((await admin.operator.findUniqueOrThrow({ where: { id: pending.id } })).state, "DISABLED");
   });
   await t.test("owner recovery remains generic; staff reset and disable preserve link/session revocation", async () => {
     await admin.rateLimit.deleteMany();
