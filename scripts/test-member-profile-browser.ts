@@ -41,12 +41,14 @@ function audit(label:string) {
     const selectors=contrast.flatMap(item=>item.nodes.map(n=>n.target[0]));
     const checked=evaluate(`(() => {
       const root=document.querySelector('[role=dialog],[role=alertdialog]')||document;
-      const luminance=color=>{const rgb=color.match(/[\\d.]+/g).slice(0,3).map(v=>{const s=Number(v)/255;return s<=0.04045?s/12.92:((s+0.055)/1.055)**2.4});return rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722};
+      const ctx=document.createElement('canvas').getContext('2d');
+      const pixel=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return ctx.getImageData(0,0,1,1).data};
+      const luminance=rgba=>{const c=Array.from(rgba).slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return c[0]*.2126+c[1]*.7152+c[2]*.0722};
       return ${JSON.stringify(selectors)}.map(selector=>{
         const node=root.querySelector(selector);if(!node)return {selector,visible:false};node.scrollIntoView({block:'center'});
-        let surface=node;while(surface.parentElement&&!/^rgb\\(/.test(getComputedStyle(surface).backgroundColor))surface=surface.parentElement;
-        const bg=getComputedStyle(surface).backgroundColor,fg=getComputedStyle(node).color,a=luminance(bg),b=luminance(fg),range=document.createRange();range.selectNodeContents(node);
-        return {selector,opaque:/^rgb\\(/.test(bg),ratio:(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05),visible:[...range.getClientRects()].every(r=>node.contains(document.elementFromPoint(r.left+2,r.top+r.height/2)))};
+        const chain=[node];let surface=node;while(surface.parentElement&&pixel(getComputedStyle(surface).backgroundColor)[3]!==255){surface=surface.parentElement;chain.push(surface)}
+        ctx.clearRect(0,0,1,1);for(const n of chain.reverse()){ctx.fillStyle=getComputedStyle(n).backgroundColor;ctx.fillRect(0,0,1,1)}const bg=ctx.getImageData(0,0,1,1).data,fg=pixel(getComputedStyle(node).color),a=luminance(bg),b=luminance(fg),range=document.createRange();range.selectNodeContents(node);
+        return {selector,opaque:bg[3]===255&&fg[3]===255,ratio:(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05),visible:[...range.getClientRects()].every(r=>node.contains(document.elementFromPoint(r.left+2,r.top+r.height/2)))};
       });
     })()`);
     assert.ok(checked.every((n:{opaque:boolean;visible:boolean;ratio:number})=>n.opaque&&n.visible&&n.ratio>=4.5),`${label} measured contrast: ${JSON.stringify(checked)}`);

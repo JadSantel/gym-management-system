@@ -25,6 +25,18 @@
         ],
         "createdAt": "2026-10-30T09:35:26.079Z",
         "reason": "Opaque stop in the prototype dither alpha mask, not a rendered interface color."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "inter",
+        "createdAt": "2026-11-10T09:33:41.359Z",
+        "reason": "User selected shadcn preset b5J4p8Yqm, decoded by the official CLI to Inter on November 10, 2026; DESIGN.md will record the replacement system."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-10T10:10:49.682Z",
+        "reason": "User explicitly selected shadcn preset b5J4p8Yqm, which the official CLI decoded to Inter; preserve the requested typography."
       }
     ]
   }

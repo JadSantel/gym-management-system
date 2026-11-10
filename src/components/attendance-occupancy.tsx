@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
-const config = { occupancy: { label: "People inside", color: "var(--brand-foreground)" } } satisfies ChartConfig;
+const config = { occupancy: { label: "People inside", color: "var(--chart-3)" } } satisfies ChartConfig;
 const hourLabel = (hour: number) => `${hour % 12 || 12}${hour % 24 < 12 ? "am" : "pm"}`;
 
 // shadcn chart-bar-default, adapted to recorded hourly peak occupancy.

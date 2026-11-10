@@ -39,6 +39,21 @@ function capture(label: string) {
   const audit = JSON.parse(browser("a11y", "--tags", "wcag2a,wcag2aa", "--json")).data;
   assert.deepEqual(audit.violations, [], `${label} axe violations`);
   const unresolved = audit.incomplete.filter((issue: { id: string; nodes: { target: string[] }[] }) => {
+    if (issue.id === "color-contrast" && issue.nodes.every(node => node.target[0] === "#account-logout-error")) {
+      // Axe cannot infer the nested retry span's background. Resolve only this
+      // visible message: it must fit below its label inside the menu item, with
+      // >=4.5:1 measured contrast over the composited menu/item backgrounds.
+      return !evaluate(`(()=>{
+        const e=document.getElementById('account-logout-error'),item=e?.closest('[role=menuitem]'),menu=e?.closest('[role=menu]');if(!e||!item||!menu)return false;
+        const r=e.getBoundingClientRect(),b=item.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(e.parentElement.firstChild);
+        if(!r.height||r.left<b.left||r.right>b.right||r.bottom>b.bottom||range.getBoundingClientRect().bottom>r.top)return false;
+        const ctx=document.createElement('canvas').getContext('2d');
+        const luminance=rgba=>{if(rgba[3]!==255)throw Error('Unknown retry background');const c=Array.from(rgba).slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return c[0]*.2126+c[1]*.7152+c[2]*.0722};
+        for(const n of [menu,item,e.parentElement,e]){ctx.fillStyle=getComputedStyle(n).backgroundColor;ctx.fillRect(0,0,1,1)}const bg=luminance(ctx.getImageData(0,0,1,1).data);
+        ctx.clearRect(0,0,1,1);ctx.fillStyle=getComputedStyle(e).color;ctx.fillRect(0,0,1,1);const fg=luminance(ctx.getImageData(0,0,1,1).data);
+        return (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05)>=4.5;
+      })()`);
+    }
     if (issue.id !== "aria-valid-attr-value") return true;
     // Axe requests manual confirmation of aria-controls on a portalled menu.
     // Resolve only when the referenced, visible menu exists and the trigger is expanded.
