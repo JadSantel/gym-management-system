@@ -5,7 +5,27 @@ primary_target: "src/app/(crm)/page.tsx"
 related_targets: ["src/components/app-shell.tsx", "src/components/member-directory.tsx", "src/app/(crm)/operate/page.tsx", "src/app/(crm)/members/page.tsx", "src/app/(crm)/members/[id]/page.tsx", "src/app/(crm)/transactions/page.tsx", "src/app/(crm)/team/page.tsx"]
 ---
 
-# Cash-only workspace navigation
+# Workspace navigation and owner daily dashboard
+
+## Direction contract — owner dashboard, November 10, 2026
+
+THESIS: Give the owner a daily snapshot of confirmed collections, current eligibility and recorded attendance, followed by receipts and direct workflow links. Replace the dashboard's policy-explanation panel with useful data.
+
+OWN-WORLD: Inherit the existing Geist, paper/ink, border-led semantic Light/Dark/System world and local shadcn components. Cash is solid; Online is hatched, with explicit labels and a daily value table.
+
+STORY: Read today's confirmed money and method split; check eligible members and occupancy; compare seven Manila collection dates; open a member, payment flow, scanner or receipt.
+
+FIRST VIEWPORT: Welcome and three workflow links; three compact KPI Cards; snapshot time; full-width paired collections bars and seven-day method totals; recent payments below. Phone money card spans both columns above the two member/attendance cards. Loading and safe retry errors belong only to this snapshot.
+
+FORM: User-specified dashboard inside the established world; direct code implementation, no new visual identity or comp selection. Competitor references: Gymdesk Dashboard Overview and PushPress Check-Ins documentation. No unsupported analytics or financial mutations.
+
+FINISH: Both-theme desktop/tablet/phone visual and keyboard review, synthetic record/date/authority checks, finish review and documentation; then stop at the user's GitHub checkpoint.
+
+SHIPPED EXPRESSION: Three local shadcn Cards show today's confirmed total/count with Cash and Online values, current verified eligibility, and current inside/today's check-ins. They form three columns from 640px; the money Card spans both phone columns above eligibility and attendance. A server snapshot time precedes the full-width seven-day collection panel: solid left Cash bars, hatched right Online bars, labelled totals and an expandable daily-amount Table with Manila dates. Four recent confirmed payments retain member and receipt links. Record payment, Find a member and Open scanner remain above the snapshot during loading or safe-retry errors. Owner-only routing and staff redirects are unchanged.
+
+RENDERED EVIDENCE: `.impeccable/review/dashboard/after/` contains 57 PNG captures across light/dark, 1440/768/390/320 widths and populated/empty/loading/error states, including scrolled collections, payments and expanded daily amounts. The finish reviewer returned ship with no material fixes. These are local synthetic interface evidence; the status ledger records executable checks and remaining live gates.
+
+The navigation notes below are historical where superseded by this dashboard direction or PROJECT's November 7 Online enrollment revision.
 
 Mode: Operate. User-pinned reference: gym-crm-prototype-v2.html, final v2 restyle, October 30, 2026. No invention/comp selection round; the supplied functioning prototype is the approved reference. Compare rendered reference and implementation at the same sizes.
 

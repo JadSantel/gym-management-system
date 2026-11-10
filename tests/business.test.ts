@@ -743,7 +743,7 @@ test("S-01 business acceptance using restricted PostgreSQL runtime and actual ro
     const overview = await workspaceOverview(owners[0]);
     const start = new Date(overview.days.at(-1)!.date);
     const end = new Date(start.getTime() + 86_400_000);
-    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0], method: "CASH", collectedAt: { gte: start, lt: end } }, _sum: { amountCentavos: true }, _count: true });
+    const expected = await admin.payment.aggregate({ where: { gymId: gyms[0], collectedAt: { gte: start, lt: end } }, _sum: { amountCentavos: true }, _count: true });
     assert.equal(overview.days.at(-1)!.amount, expected._sum.amountCentavos ?? 0);
     assert.equal(overview.days.at(-1)!.count, expected._count);
     assert.equal(overview.days.length, 7);
