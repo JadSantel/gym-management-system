@@ -5,7 +5,8 @@
 .table td { padding: 12px 16px; white-space: normal; overflow-wrap: anywhere; }
 .table td:first-child { width: 34%; }
 .table td:last-child { text-align: right; }
-.table th:last-child { text-align: right; }
+/* Align Status with its badge, reserving the 44px action and 8px gap. */
+.table th:last-child { padding-right: calc(16px + 44px + 8px); text-align: right; }
 .table .empty { padding: 40px 16px; text-align: center; }
 @container (max-width: 650px) {
   .table, .table tbody { display: block; }
@@ -15,7 +16,8 @@
   .table td::before { content: attr(data-label); color: var(--muted-foreground); font-size: 12px; }
   .table td:first-child { grid-column: 1 / -1; width: auto; }
   .table td:first-child::before { display: none; }
-  .table td:last-child { align-items: flex-start; text-align: left; }
+  .table td:last-child { grid-column: 1 / -1; align-items: flex-start; text-align: left; }
+  .table td:last-child > div { justify-content: space-between; }
   .table tr:has(.empty) { display: block; }
   .table .empty { display: block; }
   .table .empty::before { display: none; }
