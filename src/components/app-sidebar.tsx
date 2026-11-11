@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { WorkspaceIcon } from "@/components/workspace-icon";
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 export type Destination = { href?: string; label: string; icon: React.ComponentProps<typeof WorkspaceIcon>["name"] };
 
-// sidebar-04's floating, grouped submenu layout with the real gym destinations.
+// Official sidebar-01 group/menu structure, adapted to the gym's authorized destinations.
 export function AppSidebar({ actor, groups, current }: {
   actor: { name: string; gym: string; owner: boolean };
   groups: { title: string; items: Destination[]; actions?: boolean }[];
@@ -18,31 +18,31 @@ export function AppSidebar({ actor, groups, current }: {
 }) {
   const { setOpenMobile } = useSidebar();
   const closeNavigation = () => setOpenMobile(false);
-  return <Sidebar variant="floating">
+  return <Sidebar>
     <SidebarHeader className="px-3 pt-4">
       <SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild size="lg" className="h-auto px-2 py-3">
         <Link href={actor.owner ? "/" : groups.filter(group => !group.actions).flatMap(group => group.items)[0]?.href ?? "/team"} onClick={closeNavigation}>
           <span className="brand-mark shrink-0"><WorkspaceIcon name="operate" /></span>
-          <span className="min-w-0"><strong className="block text-[13px] font-semibold">FORM & FUNCTION</strong><small className="mt-1 block text-[10px] tracking-wider text-muted-foreground">GYM OPERATIONS</small></span>
+          <span className="min-w-0"><strong className="block text-sm font-semibold">Form & Function</strong><small className="mt-0.5 block truncate text-xs text-muted-foreground">{actor.gym}</small></span>
         </Link>
       </SidebarMenuButton></SidebarMenuItem></SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
       <nav aria-label="Main navigation">
-        <SidebarGroup><SidebarMenu className="gap-5">{groups.filter(group => group.items.length).map(group =>
-          <SidebarMenuItem key={group.title}>
-            <SidebarGroupLabel className="uppercase tracking-wider">{group.title}</SidebarGroupLabel>
-            <SidebarMenuSub className="ml-0 border-l-0 px-1.5">{group.items.map(item =>
-              <SidebarMenuSubItem key={item.label}>
-                <SidebarMenuSubButton asChild isActive={!!item.href && !group.actions && current(item.href)} className="h-auto min-h-11 translate-x-0 py-2 text-[13px] text-muted-foreground data-[active=true]:font-semibold data-[active=true]:text-brand-foreground [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible">
+        {groups.filter(group => group.items.length).map(group =>
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+            <SidebarGroupContent><SidebarMenu>{group.items.map(item =>
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton asChild isActive={!!item.href && !group.actions && current(item.href)} className="h-auto min-h-11 rounded-lg px-3 py-2 text-sm [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible">
                   {item.href ? <Link href={item.href} aria-current={!group.actions && current(item.href) ? "page" : undefined} onClick={closeNavigation}>
                     <WorkspaceIcon name={item.icon} /><span>{item.label}</span>
                   </Link> : <span aria-disabled="true"><WorkspaceIcon name={item.icon} /><span>{item.label} <span className="ml-1 text-xs">— Coming soon</span></span></span>}
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            )}</SidebarMenuSub>
-          </SidebarMenuItem>
-        )}</SidebarMenu></SidebarGroup>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}</SidebarMenu></SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </nav>
     </SidebarContent>
     <SidebarFooter className="gap-4 border-t border-sidebar-border p-4">

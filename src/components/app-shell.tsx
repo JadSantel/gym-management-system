@@ -45,7 +45,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
     <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>
     {actor && management.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{management.map(item => <Link key={item.href} href={item.href!} aria-current={isCurrent(item.href!) ? "page" : undefined} className={isCurrent(item.href!) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label}</span></Link>)}</nav>}
   </div>;
-  return actor ? <SidebarProvider style={{ "--sidebar-width": "19rem" } as React.CSSProperties}>
+  return actor ? <SidebarProvider style={{ "--sidebar-width": "16rem" } as React.CSSProperties}>
     <AppSidebar actor={actor} groups={[{ title: "Quick Actions", items: actions, actions: true }, { title: "Overview", items: overview }, { title: "Management", items: management }]} current={isCurrent} />
     {content}
   </SidebarProvider> : content;

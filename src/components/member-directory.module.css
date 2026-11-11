@@ -4,7 +4,7 @@
 .table td { padding: 16px; white-space: normal; overflow-wrap: anywhere; }
 .table th:first-child { width: 28%; }
 .table td:nth-child(4), .table td:nth-child(5) { font-size: 12px; line-height: 1.7; }
-.table td:last-child { width: 60px; text-align: right; }
+.table td:last-child:not([colspan]) { width: 60px; text-align: right; }
 .mobileSort { display: none; }
 
 @container (max-width: 760px) {
@@ -17,5 +17,5 @@
   .table td:first-child { display: block; grid-column: 1; padding-bottom: 8px; }
   .table td:last-child:not([colspan]) { grid-column: 2; grid-row: 1; width: auto; }
   .table td:not(:first-child):not(:last-child)::before { content: attr(data-label); flex-shrink: 0; max-width: 45%; color: var(--muted-foreground); font-size: 12px; }
-  .table td[colspan] { display: block; text-align: center; padding: 24px 0; }
+  .table td[colspan] { display: block; grid-column: 1 / -1; width: auto; text-align: center; padding: 24px 0; }
 }
