@@ -1,5 +1,9 @@
 # Gym CRM — Software Architecture (`architecture.md`)
 
+## Basic reports extension — November 14, 2026 (FR-16; AD-009/013/033)
+
+`/reports` reads through existing `inGym(..., "OWNER", ...)`: session/gym/operator rechecks, transaction-local tenant context, restricted runtime role and FORCE RLS. No schema/migration/dependency change. Overview reads effective entitlement intervals and immutable payment/charge snapshots; adjacent intervals extend the expiring-soon endpoint. Attendance uses corrected, nonvoided visits; weekly aggregation retains tenant context. Only the active category renders data. `/api/reports/attendance` uses standard API response/renewal/denial controls, per-actor rate limiting, strict allowlisted parameters, then an attachment with `no-store` and `nosniff`. Quote/escape cells and prefix formula-like member names with an apostrophe. Export spans all pages, bounded at 50,000 visits with explicit failure; date ranges are at most 366 days. No Google credentials or external writes.
+
 ## Settings password confirmation removed ? user approved November 10, 2026
 
 Profile edits, plan catalogue initialization/pricing, and Team and Access actions (staff invitations, permission changes, reset-link requests and disabling staff) require an active authorized owner session, without an additional password prompt or five-minute password freshness check. This expressly supersedes the earlier settings reauthentication clauses. Preserve server-side active-owner/session/gym checks, tenant isolation, validation, version conflicts, audit, reset/invitation token rules and offboarding revocation. Sign-in and private password setup/recovery remain required; other protected workflows keep their existing freshness checks.

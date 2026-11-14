@@ -1,0 +1,9 @@
+.comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 5vw, 4rem); padding: 0 1rem; }
+.comparisonColumn { min-width: 0; text-align: center; }
+.barSpace { display: flex; align-items: flex-end; justify-content: center; height: 160px; margin-top: 1rem; border-bottom: 1px solid var(--border); }
+.barSpace > div { width: 100%; max-width: 280px; border-radius: var(--radius) var(--radius) 0 0; }
+.weekChart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(.35rem, 2vw, 1.5rem); }
+.weekColumn { display: flex; min-width: 0; flex-direction: column; align-items: center; }
+.weekBarSpace { display: flex; height: 150px; width: 100%; justify-content: center; align-items: flex-end; margin-top: .75rem; border-bottom: 1px solid var(--border); }
+.weekBarSpace > div { width: 75%; max-width: 70px; border-radius: var(--radius) var(--radius) 0 0; }
+@media (max-width: 480px) { .comparison { padding: 0; gap: 1rem; } .barSpace { height: 130px; } }

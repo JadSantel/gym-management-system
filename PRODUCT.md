@@ -1,5 +1,9 @@
 # Product
 
+## Basic reports — November 14, 2026
+
+PROJECT.md FR-16 authorizes owner-only Reports with Members/Revenue/Attendance tabs, current-access and registration metrics, active-plan distribution, confirmed-collection month comparison/plan mix, daily weekday visits, and a Google Sheets compatible attendance CSV. One visit is one row. Retain tenant authorization, Manila dates, PHP and dual themes. No external Sheets connection or advanced occupancy analytics. Controlling PROJECT.md defines metrics, negative cases and limits.
+
 ## Settings password confirmation removed ? user approved November 10, 2026
 
 Profile edits, plan catalogue initialization/pricing, and Team and Access actions (staff invitations, permission changes, reset-link requests and disabling staff) require an active authorized owner session, without an additional password prompt or five-minute password freshness check. This expressly supersedes the earlier settings reauthentication clauses. Preserve server-side active-owner/session/gym checks, tenant isolation, validation, version conflicts, audit, reset/invitation token rules and offboarding revocation. Sign-in and private password setup/recovery remain required; other protected workflows keep their existing freshness checks.

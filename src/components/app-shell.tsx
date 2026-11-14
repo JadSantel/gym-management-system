@@ -18,7 +18,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
   ] : [];
   const overview: Destination[] = actor?.owner ? [
     { href: "/", label: "Dashboard", icon: "overview" },
-    { label: "Reports", icon: "plans" },
+    { href: "/reports", label: "Reports", icon: "plans" },
   ] : [];
   const management: Destination[] = actor ? [
     ...(members ? [
