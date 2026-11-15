@@ -1,5 +1,11 @@
 # Gym CRM — Product Interface and Interaction Design (`design.md`)
 
+## Reports — November 14, 2026 (UX-16 / FR-16)
+
+Owner Reports opens Members, Revenue and Attendance category tabs with URL persistence and Radix keyboard behavior. Follow the supplied references: Member Insights has four inset statistic cells beside horizontal active-plan bars on wide screens, stacked on phones. Revenue Overview shows the current total, change and two directly labelled bars; Revenue Mix uses a segmented bar and amount/count/share rows. Inherit neutral Nova surfaces, Inter and semantic sky chart tokens in both themes. Screenshot dollar values, Frozen status, training/classes and unsupported plans are not product features. Numeric values and labels convey data independently of color.
+
+Attendance shows Monday–Sunday daily visits, a Week containing control and future-day blanks. Daily Visit Log has From/To controls, 20-row pagination and full-range Export CSV. Columns: Date, Member ID, Name, Time in, Notes; Notes derives status/correction marker. A labelled keyboard-focusable table scrolls on phones. Server-read freshness, empty/loading states, safe read/filter errors and export failure/retry complete the states. This supersedes older Reports coming-soon wording.
+
 ## Owner daily dashboard presentation — November 10, 2026
 
 The owner-only `/` opens with Record payment, Find a member and Open scanner links, then three compact local shadcn Cards: today's confirmed payments with Cash/Online split and payment count, currently eligible members, and currently inside with today's check-ins. The Cards share one row from 640px; on phones the money Card spans both columns above the other two. The displayed server snapshot time makes freshness explicit; reload reads the latest records. Staff keep their existing `/members` or `/team` redirects.
@@ -90,14 +96,14 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 
 ### 3.2 Implemented navigation - November 10, 2026
 
-The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Management**, in that order. Empty groups are hidden. Secondary administration destinations live in Settings, reached through the top-navbar operator dropdown. Reports is a user-approved disabled “Reports — Coming soon” row, without a link or implemented reporting workflow.
+The sidebar and responsive drawer use **Quick Actions**, **Overview**, and **Management**, in that order. Empty groups are hidden. Secondary administration destinations live in Settings, reached through the top-navbar operator dropdown. Reports links to owner-only `/reports` under the November 14 FR-16 approval.
 
 | Group | Label | Route | Visibility / purpose |
 |---|---|---|---|
 | Quick Actions | Add Members | `/members?add=member` | Owner or staff with member access; opens the registration dialog. Creation records no payment and grants no paid access. |
 | Quick Actions | Record Payment | `/members#search-name` | Owner or staff with both member access and cash collection permission; existing full-cash flow. |
 | Overview | Dashboard | `/` | Owner only; existing overview page. |
-| Overview | Reports — Coming soon | None | Owner-only disabled text; excluded from keyboard stops. |
+| Overview | Reports | `/reports` | Owner only; Members, Revenue and Attendance reports. |
 | Management | Members | `/members` | Owner or staff with member access; search/create, eligibility and profile/payment access. |
 | Management | Payments | `/transactions` | Owner or staff with member access; confirmed payment history, historical non-cash read-only. |
 | Management | Attendance | `/attendance` | Owner or staff with member access; existing visit history/corrections. |
@@ -139,7 +145,7 @@ The six columns are Member, Email, Phone #, Membership started, Membership expir
 
 Both Light and Dark are first-class, with persisted Light/Dark/System selection. Light uses white/neutral surfaces; dark uses neutral charcoal layers. Primary actions reverse neutral ink/paper. Existing brand aliases resolve to primary/accent tokens rather than orange. Green means confirmed/effective, amber attention, red blocked/destructive. Muted text and input boundaries use minimal accessibility overrides to the preset; collected amounts use sky chart tokens with labelled Cash/Online values and hatch distinction.
 
-Navigation follows section 3.2: Quick Actions, Overview and Management, with Profile, Plans and Pricing, and Team and Access grouped in Settings and authorized Historical Pilot Evidence linked from Team and Access. Reports is disabled pending separate implementation. Digital collection, Exceptions, outage receipt/custody and daily closing remain absent. Owners land at `/`; member-capable staff at `/members`; other staff at `/team`. Server authorization remains authoritative.
+Navigation follows section 3.2: Quick Actions, Overview and Management, with Profile, Plans and Pricing, and Team and Access grouped in Settings and authorized Historical Pilot Evidence linked from Team and Access. Reports is owner-only under FR-16. Digital collection, Exceptions, outage receipt/custody and daily closing remain absent. Owners land at `/`; member-capable staff at `/members`; other staff at `/team`. Server authorization remains authoritative.
 
 Member profiles follow the November 9 presentation above: identity/details, then Billing beside Personal member QR on wide screens. Billing holds current access and payment history; Record payment opens Plan / Payment / Review for the exact full Cash or Online charge and same-key recovery. Queued paid periods remain distinct from current eligibility. Former front-desk and historical-evidence cards are absent from this profile; retained records stay unchanged. Fictional metrics remain outside scope. FR-13 adds optional contacts; FR-14 attendance and FR-15 member access follow the implemented guidance above. Current eligibility remains authoritative.
 

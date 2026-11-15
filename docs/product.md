@@ -1,5 +1,9 @@
 # Product Definition — Independent Gym CRM (MVP)
 
+## Basic owner reports — November 14, 2026
+
+PROJECT.md FR-16 adds owner-only Members, Revenue and Attendance reports: registration/current-access metrics, active plan distribution, month-to-date confirmed collections compared with the equivalent prior-month interval, plan revenue mix, Monday–Sunday daily visits and a daily visit log. Export is a Google Sheets compatible CSV with one row per visit. Use Manila dates, PHP and recorded facts. Current access, pending registrations, collections and visits remain distinct. This bounded approval supersedes the disabled Reports placeholder; advanced occupancy analytics remain deferred.
+
 ## Settings password confirmation removed ? user approved November 10, 2026
 
 Profile edits, plan catalogue initialization/pricing, and Team and Access actions (staff invitations, permission changes, reset-link requests and disabling staff) require an active authorized owner session, without an additional password prompt or five-minute password freshness check. This expressly supersedes the earlier settings reauthentication clauses. Preserve server-side active-owner/session/gym checks, tenant isolation, validation, version conflicts, audit, reset/invitation token rules and offboarding revocation. Sign-in and private password setup/recovery remain required; other protected workflows keep their existing freshness checks.
