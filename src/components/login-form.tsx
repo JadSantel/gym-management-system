@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -44,9 +45,10 @@ export function LoginForm({ signedOut = false }: { signedOut?: boolean }) {
       setBusy(false);
     }
   }
-  return <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
+  // Adapted from the official shadcn/ui login-03 block using the existing identity contract.
+  return <div data-auth-block="login-03" className="flex flex-col gap-6">
     <Card>
-      <CardHeader>
+      <CardHeader className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">{recovery ? "Recover owner access" : "Sign in to your gym"}</h1>
         <CardDescription>{recovery ? "Use the verified email attached to your owner account." : "Use your individual account. Your access belongs to one gym."}</CardDescription>
       </CardHeader>
@@ -76,11 +78,12 @@ export function LoginForm({ signedOut = false }: { signedOut?: boolean }) {
       <Button type="submit" disabled={busy} className="w-full">{busy ? "Please wait…" : recovery ? "Request recovery link" : "Sign in"}</Button>
       {recovery && <Button variant="outline" disabled={busy} className="w-full" onClick={() => { setRecovery(false); setMessage(""); setEmailError(""); setAttempted(false); setFeedback({ message: "", error: false }); }}>Back to sign in</Button>}
       {mode === "username" && <FieldDescription>For password recovery, ask your gym owner to send a reset link.</FieldDescription>}
+      {!recovery && <FieldDescription className="text-center">Have a gym? <Link href="/signup">Request an account</Link></FieldDescription>}
       </Field>
       </FieldGroup>
     </form>
       </CardContent>
     </Card>
-    <p className="text-center text-sm text-muted-foreground">Accounts are invitation only. Ask your owner or platform contact if you need access.</p>
+    <FieldDescription className="px-6 text-center">Owner accounts are privately invited after gym ownership review.</FieldDescription>
   </div>;
 }

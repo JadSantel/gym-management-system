@@ -36,6 +36,16 @@ Manual synthetic identity check:
 3. Verify the owner password, invite `staff@example.test` with an individual username, and complete that recipient's capture. Staff choose their password and sign in in Staff mode.
 4. From the owner screen, request reset or disable staff. Reused/replaced/expired/failed-delivery links fail. Disabled staff cookies, login, and outstanding links fail. Public `/api/auth/sign-up/email` returns 404.
 
+Manual synthetic gym-owner onboarding check:
+
+1. Set `SYNTHETIC_PLATFORM_ADMIN_EMAIL` to a reserved `@example.test` address and `SYNTHETIC_PLATFORM_ADMIN_PASSWORD` to a unique 12–128 character synthetic password in the current PowerShell session. Optionally set `SYNTHETIC_PLATFORM_ADMIN_NAME`.
+2. Run `npm run bootstrap:synthetic-platform-admin`. The private CLI uses migration credentials, never prints the password, and creates a separate platform-admin identity without a gym binding.
+3. Open `http://127.0.0.1:3000/signup` and submit a synthetic gym name, owner name, and `.test` email. Expect review-only confirmation and no account.
+4. Sign in at `/platform/login`, review the request, check the synthetic-review confirmation, and choose **Approve and invite**. The queue should show the pending owner invitation. In a local browser open that invitation's capture from `.local/mailbox` and choose the owner's password.
+5. Sign in as the new owner at `/login`. Before setup, owner access is denied. A normal Owner account cannot open `/platform/onboarding`; an anonymous visitor cannot list or decide requests.
+
+All onboarding endpoints call the synthetic runtime guard and accept only `.test` request email addresses. The review checkbox is for synthetic validation only; real ownership approval, live email, and production onboarding remain blocked by the documented operational gates.
+
 Setup links last 48 hours; reset links last 30 minutes; both are single-use. Captured files contain synthetic bearer links: no HTTP viewer, no general logging, no live email. Do not share these files. Application mutation limits use verified actor/action buckets; anonymous requests use separate bounded shared action buckets. Setup and owner recovery always use the public bucket. Better Auth ignores forwarding headers and retains its database-backed shared per-path fallback limit. Non-local application APIs and Better Auth operations fail closed until deployment ingress/proxy trust is verified (503 at the trust guard; existing provider limits may return 429 earlier). No caller-supplied IP header is trusted; live proxy/IP/resend policy remains gated.
 
 Member check: as owner, open **Find or create a member**, create a synthetic name, and repeat it. Review the warning and matches before confirming a separate same-name person. Open its stable reference: a member record alone does not establish eligibility. Staff need an explicit **Manage members** grant; revoking it denies their next member request with the same cookie.

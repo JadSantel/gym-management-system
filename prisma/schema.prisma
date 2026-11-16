@@ -21,6 +21,7 @@ model User {
   accounts      Account[]
   operator      Operator?
   memberAccount MemberAccount?
+  platformAdmin PlatformAdmin?
   @@map("auth_users")
 }
 
@@ -95,6 +96,59 @@ enum InvitePurpose {
   STAFF_RESET
 }
 
+enum PlatformAdminState {
+  ACTIVE
+  DISABLED
+}
+
+enum OnboardingRequestState {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+model PlatformAdmin {
+  userId    String @id @map("user_id")
+  state     PlatformAdminState @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  decisions OnboardingRequest[]
+  auditEvents PlatformAuditEvent[]
+  @@map("platform_admins")
+}
+
+model OnboardingRequest {
+  id                 String @id @default(uuid()) @db.Uuid
+  gymName            String @map("gym_name")
+  normalizedGymName  String @map("normalized_gym_name")
+  ownerName          String @map("owner_name")
+  email              String
+  normalizedEmail    String @map("normalized_email")
+  state              OnboardingRequestState @default(PENDING)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  decidedAt          DateTime? @map("decided_at") @db.Timestamptz(3)
+  decidedByUserId    String? @map("decided_by_user_id")
+  provisionedGymId   String? @unique @map("provisioned_gym_id") @db.Uuid
+  decidedBy          PlatformAdmin? @relation(fields: [decidedByUserId], references: [userId], onDelete: Restrict)
+  provisionedGym     Gym? @relation(fields: [provisionedGymId], references: [id], onDelete: Restrict)
+  auditEvents        PlatformAuditEvent[]
+  @@index([state, createdAt])
+  @@map("onboarding_requests")
+}
+
+model PlatformAuditEvent {
+  id               String @id @default(uuid()) @db.Uuid
+  platformAdminId  String @map("platform_admin_id")
+  onboardingRequestId String? @map("onboarding_request_id") @db.Uuid
+  action           String
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  platformAdmin    PlatformAdmin @relation(fields: [platformAdminId], references: [userId], onDelete: Restrict)
+  onboardingRequest OnboardingRequest? @relation(fields: [onboardingRequestId], references: [id], onDelete: Restrict)
+  @@index([platformAdminId, createdAt])
+  @@index([onboardingRequestId, createdAt])
+  @@map("platform_audit_events")
+}
+
 model Gym {
   id        String @id @default(uuid()) @db.Uuid
   name      String
@@ -119,6 +173,7 @@ model Gym {
   idempotencyOperations IdempotencyOperation[]
   receipts PaymentReceipt[]
   registrationLinks RegistrationLink[]
+  onboardingRequest OnboardingRequest?
   @@map("gyms")
 }
 

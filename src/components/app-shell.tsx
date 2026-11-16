@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarTrigger } from "./ui/sidebar";
 type ShellActor = { name: string; gym: string; owner: boolean; members: boolean; cash: boolean };
 export function AppShell({ actor, children }: { actor: ShellActor | null; children: React.ReactNode }) {
   const pathname = usePathname();
+  const authPage = pathname === "/login" || pathname === "/signup";
   const members = actor && (actor.owner || actor.members);
   const actions: Destination[] = actor ? [
     ...(members ? [{ href: "/members?add=member", label: "Add Members", icon: "plus" as const }] : []),
@@ -42,7 +43,7 @@ export function AppShell({ actor, children }: { actor: ShellActor | null; childr
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3"><LiveClock /><ThemeControl />{actor && <AccountControl name={actor.name} owner={actor.owner} />}</div>
     </div>
     </header>
-    <main key={pathname} id="main" tabIndex={-1} className={`workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>
+    <main key={pathname} id="main" tabIndex={-1} className={authPage ? "min-w-0" : `workspace-content ${actor ? "pb-28 lg:pb-12" : "py-12"}`}>{children}</main>
     {actor && management.length > 0 && <nav aria-label="Quick navigation" className="mobile-bottom-nav">{management.map(item => <Link key={item.href} href={item.href!} aria-current={isCurrent(item.href!) ? "page" : undefined} className={isCurrent(item.href!) ? "text-brand-foreground" : "text-muted-foreground"}><WorkspaceIcon name={item.icon} /><span>{item.label}</span></Link>)}</nav>}
   </div>;
   return actor ? <SidebarProvider style={{ "--sidebar-width": "16rem" } as React.CSSProperties}>

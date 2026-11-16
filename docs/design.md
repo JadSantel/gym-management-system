@@ -6,6 +6,14 @@ Owner Reports opens Members, Revenue and Attendance category tabs with URL persi
 
 Attendance shows Monday–Sunday daily visits, a Week containing control and future-day blanks. Daily Visit Log has From/To controls, 20-row pagination and full-range Export CSV. Columns: Date, Member ID, Name, Time in, Notes; Notes derives status/correction marker. A labelled keyboard-focusable table scrolls on phones. Server-read freshness, empty/loading states, safe read/filter errors and export failure/retry complete the states. This supersedes older Reports coming-soon wording.
 
+## Gym owner onboarding request — November 16, 2026 (UX-17 / FR-17)
+
+Use the official shadcn `login-03` / `signup-03` centered card compositions (brand above card, centered header, FieldGroup form, account-switch link and supporting footer), retrieved with the CLI and adapted to the current tokenized light/dark system and local primitives. `/login` keeps Owner email and Staff username modes, recovery, generic auth failures, and adds a “Request an account” link. `/signup` collects gym name, owner full name, and synthetic `.test` email only; state clearly that submission requests review and creates no account or password. No OAuth, social login, password capture, or terms acceptance.
+
+`/platform/login` and `/platform/onboarding` are separate from CRM navigation and require a dedicated platform-admin identity with no gym/member binding. The queue shows loading, empty, error, pending/approved/declined, captured/pending invitation and retry states. Synthetic approval requires explicit synthetic-review confirmation and records an audit event; no proof files are collected. Real submissions/approvals stay gated until ownership verification, privacy/retention, platform-admin operations and live-email procedures are approved.
+
+The forms retain visible labels, linked field errors, focusable error summaries, busy states, generic success, 44px controls and responsive layouts. Test Light/Dark and keyboard interaction across desktop, tablet and phone. Public and admin request pages use no real owner data in local development.
+
 ## Owner daily dashboard presentation — November 10, 2026
 
 The owner-only `/` opens with Record payment, Find a member and Open scanner links, then three compact local shadcn Cards: today's confirmed payments with Cash/Online split and payment count, currently eligible members, and currently inside with today's check-ins. The Cards share one row from 640px; on phones the money Card spans both columns above the other two. The displayed server snapshot time makes freshness explicit; reload reads the latest records. Staff keep their existing `/members` or `/team` redirects.
@@ -74,7 +82,7 @@ Design for **correctness ahead of speed** when confirmation changes membership o
 ## 2. Non-negotiable interaction contracts
 
 1. **One person, one attributable operator account.** Product roles are **Owner** and **Staff**; staff capabilities are assignments, not additional roles. Ordinary gym operators cannot perform private platform-administrator bootstrap/recovery functions.
-2. **No public owner or staff self-registration.** First owner is privately bootstrapped after platform-admin verification, then completes verified setup. Owner invites staff to their own gym; the staff member privately sets their password. Pending setup is not active access.
+2. **No public owner or staff self-registration.** A public onboarding request may enter private review, but creates no account or gym. First owner provisioning follows platform-admin verification and private setup. Owners invite staff to their own gym; staff privately set their passwords. Pending setup is not active access.
 3. **Ordinary money entry is full cash only.** The authorized collector physically receives the entire charge before confirmation. No partial membership purchases, debt, installments, digital claims, or pending non-cash queue.
 4. **Current states remain clear:** cash confirmation; paid-period state; and eligibility decision. A paid scheduled period is not an uncompleted purchase. Retained provisional/outage and case states are labeled historical and read-only.
 5. **For the MVP monthly-labeled plan, duration is exactly 30 consecutive 24-hour days.** New/late verified payment begins at **00:00 Asia/Manila on the verified payment date**; an early paid renewal begins precisely at the previous valid term's end. Use `[start, end)`; access ends at the stated end instant. A 6:30 p.m. payment does not permit admission before verification even though its period's nominal start is midnight on that date.
@@ -132,7 +140,8 @@ The six columns are Member, Email, Phone #, Membership started, Membership expir
 
 ### 3.3 Current route inventory
 
-- Public/account: `/login` (including owner recovery) and `/setup` for private invitation/reset completion; public member registration at `/join/[code]`; no public operator registration.
+- Public/account: `/login` (including owner recovery), `/signup` (owner onboarding request only), and `/setup` for private invitation/reset completion; public member registration at `/join/[code]`; no public operator registration.
+- Separate platform operations: `/platform/login` and `/platform/onboarding`, protected by a dedicated active platform-admin binding and synthetic-only gate; no CRM navigation or gym-owner capability.
 - Separate member area: `/member/login`, private-link `/member/setup` and authenticated own-record `/member`; MemberShell also wraps `/join/[code]` independently of any operator session.
 - Authenticated app: `/`, `/members`, `/members/[id]`, `/transactions`, `/receipts/[id]`, `/settings`, `/settings/plans`, `/settings/team`, `/pilot`, subject to existing server authorization.
 - Compatibility: `/operate` redirects to `/members`, `/plans` to `/settings/plans`, and `/team` to `/settings/team`; destination authorization still applies to signed-out and permission-limited operators.
@@ -399,6 +408,7 @@ Historical digital claims, outage visits, cases and adjustments -> read-only ret
 | UX item | Slice | Main `PROJECT.md` trace | Core verification |
 |---|---|---|---|
 | UX-01–03 | S-01a–b | FR-01, AC-01a–c; `architecture.md` AD-004–010, AD-026–032 | Login, verified setup, 48h/30m token TTLs, permissions, disabled/pending sessions, no public signup. |
+| UX-17 | FR-17, AC-17a–f; AD-032 | Public request capture, separate audited platform review, synthetic pending-owner provisioning and private 48-hour setup; no public self-registration. |
 | UX-04–05 | S-01c–d | FR-02, AC-02a–c | Member access scope, price snapshot, staff forbidden pricing. |
 | UX-06 | S-01e–f | FR-03, AC-03a–d | Full-only funds, one confirmed record, same-key retry/rollback, receipt retrievability. |
 | UX-07 | S-01g, S-02 | FR-05–06, AC-05a–e, AC-06a–c | 30×24h, midnight PHT start, leap month-end, end-exclusive, paid early renewal, actual verification time. |

@@ -20,6 +20,16 @@ export async function memberBinding(userId: string) {
   const [result] = await db.$queryRaw<{ binding: MemberBinding | null }[]>`SELECT public.member_binding(${userId}) AS binding`;
   return result.binding;
 }
+
+export async function platformAdminBinding(userId: string) {
+  const [result] = await db.$queryRaw<{ allowed: boolean }[]>`SELECT public.platform_admin_binding(${userId}) AS allowed`;
+  return result.allowed;
+}
+
+export async function setPlatformAdminContext(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$queryRaw`SELECT set_config('app.current_platform_admin_id', ${userId}, true)`;
+}
+
 export async function setGymContext(tx: Prisma.TransactionClient, gymId: string) {
   await tx.$queryRaw`SELECT set_config('app.current_gym_id', ${gymId}, true)`;
 }

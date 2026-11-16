@@ -61,7 +61,11 @@ async function issue(tx: Prisma.TransactionClient, operator: { id: string; gymId
   return { invitation, token };
 }
 
-async function deliver(issued: Awaited<ReturnType<typeof issue>>, email: string, sender: EmailSender) {
+export async function issueOwnerSetup(tx: Prisma.TransactionClient, operator: { id: string; gymId: string; userId: string }, initiatorId: string) {
+  return issue(tx, operator, "OWNER_SETUP", initiatorId);
+}
+
+export async function deliverIdentityMessage(issued: Awaited<ReturnType<typeof issue>>, email: string, sender: EmailSender) {
   const url = new URL("/setup", getRuntimeConfig().BETTER_AUTH_URL);
   // Fragment keeps the token out of HTTP request URLs, access logs, and referrers.
   url.hash = issued.token;
@@ -88,6 +92,16 @@ export function validateIdentity(input: { email: string; name: string; username?
   return result.data;
 }
 
+export async function provisionPendingOwner(tx: Prisma.TransactionClient, input: { gymName: string; email: string; name: string }, initiatorId: string) {
+  const user = validateIdentity(input);
+  const [created] = await tx.$queryRaw<{ id: string }[]>`SELECT public.create_platform_pending_gym(${input.gymName.trim()}) AS id`;
+  await setGymContext(tx, created.id);
+  const identity = await tx.user.create({ data: { id: randomUUID(), name: user.name, email: user.email } });
+  const operator = await tx.operator.create({ data: { userId: identity.id, gymId: created.id, role: "OWNER" } });
+  await tx.identityAudit.create({ data: { gymId: created.id, initiatorId, subjectId: identity.id, action: "OWNERSHIP_VERIFIED_PENDING_BOOTSTRAP" } });
+  return { gymId: created.id, email: identity.email, ownerUserId: identity.id, issued: await issue(tx, operator, "OWNER_SETUP", initiatorId) };
+}
+
 // Private local fixture, called only by a CLI using migration credentials. No web bootstrap endpoint.
 export async function bootstrapSyntheticOwner(input: { gymId: string; gymName: string; email: string; name: string }, sender: EmailSender, provisioningDb: PrismaClient) {
   assertSynthetic();
@@ -108,7 +122,7 @@ export async function bootstrapSyntheticOwner(input: { gymId: string; gymName: s
     await tx.identityAudit.create({ data: { gymId: gym.id, initiatorId: "synthetic-platform-reviewer", subjectId: identity.id, action: "SYNTHETIC_OWNERSHIP_VERIFIED_PENDING_BOOTSTRAP" } });
     return { issued: await issue(tx, operator, "OWNER_SETUP", "synthetic-platform-reviewer"), email: user.email };
   });
-  return deliver(result.issued, result.email, sender);
+  return deliverIdentityMessage(result.issued, result.email, sender);
 }
 
 export async function inviteStaff(headers: Headers, input: StaffInvitation, sender: EmailSender = localEmail) {
@@ -128,7 +142,7 @@ export async function inviteStaff(headers: Headers, input: StaffInvitation, send
     }
     return issue(tx, operator!, "STAFF_SETUP", owner.userId);
   });
-  return deliver(result, user.email, sender);
+  return deliverIdentityMessage(result, user.email, sender);
 }
 
 export async function requestStaffReset(headers: Headers, operatorId: string, sender: EmailSender = localEmail) {
@@ -140,7 +154,7 @@ export async function requestStaffReset(headers: Headers, operatorId: string, se
     if (!staff?.user.emailVerified) throw fail();
     return { issued: await issue(tx, staff, "STAFF_RESET", owner.userId), email: staff.user.email };
   });
-  return deliver(result.issued, result.email, sender);
+  return deliverIdentityMessage(result.issued, result.email, sender);
 }
 
 export async function requestOwnerReset(email: string, sender: EmailSender = localEmail) {
@@ -155,7 +169,7 @@ export async function requestOwnerReset(email: string, sender: EmailSender = loc
       if (current?.state !== "ACTIVE" || current.gym.state !== "ACTIVE") throw fail();
       return issue(tx, current, "OWNER_RESET", user.id);
     });
-    await deliver(issued, user.email, sender);
+    await deliverIdentityMessage(issued, user.email, sender);
   }
   return { status: "If an active owner account matches, its recovery link has been captured." };
 }
